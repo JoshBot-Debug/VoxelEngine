@@ -34,6 +34,7 @@ extern bool g_ApplicationRunning;
 
 static uint32_t VULKAN_API_VERSION = VK_API_VERSION_1_3;
 
+static VkSurfaceKHR g_Surface = NULL;
 static VkAllocationCallbacks *g_Allocator = NULL;
 static VkInstance g_Instance = VK_NULL_HANDLE;
 static VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
@@ -74,10 +75,10 @@ inline VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback(
       strstr(callbackData->pMessageIdName,
              "UNASSIGNED-BestPractices-vkAllocateMemory-small-allocation") ||
       strstr(callbackData->pMessageIdName,
-             "UNASSIGNED-BestPractices-SuboptimalSwapchain")) {
+             "UNASSIGNED-BestPractices-Verbose-Success-Logging")) {
     return VK_FALSE; // Ignore this message
   }
-  
+
   std::cerr << callbackData->pMessage << std::endl;
   return VK_FALSE;
 }
@@ -357,9 +358,9 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window *wd,
 
   // Create SwapChain, RenderPass, Framebuffer, etc.
   IM_ASSERT(g_MinImageCount >= 2);
-  ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device,
-                                         wd, g_QueueFamily, g_Allocator, width,
-                                         height, g_MinImageCount);
+  ImGui_ImplVulkanH_CreateOrResizeWindow(
+      g_Instance, g_PhysicalDevice, g_Device, wd, g_QueueFamily, g_Allocator,
+      width, height, g_MinImageCount, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
 }
 
 static void CleanupVulkan() {
@@ -380,6 +381,7 @@ static void CleanupVulkan() {
 #endif
 
   vmaDestroyAllocator(g_VmaAllocator);
+  vkDestroySurfaceKHR(g_Instance, g_Surface, g_Allocator);
   vkDestroyDevice(g_Device, g_Allocator);
   vkDestroyInstance(g_Instance, g_Allocator);
 }
@@ -569,16 +571,15 @@ void Application::Init() {
   SetupVulkan(instanceExtensions);
 
   // Create Window Surface
-  VkSurfaceKHR surface;
   VkResult err = glfwCreateWindowSurface(g_Instance, m_WindowHandle,
-                                         g_Allocator, &surface);
+                                         g_Allocator, &g_Surface);
   CheckVkResult(err, "Failed to at glfwCreateWindowSurface");
 
   // Create Framebuffers
   int w, h;
   glfwGetFramebufferSize(m_WindowHandle, &w, &h);
   ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
-  SetupVulkanWindow(wd, surface, w, h);
+  SetupVulkanWindow(wd, g_Surface, w, h);
 
   s_AllocatedCommandBuffers.resize(wd->ImageCount);
   s_ResourceFreeQueue.resize(wd->ImageCount);
@@ -609,22 +610,27 @@ void Application::Init() {
 
   // Setup Platform/Renderer backends
   ImGui_ImplGlfw_InitForVulkan(m_WindowHandle, true);
-  ImGui_ImplVulkan_InitInfo init_info = {};
-  init_info.Instance = g_Instance;
-  init_info.PhysicalDevice = g_PhysicalDevice;
-  init_info.Device = g_Device;
-  init_info.QueueFamily = g_QueueFamily;
-  init_info.Queue = g_Queue;
-  init_info.PipelineCache = g_PipelineCache;
-  init_info.DescriptorPool = g_DescriptorPool;
-  init_info.Subpass = 0;
-  init_info.MinImageCount = g_MinImageCount;
-  init_info.ImageCount = wd->ImageCount;
-  init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-  init_info.Allocator = g_Allocator;
-  init_info.CheckVkResultFn = CheckVkResult;
-  init_info.RenderPass = wd->RenderPass;
-  ImGui_ImplVulkan_Init(&init_info);
+  ImGui_ImplVulkan_InitInfo initInfo = {};
+  initInfo.Instance = g_Instance;
+  initInfo.PhysicalDevice = g_PhysicalDevice;
+  initInfo.Device = g_Device;
+  initInfo.QueueFamily = g_QueueFamily;
+  initInfo.Queue = g_Queue;
+  initInfo.PipelineCache = g_PipelineCache;
+  initInfo.DescriptorPool = g_DescriptorPool;
+  initInfo.MinImageCount = g_MinImageCount;
+  initInfo.ImageCount = wd->ImageCount;
+  initInfo.Allocator = g_Allocator;
+  initInfo.CheckVkResultFn = CheckVkResult;
+
+  ImGui_ImplVulkan_PipelineInfo pipelineInfoMain = {};
+  pipelineInfoMain.Subpass = 0;
+  pipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+  pipelineInfoMain.RenderPass = wd->RenderPass;
+
+  initInfo.PipelineInfoMain = pipelineInfoMain;
+
+  ImGui_ImplVulkan_Init(&initInfo);
 
   // Load default font
   ImFontConfig fontConfig;
@@ -753,7 +759,8 @@ void Application::Run() {
         ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
         ImGui_ImplVulkanH_CreateOrResizeWindow(
             g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData,
-            g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
+            g_QueueFamily, g_Allocator, width, height, g_MinImageCount,
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT);
         g_MainWindowData.FrameIndex = 0;
 
         // Clear allocated command buffers from here since entire pool is

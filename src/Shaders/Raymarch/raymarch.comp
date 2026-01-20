@@ -320,17 +320,17 @@ void main(){
     // payload.occlusion/=2.;
   }
   
-  {
-    for(uint i=0;i<probeSize;i++){
-      float hitT=0.;
-      vec3 probePosition=gridMin.xyz+indexToPosition(i,gridResolution.xyz)*int(probeSpacing);
-      if(raySphereIntersect(ray.origin,ray.direction,probePosition,8.,hitT)){
-        vec3 hitPosition=ray.origin+ray.direction*hitT;
-        vec3 normal=normalize(hitPosition-probePosition);
-        payload.albedo.xyz=sampleProbes(hitPosition,normal);
-      }
-    }
-  }
+  // {
+    //   for(uint i=0;i<probeSize;i++){
+      //     float hitT=0.;
+      //     vec3 probePosition=gridMin.xyz+indexToPosition(i,gridResolution.xyz)*int(probeSpacing);
+      //     if(raySphereIntersect(ray.origin,ray.direction,probePosition,8.,hitT)){
+        //       vec3 hitPosition=ray.origin+ray.direction*hitT;
+        //       vec3 normal=normalize(hitPosition-probePosition);
+        //       payload.albedo.xyz=sampleProbes(hitPosition,normal);
+      //     }
+    //   }
+  // }
   
   imageStore(albedoTexture,ivec2(pixel),payload.albedo);
   imageStore(directLightTexture,ivec2(pixel),payload.direct);

@@ -1389,7 +1389,7 @@ void Renderer::RecreateDescriptors() {
 void Renderer::Initialize() {
 
   m_RaymarchMetadata = {
-      .rays = 1024,
+      .rays = 256,
       .probeSize = 512,
       .probeSpacing = 64,
       .gridResolution = glm::ivec4(8.0f),
