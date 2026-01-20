@@ -1,0 +1,39 @@
+#version 460
+
+#include "common.glsl"
+
+layout(local_size_x=16,local_size_y=16)in;
+
+layout(set=0,binding=0)uniform Metadata{
+  uint frame;
+};
+
+layout(set=0,binding=109,rgba32f)uniform writeonly image2D outputImage;
+
+layout(set=0,binding=105)uniform sampler2D directLightTexture;
+layout(set=0,binding=106)uniform sampler2D shadowTexture;
+layout(set=0,binding=107)uniform sampler2D ambientOcclusionTexture;
+
+void main(){
+  uvec2 pixel=gl_GlobalInvocationID.xy;
+  vec2 resolution=vec2(imageSize(outputImage));
+  
+  if(pixel.x>=resolution.x||pixel.y>=resolution.y)
+  return;
+  
+  vec2 uv=vec2(pixel)/resolution;
+  
+  vec3 direct=texture(directLightTexture,uv).rgb;
+  float shadow=texture(shadowTexture,uv).r;
+  float ambientOcclusion=texture(ambientOcclusionTexture,uv).r;
+  
+  vec3 color=direct*shadow.r;
+  
+  float exposure=.8;
+  
+  color*=exposure;
+  color=ACESFilmicToneMapping(color);
+  color=pow(color,vec3(1./2.2));
+  
+  imageStore(outputImage,ivec2(pixel),vec4(color,1.));
+}

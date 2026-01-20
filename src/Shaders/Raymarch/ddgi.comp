@@ -1,0 +1,134 @@
+#version 460
+#define SAMPLE_PROBE_IMAGE_2D
+
+#include "common.glsl"
+
+layout(local_size_x=128)in;
+
+layout(set=0,binding=0)uniform Metadata{
+  uint frame;
+  uint worldSize;
+  uint batchStart;
+  uint rays;
+  uint probeSize;
+  uint probeBatchSize;
+  uint iaTilesPerRow;
+  uint iaTilesPerCol;
+  uint iaWidth;
+  uint iaHeight;
+  uint daTilesPerRow;
+  uint daTilesPerCol;
+  uint daWidth;
+  uint daHeight;
+  uint probeSpacing;
+  ivec4 gridResolution;
+  ivec4 gridMin;
+};
+
+layout(std430,set=0,binding=53)readonly buffer DDGIProbes{
+  uint count;
+  uint padding[3];
+  DDGIProbe data[];
+}probes;
+
+layout(std430,set=0,binding=54)readonly buffer Lights{
+  uint count;
+  uint padding[3];
+  DenseVoxel data[];
+}lights;
+
+layout(set=0,binding=107,r11f_g11f_b10f)uniform image2D irradianceAtlas;
+layout(set=0,binding=108,rg16)uniform image2D gaussianDepthAtlas;
+
+#include "raymarch.glsl"
+#include "material.glsl"
+#include "ddgi.glsl"
+
+void main(){
+  uint globalThreadID=gl_GlobalInvocationID.x;
+  if(globalThreadID>=probeBatchSize*rays)return;
+  
+  uint localProbeIndex=globalThreadID/rays;
+  uint probeIndex=(batchStart+localProbeIndex)%probeSize;
+  uint rayIndex=globalThreadID%rays;
+  
+  ivec3 probePosition=gridMin.xyz+indexToPosition(probeIndex,gridResolution.xyz)*int(probeSpacing);
+  vec3 rayDirection=sampleHemisphere(rayIndex,rays);
+  // vec3 rayDirection=normalFromIndex(rayIndex,IA_TEX_SIZE);
+  
+  Hit payload=raymarch(probePosition,rayDirection,FMAX);
+  
+  // Compute atlas addressing (directional slot)
+  vec2 octUV=octEncode(rayDirection);
+  
+  // Always compute a lighting sample, hit or miss
+  vec3 hitPosition;
+  vec3 normal;
+  vec3 direct=vec3(0.);
+  
+  if(payload.IsValid){
+    normal=getVoxelNormal(probePosition,rayDirection,payload);
+    hitPosition=probePosition+rayDirection*payload.TMin;
+    
+    Material material=getMaterial(payload.Material);
+    
+    direct=material.Albedo.rgb;
+    
+    // uint weight=0;
+    // vec4 lightColor=vec4(0.);
+    
+    // for(int i=0;i<lights.count;i++)
+    // {
+      //   DenseVoxel light=lights.data[i];
+      
+      //   vec3 offset=vec3(float(1<<light.Depth)/2.);
+      //   vec3 position=light.Position+offset;
+      
+      //   lightColor+=computeLightInfluence(hitPosition,normal,position,offset,probeIndex,rayIndex);
+      //   weight++;
+    // }
+    
+    // if(weight>0)
+    // lightColor/=weight;
+    
+    // direct=(material.Albedo.rgb*lightColor.rgb)*lightColor.a;
+  }
+  else{
+    // TODO: Environment on miss
+  }
+  
+  // Irradiance
+  {
+    
+    ivec2 itile=indexToTile(probeIndex,iaTilesPerRow);
+    ivec2 ipixel=octUVToPixel(octUV,itile,IA_TEX_SIZE);
+    
+    // --- Feedback: sample previous-frame probes at the hit point ---
+    vec3 indirect=sampleProbes(hitPosition,normal);
+    
+    vec3 totalLighting=(direct+indirect)/2.;
+    // vec3 totalLighting=direct;
+    
+    // --- Blend with PREVIOUS frame, write to CURRENT frame ---
+    float blendIrradiance=.1;// smaller = more stable feedback
+    vec4 prevIrr=imageLoad(irradianceAtlas,ipixel);
+    vec3 blendedRGB=mix(prevIrr.rgb,totalLighting,blendIrradiance);
+    imageStore(irradianceAtlas,ipixel,vec4(blendedRGB,1.));
+  }
+  
+  // Gaussian Depth
+  {
+    ivec2 dtile=indexToTile(probeIndex,daTilesPerRow);
+    ivec2 dpixel=octUVToPixel(octUV,dtile,DA_TEX_SIZE);
+    
+    // Depth moments (for parallax/visibility)
+    float m1=payload.IsValid?payload.TMin/worldSize:1.;
+    float m2=m1*m1;
+    
+    float blendM=.2;// smaller = more stable feedback
+    vec4 prevDepth=imageLoad(gaussianDepthAtlas,dpixel);
+    float blendedM1=mix(prevDepth.r,m1,blendM);
+    float blendedM2=mix(prevDepth.g,m2,blendM);
+    imageStore(gaussianDepthAtlas,dpixel,vec4(blendedM1,blendedM2,0.,0.));
+  }
+}

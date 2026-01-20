@@ -1,0 +1,21 @@
+{
+  "configurations": [
+    {
+      "name": "c++23",
+      "includePath": [
+        "${workspaceFolder}/src/**",
+        "${workspaceFolder}/Akari/**",
+        "${workspaceFolder}/vendor/imgui",
+        "${workspaceFolder}/vendor/imgui/backends",
+        "${workspaceFolder}/vendor/VulkanMemoryAllocator/include"
+      ],
+      "defines": [],
+      "cStandard": "c23",
+      "cppStandard": "c++23",
+      "intelliSenseMode": "linux-gcc-x64",
+      "compilerPath": "/usr/bin/g++",
+      "compileCommands": "${workspaceFolder}/build/compile_commands.json"
+    }
+  ],
+  "version": 4
+}

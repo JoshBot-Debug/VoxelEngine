@@ -1,0 +1,175 @@
+#version 460
+
+#include "common.glsl"
+
+layout(local_size_x=16,local_size_y=16)in;
+
+layout(set=1,binding=0)uniform Camera{
+  mat4 inverseView;
+  mat4 inverseProjection;
+}camera;
+
+layout(set=0,binding=0)uniform Metadata{
+  uint worldSize;
+  uint materialSize;
+  uint sampleIndex;
+};
+
+layout(set=0,binding=100,rgba8)uniform image2D outputImage;
+
+#include "raymarch.glsl"
+#include "material.glsl"
+
+uint MAX_LIGHT_SIZE=(worldSize/16);
+
+Ray generateRay(vec2 uv){
+  vec2 ndc=vec2(uv*2.-1.);
+  vec4 rayClip=vec4(ndc,0.,1.);
+  vec4 rayView=camera.inverseProjection*rayClip;
+  rayView/=rayView.w;
+  
+  vec3 localOrigin=vec3(0.);
+  vec3 localDir=normalize(vec3(rayView));
+  
+  vec3 worldOrigin=(camera.inverseView*vec4(localOrigin,1.)).xyz;
+  vec3 worldDir=normalize((camera.inverseView*vec4(localDir,0.)).xyz);
+  
+  return Ray(worldOrigin,worldDir);
+}
+
+vec3 tracePath(uvec2 pixel,Ray ray,uint maxBounces){
+  vec3 throughput=vec3(1.);// how much energy is carried
+  vec3 radiance=vec3(0.);
+  
+  {
+    float tMin;
+    if(intersectAABB(ray.origin,ray.direction,vec3(0.),vec3(worldSize),tMin)&&tMin>0.)
+    ray.origin=ray.origin+ray.direction*(tMin+2.);
+  }
+  
+  for(uint bounce=0;bounce<maxBounces;++bounce){
+    Hit hit=raymarch(ray.origin,ray.direction,FMAX);// your raymarcher returning material info
+    
+    if(!hit.IsValid){
+      // Background / sky contribution HDRI
+      radiance+=throughput*vec3(0.);// or sky color
+      break;
+    }
+    
+    Material material=getMaterial(hit.Material);
+    
+    // Emissive (light source)
+    if(material.Emissive.a>0.)
+    {
+      radiance+=throughput*material.Emissive.rgb*(material.Emissive.a*100.);
+      break;
+    }
+    
+    // Prepare shading frame
+    vec3 normal=getVoxelNormal(ray.origin,ray.direction,hit);
+    vec3 hitPosition=ray.origin+ray.direction*hit.TMin;
+    float epsilon=hit.NodeSize*.0001;
+    
+    // Incoming/outgoing directions:
+    // V = view direction from surface towards camera (pointing out)
+    vec3 V=normalize(-ray.direction);
+    
+    // material params
+    vec3 albedo=material.Albedo.rgb;
+    float metallic=material.Metallic;
+    float roughness=max(.05,material.Roughness);// avoid 0
+    
+    // Fresnel at normal incidence
+    vec3 F0=mix(vec3(.04),albedo,metallic);
+    // Probability to pick specular sampling vs diffuse (use luminance of F0)
+    float specProb=clamp(max(max(F0.r,F0.g),F0.b),.05,.95);
+    
+    // Generate randoms
+    float r0=random(pixel,sampleIndex,bounce);// decide lobe
+    float r1=random(pixel,sampleIndex,bounce+1);// for sampling
+    float r2=random(pixel,sampleIndex,bounce+2);
+    
+    vec3 L;
+    float pdf=1.;
+    
+    if(r0<specProb){
+      // Sample GGX specular lobe (sample half-vector H, then reflect V around H)
+      vec3 H=sampleGGX(normal,roughness,r1,r2);
+      // reflect view about H to get light direction
+      L=normalize(reflect(-V,H));
+      
+      float NdotL=max(dot(normal,L),0.);
+      float NdotH=max(dot(normal,H),0.);
+      float VdotH=max(dot(V,H),1e-6);
+      if(NdotL<=0.){
+        // invalid sample, break path
+        break;
+      }
+      float pdf_spec=pdfGGXtoL(normal,V,H,roughness);
+      float pdf_diff=NdotL/PI;
+      pdf=specProb*pdf_spec+(1.-specProb)*pdf_diff;
+    }else{
+      // Sample diffuse (cosine hemisphere)
+      L=sampleCosineHemisphereRandom(normal,r1,r2);
+      
+      float NdotL=max(dot(normal,L),0.);
+      if(NdotL<=0.){
+        break;
+      }
+      // Compute pdf mixture
+      // pdf_diff = cos / PI
+      float pdf_diff=NdotL/PI;
+      // For the specular part, we need a hypothetical H to compute pdfGGXtoL if we wanted; approximate by computing H = normalize(L+V)
+      vec3 H=normalize(L+V);
+      float pdf_spec=pdfGGXtoL(normal,V,H,roughness);
+      pdf=specProb*pdf_spec+(1.-specProb)*pdf_diff;
+    }
+    
+    // Evaluate BRDF
+    vec3 brdf=evaluatePBR(normal,V,L,albedo,metallic,roughness);
+    float NdotL=max(dot(normal,L),0.);
+    
+    if(pdf<=0.||NdotL<=0.)break;
+    
+    // Multiply throughput by (BRDF * cos / pdf)
+    vec3 contribution=brdf*NdotL/pdf;
+    throughput*=contribution;
+    
+    // Advance ray
+    ray.origin=hitPosition+normal*epsilon;
+    ray.direction=normalize(L);
+    
+    // Russian roulette (same idea as before)
+    if(bounce>3){
+      float p=max(max(throughput.r,throughput.g),throughput.b);
+      if(random(pixel,sampleIndex,bounce+3)>p)break;
+      throughput/=max(p,1e-6);
+    }
+  }
+  
+  return radiance;
+}
+
+void main(){
+  uvec2 pixel=gl_GlobalInvocationID.xy;
+  vec2 resolution=vec2(imageSize(outputImage));
+  
+  if(pixel.x>=resolution.x||pixel.y>=resolution.y)
+  return;
+  
+  vec2 uv=(vec2(pixel)+.5)/resolution;
+  
+  Ray ray=generateRay(uv);
+  
+  // Trace one sample
+  vec3 sampled=tracePath(pixel,ray,8);
+  
+  // Read old accumulated value
+  vec3 oldColor=imageLoad(outputImage,ivec2(pixel)).rgb;
+  
+  // Progressive average
+  float n=float(sampleIndex);
+  vec3 blended=(oldColor*n+sampled)/(n+1.);
+  
+  imageStore(outputImage,ivec2(pixel),vec4(blended,1.));
+}

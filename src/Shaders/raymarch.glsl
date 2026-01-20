@@ -1,0 +1,91 @@
+struct FlatVoxel{
+  uint Depth;
+  uint Children;
+  uint ChildIndex;
+  uint Material;
+};
+
+layout(std430,set=0,binding=50)readonly buffer SparseVoxelOctree{
+  uint count;
+  uint padding[3];
+  FlatVoxel data[];
+}voxels;
+
+struct StackEntry{
+  float TMin;
+  uint Index;
+  vec3 Min;
+};
+
+const uint MAX_STACK=24;
+
+Hit raymarch(vec3 rayOrigin,vec3 rayDirection,float rayLength)
+{
+  Hit payload;
+  payload.IsValid=false;
+  payload.TMin=0.;
+  
+  StackEntry stack[MAX_STACK];
+  
+  uint stackPtr=0;
+  stack[stackPtr++]=StackEntry(0.,0,vec3(0.));
+  
+  uint order[8];
+  
+  while(stackPtr>0){
+    StackEntry entry=stack[--stackPtr];
+    
+    FlatVoxel voxel=voxels.data[entry.Index];
+    
+    uint size=(1<<voxel.Depth);
+    
+    if(voxel.Children==0U){
+      payload.IsValid=true;
+      payload.TMin=entry.TMin;
+      payload.NodeMin=entry.Min;
+      payload.NodeSize=size;
+      payload.NodeIndex=entry.Index;
+      payload.Material=voxel.Material;
+      return payload;
+    }
+    
+    uint dirX=rayDirection.x>=0.?1u:0u;
+    uint dirY=rayDirection.y>=0.?1u:0u;
+    uint dirZ=rayDirection.z>=0.?1u:0u;
+    
+    order[0]=((0^dirX)<<2)|((0^dirY)<<1)|(0^dirZ);
+    order[1]=((0^dirX)<<2)|((0^dirY)<<1)|(1^dirZ);
+    order[2]=((0^dirX)<<2)|((1^dirY)<<1)|(0^dirZ);
+    order[3]=((0^dirX)<<2)|((1^dirY)<<1)|(1^dirZ);
+    order[4]=((1^dirX)<<2)|((0^dirY)<<1)|(0^dirZ);
+    order[5]=((1^dirX)<<2)|((0^dirY)<<1)|(1^dirZ);
+    order[6]=((1^dirX)<<2)|((1^dirY)<<1)|(0^dirZ);
+    order[7]=((1^dirX)<<2)|((1^dirY)<<1)|(1^dirZ);
+    
+    #define VISIT_CHILD(i){\
+      uint childOctant=order[i];\
+      uint childMask=1u<<childOctant;\
+      if((voxel.Children&childMask)!=0u){\
+        vec3 offset=vec3((childOctant>>2)&1,(childOctant>>1)&1,(childOctant>>0)&1);\
+        uint childSize=size/2;\
+        vec3 childMin=entry.Min+offset*childSize;\
+        vec3 childMax=childMin+childSize;\
+        float tMin=0.;\
+        if(intersectAABB(rayOrigin,rayDirection,childMin,childMax,tMin)&&tMin<=rayLength){\
+          stack[stackPtr++]=StackEntry(tMin,voxel.ChildIndex+bitCount(voxel.Children&(childMask-1)),childMin);\
+        }\
+      }\
+    }
+    
+    VISIT_CHILD(0);
+    VISIT_CHILD(1);
+    VISIT_CHILD(2);
+    VISIT_CHILD(3);
+    VISIT_CHILD(4);
+    VISIT_CHILD(5);
+    VISIT_CHILD(6);
+    VISIT_CHILD(7);
+  }
+  
+  return payload;
+}

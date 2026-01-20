@@ -1,0 +1,106 @@
+#version 460
+
+#include "common.glsl"
+
+layout(local_size_x=16,local_size_y=16)in;
+
+layout(set=0,binding=0)uniform Metadata{
+  uint frame;
+  uint worldSize;
+  uint kernelSize;
+  uint sampleIndex;
+  uint frameIndex;
+  vec4 kernal[64];
+};
+
+layout(set=0,binding=101)uniform sampler2D depthTexture;
+layout(set=0,binding=102)uniform sampler2D normalTexture;
+layout(set=0,binding=108)uniform sampler2D noiseTexture;
+layout(set=0,binding=104)uniform sampler2D motionVectorTexture;
+
+layout(set=0,binding=107,r8)uniform image2D ambientOcclusionTexture;
+
+#include "camera.glsl"
+#include "raymarch.glsl"
+#include "material.glsl"
+
+float computeRTAO(vec2 uv,float R,uint samples)
+{
+  Ray ray=generateCameraRay(uv);
+  
+  // Normal in view space
+  vec3 NV=normalize(texture(normalTexture,uv).xyz*2.-1.);
+  // Hit position reconstructed world-space position from depth
+  vec3 P=depthToWorldSpace(uv,texture(depthTexture,uv).r);
+  // Normal in world space
+  vec3 N=normalize((camera.inverseView*vec4(NV,0.)).xyz);
+  
+  float occlusion=0.;
+  
+  for(int i=0;i<samples;i++){
+    vec3 D=sampleCosineHemisphere(N,i,samples);
+    Hit payload=raymarch(P+N*.0001,D,R);
+    if(payload.IsValid&&getMaterial(payload.Material).Emissive.a==0.)
+    occlusion+=1.-(payload.TMin/R);
+  }
+  
+  return 1.-(occlusion/float(samples));
+}
+
+float computeSSAO(vec2 uv)
+{
+  float occlusion=0.;
+  const float radius=.5;
+  const float bias=.025;
+  
+  vec3 normal=normalize(texture(normalTexture,uv).xyz*2.-1.);
+  vec3 position=depthToViewSpace(uv,texture(depthTexture,uv).r);
+  
+  // Random vector for tangent
+  ivec2 resolution=ivec2(imageSize(ambientOcclusionTexture));
+  const vec2 noiseScale=vec2(resolution.x/4.,resolution.y/4.);
+  vec3 random=texture(noiseTexture,uv*noiseScale).xyz;
+  vec3 tangent=normalize(random-normal*dot(random,normal));
+  vec3 bitangent=cross(normal,tangent);
+  mat3 TBN=mat3(tangent,bitangent,normal);
+  
+  {
+    // Cosine-weighted hemisphere sample in tangent space
+    vec3 samplePos=position+TBN*kernal[sampleIndex].xyz*radius;
+    
+    vec4 offset=vec4(samplePos,1.);
+    offset=camera.projection*offset;// from view to clip-space
+    offset.xyz/=offset.w;// perspective divide
+    offset.xyz=offset.xyz*.5+.5;
+    
+    float sampleDepth=depthToViewSpace(offset.xy,texture(depthTexture,offset.xy).r).z;
+    
+    float rangeCheck=smoothstep(0.,1.,radius/abs(position.z-sampleDepth));
+    occlusion+=(sampleDepth>=samplePos.z+bias?1.:0.)*rangeCheck;
+  }
+  
+  return 1.-occlusion;
+}
+
+void main(){ 
+  ivec2 pixel=ivec2(gl_GlobalInvocationID.xy);
+  ivec2 resolution=ivec2(imageSize(ambientOcclusionTexture));
+  
+  if(pixel.x>=resolution.x||pixel.y>=resolution.y)
+  return;
+  
+  vec2 uv=(vec2(pixel)+.5)/resolution;
+  
+  float current=computeSSAO(uv);
+  float previous=imageLoad(ambientOcclusionTexture,pixel).r;
+  
+  float alpha=1./float(kernelSize);
+  float ambientOcclusion=mix(previous,current,alpha);
+  
+  float ao=ambientOcclusion;
+  float strength=1.05;
+  ao=1.-(1.-ao)*strength;
+  ao=clamp(ao,0.,1.);
+  
+  imageStore(ambientOcclusionTexture,pixel,vec4(ao,0.,0.,0.));
+}

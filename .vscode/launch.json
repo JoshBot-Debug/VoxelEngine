@@ -1,0 +1,29 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug GDB",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/build/Kitagawa",
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "externalConsole": false,
+      "preLaunchTask": "Build Debug",
+      "MIMode": "gdb",
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ],
+      "environment": [
+        {
+          "name": "TCM_ENABLE",
+          "value": "1"
+        }
+      ]
+    }
+  ]
+}
