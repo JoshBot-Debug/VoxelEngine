@@ -1,4 +1,5 @@
 #include "GreedyMesh64.h"
+#include <iostream>
 
 void GreedyMesh64::SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits,
                                   uint64_t (&widthMasks)[],

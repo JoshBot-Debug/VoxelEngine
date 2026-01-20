@@ -255,6 +255,8 @@ static void SetupVulkan(std::vector<const char *> &instanceExtensions) {
         .pNext = &sync2,
     };
 
+    features2.features.fillModeNonSolid = VK_TRUE;
+
     const float pQueuePriorities[] = {1.0f};
 
     std::vector<VkDeviceQueueCreateInfo> queueInfo = {{

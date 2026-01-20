@@ -3,7 +3,6 @@
 #include "imgui_impl_vulkan.h"
 
 namespace Kitagawa {
-namespace PBR {
 
 void Renderer::CreateDescripterPool(
     const std::vector<VkDescriptorPoolSize> &pool) {
@@ -11,9 +10,7 @@ void Renderer::CreateDescripterPool(
   VkDescriptorPoolCreateInfo poolInfo{
       .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
       .maxSets = m_GBufferPass.GetMaxSets() + m_LightingPass.GetMaxSets() +
-                 m_ShadowPass.GetMaxSets() +
-                 m_AmbientOcclusionPass.GetMaxSets() +
-                 m_ReflectionPass.GetMaxSets() + m_ShadingPass.GetMaxSets(),
+                 m_ShadingPass.GetMaxSets(),
       .poolSizeCount = static_cast<uint32_t>(pool.size()),
       .pPoolSizes = pool.data(),
   };
@@ -30,36 +27,22 @@ void Renderer::CreateDescriptorSets() {
   std::vector<VkDescriptorPoolSize> pool = {};
   m_GBufferPass.GetDescriptorPoolSize(pool);
   m_LightingPass.GetDescriptorPoolSize(pool);
-  m_ShadowPass.GetDescriptorPoolSize(pool);
-  m_AmbientOcclusionPass.GetDescriptorPoolSize(pool);
-  m_ReflectionPass.GetDescriptorPoolSize(pool);
   m_ShadingPass.GetDescriptorPoolSize(pool);
   CreateDescripterPool(pool);
 
   m_GBufferPass.CreateDescriptorSets(m_DescriptorPool);
   m_LightingPass.CreateDescriptorSets(m_DescriptorPool);
-  m_ShadowPass.CreateDescriptorSets(m_DescriptorPool);
-  m_AmbientOcclusionPass.CreateDescriptorSets(m_DescriptorPool);
-  m_ReflectionPass.CreateDescriptorSets(m_DescriptorPool);
   m_ShadingPass.CreateDescriptorSets(m_DescriptorPool);
 }
 
 Renderer::Renderer() {
   m_Device = Akari::Application::GetDevice();
 
-  m_AmbientOcclusionPass.SelectOption(
-      RenderPass::AmbientOcclusionPass::Type::SSAO);
-
-  m_ReflectionPass.SelectOption(RenderPass::ReflectionPass::Type::SSR);
-
   m_DisplayImages = {
       m_GBufferPass.GetTexture(Binding::T_DEPTH),
       m_GBufferPass.GetTexture(Binding::T_NORMAL),
       m_GBufferPass.GetTexture(Binding::T_MOTION_VECTOR),
       m_LightingPass.GetTexture(Binding::T_DIRECT_LIGHT),
-      m_AmbientOcclusionPass.GetTexture(Binding::T_AMBIENT_OCCLUSION),
-      m_ReflectionPass.GetTexture(Binding::T_REFLECTION),
-      m_ShadowPass.GetTexture(Binding::T_SHADOW),
   };
 }
 
@@ -86,69 +69,23 @@ void Renderer::Initialize() {
       .materialTexture = m_GBufferPass.GetTexture(Binding::T_MATERIAL),
   });
 
-  m_ShadowPass.Initialize(RenderPass::ShadowPassInit{
-      .world = m_World,
-      .svoBuffer = &m_SVOBuffer,
-      .lightBuffer = &m_LightBuffer,
-      .materialBuffer = &m_MaterialBuffer,
-      .materialLUTBuffer = &m_MaterialLUTBuffer,
-      .cameraBuffer = &m_CameraBuffer,
-      .depthTexture = m_GBufferPass.GetTexture(Binding::T_DEPTH),
-      .normalTexture = m_GBufferPass.GetTexture(Binding::T_NORMAL),
-      .materialTexture = m_GBufferPass.GetTexture(Binding::T_MATERIAL),
-  });
-
-  m_AmbientOcclusionPass.Initialize(RenderPass::SSAOPassInit{
-      .world = m_World,
-      .svoBuffer = &m_SVOBuffer,
-      .materialBuffer = &m_MaterialBuffer,
-      .materialLUTBuffer = &m_MaterialLUTBuffer,
-      .cameraBuffer = &m_CameraBuffer,
-      .camera = m_Camera,
-      .depthTexture = m_GBufferPass.GetTexture(Binding::T_DEPTH),
-      .normalTexture = m_GBufferPass.GetTexture(Binding::T_NORMAL),
-      .motionVectorTexture = m_GBufferPass.GetTexture(Binding::T_MOTION_VECTOR),
-  });
-
-  m_ReflectionPass.Initialize(RenderPass::SSRPassInit{
-      .world = m_World,
-      .materialBuffer = &m_MaterialBuffer,
-      .materialLUTBuffer = &m_MaterialLUTBuffer,
-      .cameraBuffer = &m_CameraBuffer,
-      .depthTexture = m_GBufferPass.GetTexture(Binding::T_DEPTH),
-      .normalTexture = m_GBufferPass.GetTexture(Binding::T_NORMAL),
-      .materialTexture = m_GBufferPass.GetTexture(Binding::T_MATERIAL),
-  });
-
   m_ShadingPass.Initialize(RenderPass::ShadingPassInit{
       .world = m_World,
       .directLightTexture = m_LightingPass.GetTexture(Binding::T_DIRECT_LIGHT),
-      .shadowTexture = m_ShadowPass.GetTexture(Binding::T_SHADOW),
-      .ambientOcclusionTexture =
-          m_AmbientOcclusionPass.GetTexture(Binding::T_AMBIENT_OCCLUSION),
   });
 
   m_GBufferPass.CreateBuffers();
   m_LightingPass.CreateBuffers();
-  m_ShadowPass.CreateBuffers();
-  m_AmbientOcclusionPass.CreateBuffers();
-  m_ReflectionPass.CreateBuffers();
   m_ShadingPass.CreateBuffers();
 
   m_GBufferPass.CreateDescriptorSetLayout();
   m_LightingPass.CreateDescriptorSetLayout();
-  m_ShadowPass.CreateDescriptorSetLayout();
-  m_AmbientOcclusionPass.CreateDescriptorSetLayout();
-  m_ReflectionPass.CreateDescriptorSetLayout();
   m_ShadingPass.CreateDescriptorSetLayout();
 
   CreateDescriptorSets();
 
   m_GBufferPass.CreatePipeline();
   m_LightingPass.CreatePipeline();
-  m_ShadowPass.CreatePipeline();
-  m_AmbientOcclusionPass.CreatePipeline();
-  m_ReflectionPass.CreatePipeline();
   m_ShadingPass.CreatePipeline();
 
   m_World->GetPalette().OnFlush([this]() { m_World->GetSVO()->Flush(); });
@@ -239,9 +176,6 @@ void Renderer::Render() {
 
   m_GBufferPass.Render(commandBuffer);
   m_LightingPass.Render(commandBuffer);
-  m_ShadowPass.Render(commandBuffer);
-  m_AmbientOcclusionPass.Render(commandBuffer);
-  m_ReflectionPass.Render(commandBuffer);
   m_ShadingPass.Render(commandBuffer);
 
   Akari::Application::FlushCommandBuffer(commandBuffer);
@@ -256,9 +190,6 @@ void Renderer::OnResize(uint32_t width, uint32_t height) {
 
   if (m_GBufferPass.OnResize(width, height)) {
     m_LightingPass.OnResize(width, height);
-    m_ShadowPass.OnResize(width, height);
-    m_AmbientOcclusionPass.OnResize(width, height);
-    m_ReflectionPass.OnResize(width, height);
     m_ShadingPass.OnResize(width, height);
 
     m_GBufferPass.GetTexture(Binding::T_DEPTH)
@@ -268,12 +199,6 @@ void Renderer::OnResize(uint32_t width, uint32_t height) {
     m_GBufferPass.GetTexture(Binding::T_MOTION_VECTOR)
         ->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     m_LightingPass.GetTexture(Binding::T_DIRECT_LIGHT)
-        ->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    m_ShadowPass.GetTexture(Binding::T_SHADOW)
-        ->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    m_AmbientOcclusionPass.GetTexture(Binding::T_AMBIENT_OCCLUSION)
-        ->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-    m_ReflectionPass.GetTexture(Binding::T_REFLECTION)
         ->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     m_ShadingPass.GetTexture(Binding::T_SHADING)
         ->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
@@ -308,5 +233,4 @@ void Renderer::RenderUI() {
   ImGui::Spacing();
 }
 
-} // namespace PBR
 } // namespace Kitagawa

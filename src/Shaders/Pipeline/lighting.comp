@@ -39,7 +39,7 @@ void main(){
     imageStore(directLightTexture,pixel,vec4(material.Emissive.rgb*material.Emissive.a,1.));
     return;
   }
-    
+  
   // Normal in view space
   vec3 NV=normalize(texture(normalTexture,uv).xyz*2.-1.);
   // Hit position reconstructed world-space position from depth
@@ -49,25 +49,26 @@ void main(){
   // Direction towards the camera from the hit position
   vec3 V=normalize(camera.position-P);
   // Light output
-  vec3 Lo=vec3(0.);
+  // vec3 Lo=vec3(0.);
   
-  for(int i=0;i<lights.count;++i){
-    DenseVoxel light=lights.data[i];
-    Material lightMaterial=getMaterial(light.Material);
+  // for(int i=0;i<lights.count;++i){
+    //   DenseVoxel light=lights.data[i];
+    //   Material lightMaterial=getMaterial(light.Material);
     
-    // Light position
-    vec3 Lp=light.Position+(float(1<<light.Depth)/2.);
-    // Direction towards the light from the hit position
-    vec3 D=Lp-P;
-    // Normalized direction
-    vec3 L=normalize(D);
+    //   // Light position
+    //   vec3 Lp=light.Position+(float(1<<light.Depth)/2.);
+    //   // Direction towards the light from the hit position
+    //   vec3 D=Lp-P;
+    //   // Normalized direction
+    //   vec3 L=normalize(D);
     
-    vec3 brdf=BRDF(N,V,L,material.Albedo.rgb,material.Metallic,material.Roughness);
+    //   vec3 brdf=BRDF(N,V,L,material.Albedo.rgb,material.Metallic,material.Roughness);
     
-    Lo+=brdf*(lightMaterial.Emissive.rgb*lightMaterial.Emissive.a);
-  }
+    //   Lo+=brdf*(lightMaterial.Emissive.rgb*lightMaterial.Emissive.a);
+  // }
   
-  Lo/=lights.count;
+  // Lo/=lights.count;
+  vec3 Lo=texture(normalTexture,uv).xyz;
   
   imageStore(directLightTexture,pixel,vec4(Lo,1.));
 }

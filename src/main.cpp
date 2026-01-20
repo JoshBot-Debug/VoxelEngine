@@ -8,9 +8,6 @@
 #include "Utility/Debug.h"
 
 #include "Kitagawa/Controller.h"
-#include "Kitagawa/Render/PBR/Renderer.h"
-#include "Kitagawa/Render/Pathtrace/Renderer.h"
-#include "Kitagawa/Render/Raymarch/Renderer.h"
 #include "Kitagawa/Render/Renderer.h"
 #include "Kitagawa/World.h"
 
@@ -18,7 +15,7 @@
 
 #include "Camera/PerspectiveCamera.h"
 
-const int WORLD_SIZE = 256;
+const int WORLD_SIZE = 64;
 
 class ViewportLayer : public Akari::Layer {
 
@@ -26,7 +23,7 @@ private:
   PerspectiveCamera m_Camera;
   Kitagawa::Controller m_Controller;
   Kitagawa::World m_World{WORLD_SIZE};
-  Kitagawa::Render::Renderer *m_Renderer = nullptr;
+  Kitagawa::Renderer m_Renderer;
 
   uint32_t m_ViewportWidth = 1080;
   uint32_t m_ViewportHeight = 720;
@@ -38,14 +35,18 @@ private:
 public:
   bool ViewportLock = true;
 
-  ~ViewportLayer() { delete m_Renderer; }
-
   virtual void OnAttach() override {
-    m_Camera.SetProjection(45.0f, 0.01f, 256.0f);
+    m_Camera.SetProjection(45.0f, 0.01f, 2048.0f);
     m_Camera.SetPosition(WORLD_SIZE / 2, WORLD_SIZE / 2,
                          (WORLD_SIZE * 2) + (WORLD_SIZE / 4));
     m_Camera.SetRotation(0.0f, 0.0f, 0.0f);
     m_Controller.SetMovementSpeed(150.0f);
+
+    m_Renderer.SetCamera(&m_Camera);
+    m_Renderer.SetWorld(&m_World);
+    m_Renderer.Initialize();
+    m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
+    m_World.Flush();
   }
 
   virtual void OnUpdate(float deltaTime) override {
@@ -53,8 +54,7 @@ public:
 
     m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
 
-    if (m_Renderer)
-      m_Renderer->OnResize(m_ViewportWidth, m_ViewportHeight);
+    m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
 
     m_Controller.Update(deltaTime, m_Camera);
 
@@ -76,15 +76,12 @@ public:
     ImGui::Text("Render Time: %f", m_RenderTime);
     ImGui::Text("FPS: %f", 1000 / m_RenderTime);
     ImGui::Text("Mouse Position %f, %f", m_ViewportMouse.x, m_ViewportMouse.y);
-    ImGui::Text("DDGI Probes: %i", m_World.GetSVO()->GetDDGIProbeSize());
 
     ImGui::Spacing();
 
     m_Controller.RenderUI(m_Camera);
     m_World.RenderUI();
-
-    if (m_Renderer)
-      m_Renderer->RenderUI();
+    m_Renderer.RenderUI();
 
     ImGui::End();
 
@@ -115,8 +112,7 @@ public:
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    if (m_Renderer)
-      m_Renderer->Render();
+    m_Renderer.Render();
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float, std::milli> duration = end - start;
@@ -124,16 +120,6 @@ public:
 
     ImGui::End();
     ImGui::PopStyleVar(1);
-  }
-
-  void SetRenderer(Kitagawa::Render::Renderer *renderer) {
-    delete m_Renderer;
-    renderer->SetCamera(&m_Camera);
-    renderer->SetWorld(&m_World);
-    renderer->Initialize();
-    renderer->OnResize(m_ViewportWidth, m_ViewportHeight);
-    m_World.Flush();
-    m_Renderer = std::move(renderer);
   }
 };
 
@@ -149,40 +135,7 @@ Akari::Application *Akari::CreateApplication(int argc, char **argv) {
 
   Akari::Application *app = new Akari::Application(applicationSpecification);
 
-  static int currentRenderer = -1;
-
-  auto layer = std::make_shared<ViewportLayer>();
-
-  app->SetMenubarCallback([layer]() {
-    if (ImGui::BeginMenu("View ##MainMenu")) {
-
-      ImGui::Checkbox("Lock Viewport ##ToggleViewportLock",
-                      &layer->ViewportLock);
-
-      if (ImGui::BeginMenu("Renderer")) {
-        if (ImGui::RadioButton("Raymarch", currentRenderer == 0)) {
-          currentRenderer = 0;
-          layer->SetRenderer(reinterpret_cast<Kitagawa::Render::Renderer *>(
-              new Kitagawa::Raymarch::Renderer()));
-        }
-        if (ImGui::RadioButton("Pathtrace", currentRenderer == 1)) {
-          currentRenderer = 1;
-          layer->SetRenderer(reinterpret_cast<Kitagawa::Render::Renderer *>(
-              new Kitagawa::Pathtrace::Renderer()));
-        }
-        if (ImGui::RadioButton("PBR", currentRenderer == 2)) {
-          currentRenderer = 2;
-          layer->SetRenderer(reinterpret_cast<Kitagawa::Render::Renderer *>(
-              new Kitagawa::PBR::Renderer()));
-        }
-        ImGui::EndMenu();
-      }
-
-      ImGui::EndMenu();
-    }
-  });
-
-  app->PushLayer(layer);
+  app->PushLayer<ViewportLayer>();
 
   return app;
 }

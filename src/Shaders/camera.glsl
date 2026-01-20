@@ -28,13 +28,6 @@ Ray generateCameraRay(vec2 uv){
   vec3 worldOrigin=(camera.inverseView*vec4(localOrigin,1.)).xyz;
   vec3 worldDir=normalize((camera.inverseView*vec4(localDir,0.)).xyz);
   
-  // ONLY FOR THE CORNELL BOX
-  {
-    float tMin;
-    if(intersectAABB(worldOrigin,worldDir,vec3(0.),vec3(worldSize),tMin)&&tMin>0.)
-    worldOrigin=worldOrigin+worldDir*(tMin+2.);
-  }
-  
   return Ray(worldOrigin,worldDir);
 }
 
@@ -50,6 +43,6 @@ vec3 depthToViewSpace(vec2 uv,float depth)
 
 vec3 depthToWorldSpace(vec2 uv,float depth)
 {
-  vec3 view=depthToViewSpace(uv,depth);  
+  vec3 view=depthToViewSpace(uv,depth);
   return vec3(camera.inverseView*vec4(view,1.));
 }

@@ -19,8 +19,6 @@ struct ShadingPassInit {
   World *world = nullptr;
 
   std::shared_ptr<Akari::Image> directLightTexture = nullptr;
-  std::shared_ptr<Akari::Image> shadowTexture = nullptr;
-  std::shared_ptr<Akari::Image> ambientOcclusionTexture = nullptr;
 };
 
 class ShadingPass : public Pipeline<ShadingPassInit> {

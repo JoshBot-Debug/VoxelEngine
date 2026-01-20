@@ -43,7 +43,7 @@ void ShadingPass::GetDescriptorPoolSize(
   pool.insert(pool.end(), {
                               {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1},
                               {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1},
-                              {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3},
+                              {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
                           });
 }
 
@@ -62,20 +62,6 @@ void ShadingPass::CreateDescriptorSetLayout() {
           // m_DirectLight
           VkDescriptorSetLayoutBinding{
               .binding = Binding::T_DIRECT_LIGHT,
-              .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-              .descriptorCount = 1,
-              .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-          },
-          // m_Shadow
-          VkDescriptorSetLayoutBinding{
-              .binding = Binding::T_SHADOW,
-              .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-              .descriptorCount = 1,
-              .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-          },
-          // m_AmbientOcclusion
-          VkDescriptorSetLayoutBinding{
-              .binding = Binding::T_AMBIENT_OCCLUSION,
               .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
               .descriptorCount = 1,
               .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -144,18 +130,6 @@ void ShadingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
         .imageView = m_Init.directLightTexture->m_ImageView,
         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
-    // m_Shadow
-    VkDescriptorImageInfo shadowInfo{
-        .sampler = m_Init.shadowTexture->m_Sampler,
-        .imageView = m_Init.shadowTexture->m_ImageView,
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
-    // m_AmbientOcclusion
-    VkDescriptorImageInfo ambientOcclusionInfo{
-        .sampler = m_Init.ambientOcclusionTexture->m_Sampler,
-        .imageView = m_Init.ambientOcclusionTexture->m_ImageView,
-        .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-    };
 
     // --- Storage Images ---
     // m_Shading
@@ -186,26 +160,6 @@ void ShadingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
             .descriptorCount = 1,
             .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .pImageInfo = &directLightInfo,
-        },
-        // m_Shadow
-        VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = m_DescriptorSets[0][0],
-            .dstBinding = Binding::T_SHADOW,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &shadowInfo,
-        },
-        // m_AmbientOcclusion
-        VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = m_DescriptorSets[0][0],
-            .dstBinding = Binding::T_AMBIENT_OCCLUSION,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &ambientOcclusionInfo,
         },
 
         // m_Shading
@@ -280,14 +234,6 @@ void ShadingPass::Render(VkCommandBuffer commandBuffer) {
   uint32_t groupCountY = (m_Shading->GetHeight() + groupSizeY - 1) / groupSizeY;
 
   m_Init.directLightTexture->Transition(
-      commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_ACCESS_2_SHADER_READ_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-
-  m_Init.shadowTexture->Transition(
-      commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_ACCESS_2_SHADER_READ_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-
-  m_Init.ambientOcclusionTexture->Transition(
       commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
       VK_ACCESS_2_SHADER_READ_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 

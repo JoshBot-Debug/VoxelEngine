@@ -1,29 +1,58 @@
 #pragma once
 
-#include <glm/glm.hpp>
-#include <memory>
-
 #include "Camera/PerspectiveCamera.h"
-#include "Image.h"
+
+#include "Kitagawa/Render/CameraBuffer.h"
 #include "Kitagawa/World.h"
 
+#include "Kitagawa/Render/RenderPass/GBufferPass.h"
+#include "Kitagawa/Render/RenderPass/LightingPass.h"
+#include "Kitagawa/Render/RenderPass/ShadingPass.h"
+
+using namespace Kitagawa::Render;
+
 namespace Kitagawa {
-namespace Render {
+
 class Renderer {
+private:
+  World *m_World;
+  PerspectiveCamera *m_Camera;
+  RenderPass::GBufferPass m_GBufferPass;
+  RenderPass::LightingPass m_LightingPass;
+  RenderPass::ShadingPass m_ShadingPass;
+
+  Buffer m_SVOBuffer;
+  Buffer m_LightBuffer;
+  Buffer m_MaterialBuffer;
+  Buffer m_MaterialLUTBuffer;
+  Buffer m_VertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+
+  CameraBuffer m_CameraBuffer;
+
+  VkDevice m_Device = VK_NULL_HANDLE;
+  VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
+
+  std::vector<std::shared_ptr<Akari::Image>> m_DisplayImages = {};
+
+private:
+  void CreateDescripterPool(const std::vector<VkDescriptorPoolSize> &pool);
+  void CreateDescriptorSets();
+
 public:
-  virtual ~Renderer() = default;
+  Renderer();
+  ~Renderer();
 
-  virtual void Initialize() = 0;
+  void Initialize();
 
-  virtual void Render() = 0;
+  void Render();
 
-  virtual void OnResize(uint32_t width, uint32_t height) = 0;
+  void OnResize(uint32_t width, uint32_t height);
 
-  virtual void SetCamera(PerspectiveCamera *camera) = 0;
+  void SetCamera(PerspectiveCamera *camera) { m_Camera = camera; };
 
-  virtual void SetWorld(World *world) = 0;
+  void SetWorld(World *world) { m_World = world; };
 
-  virtual void RenderUI() = 0;
+  void RenderUI();
 };
-} // namespace Render
+
 } // namespace Kitagawa

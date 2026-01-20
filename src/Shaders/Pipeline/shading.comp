@@ -11,8 +11,6 @@ layout(set=0,binding=0)uniform Metadata{
 layout(set=0,binding=109,rgba32f)uniform writeonly image2D outputImage;
 
 layout(set=0,binding=105)uniform sampler2D directLightTexture;
-layout(set=0,binding=106)uniform sampler2D shadowTexture;
-layout(set=0,binding=107)uniform sampler2D ambientOcclusionTexture;
 
 void main(){
   uvec2 pixel=gl_GlobalInvocationID.xy;
@@ -24,10 +22,8 @@ void main(){
   vec2 uv=vec2(pixel)/resolution;
   
   vec3 direct=texture(directLightTexture,uv).rgb;
-  float shadow=texture(shadowTexture,uv).r;
-  float ambientOcclusion=texture(ambientOcclusionTexture,uv).r;
   
-  vec3 color=direct*shadow.r;
+  vec3 color=direct;
   
   float exposure=.8;
   

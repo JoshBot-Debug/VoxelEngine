@@ -24,7 +24,7 @@ enum Binding {
   S_LIGHTS = 53,
 
   U_CAMERA = 0,
-  U_METADATA = 0,
+  U_METADATA = 1,
 
 };
 } // namespace Render
