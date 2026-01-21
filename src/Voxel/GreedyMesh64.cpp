@@ -39,7 +39,7 @@ void GreedyMesh64::PrepareWidthHeightMasks(
 
       /**
        * Shift right to remove the LSB padding bit and extract the following
-       * 32bits into a new mask This is the actual mask we will use for the
+       * 64bits into a new mask This is the actual mask we will use for the
        * height and width
        */
       const uint64_t mask = bits[i];
@@ -84,12 +84,12 @@ void GreedyMesh64::PrepareWidthHeightMasks(
        * turn off the LSB of the end mask
        *
        * This is done in order to not set the height & width of the face at the
-       * end of the chunk if the neighbour is the same To avoid creating faces
+       * end of the chunk if the neighbour is the same to avoid creating faces
        * inbetween chunks
        *
-       * If bit 63 of paddingMask is set, then clear bit 31 of endMask.
+       * If bit 63 of paddingMask is set, then clear bit 63 of endMask.
        * if ((paddingMask >> 63) & 1)
-       *   endMask &= ~(1ULL << 31);
+       *   endMask &= ~(1ULL << 63);
        */
       if ((paddingMask >> (paddingIndex + 1)) & 1)
         endMask &= ~(1ULL << msbIndex);
@@ -146,7 +146,7 @@ void GreedyMesh64::GreedyMeshFace(const glm::ivec3 &offsetPosition, uint8_t a,
 
       widthMasks[index] &= ~widthSizeMask;
     }
-    
+
     switch (type) {
     case FaceType::TOP:
       Face::Top(vertices, widthOffset + (offsetPosition.x * CHUNK_SIZE),
