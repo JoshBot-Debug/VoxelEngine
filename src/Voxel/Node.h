@@ -12,7 +12,7 @@ struct Node {
   bool IsCulled = false;
 
   Node();
-  Node(uint8_t depth);
+  Node(uint8_t depth, VoxelType *voxel = nullptr);
   ~Node();
 
   bool operator==(const Node &other) const;

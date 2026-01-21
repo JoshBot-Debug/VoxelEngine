@@ -58,6 +58,12 @@ private:
    */
   uint32_t m_DDGIProbeSize = 0;
 
+  /**
+   * VoidNode
+   * i.e, the nodes outside of the world, if there is no neighbouring chunk
+   */
+  Node m_Void = Node(0, new Voxel());
+
 private:
   /**
    * Internal recursive setter that applies a voxel to all positions marked in

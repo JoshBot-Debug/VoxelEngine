@@ -144,6 +144,19 @@ Node *SparseVoxelOctree::Get(int x, int y, int z, uint32_t material) {
 
 Node *SparseVoxelOctree::Get(Node *node, int x, int y, int z, int size,
                              uint32_t material) {
+
+  /// TODO: This "fix" works because I removed neighbour chunks. In reality
+  /// I need to check if the x,y,z is somewhere outside of the world, if it is, I need
+  /// to return a "void" node because GreedyMesher needs to know if it has to create faces
+  /// at the edge of the world (It doesn't need to create a face there), so if I return a "void" node
+  /// GreedyMesher thinks "Oh a node is there, welp, no need to create a face since it's hidden."
+  /// If the world is 64x64x64
+  /// I query out node at 0,0,64 or 0,0,-1
+  /// I should get a void node. Not a nullptr.
+  if(y >= m_Size || y < 0) return &m_Void;
+  if(x >= m_Size || x < 0) return &m_Void;
+  if(z >= m_Size || z < 0) return &m_Void;
+
   if (!node)
     return nullptr;
 

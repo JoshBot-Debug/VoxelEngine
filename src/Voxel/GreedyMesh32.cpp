@@ -97,12 +97,12 @@ void GreedyMesh32::PrepareWidthHeightMasks(
     }
 }
 
-void GreedyMesh32::GreedyMesh32Face(const glm::ivec3 &offsetPosition, uint8_t a,
-                                    uint8_t b, uint32_t bits,
-                                    uint32_t (&widthMasks)[],
-                                    uint32_t (&heightMasks)[],
-                                    std::vector<Vertex> &vertices,
-                                    FaceType type, uint32_t material) {
+void GreedyMesh32::GreedyMeshFace(const glm::ivec3 &offsetPosition, uint8_t a,
+                                  uint8_t b, uint32_t bits,
+                                  uint32_t (&widthMasks)[],
+                                  uint32_t (&heightMasks)[],
+                                  std::vector<Vertex> &vertices, FaceType type,
+                                  uint32_t material) {
   while (bits) {
     const uint8_t w = __builtin_ffs(bits) - 1;
     bits = ClearLowestBits(bits, w + 1);
@@ -188,7 +188,7 @@ void GreedyMesh32::GreedyMesh32Face(const glm::ivec3 &offsetPosition, uint8_t a,
   }
 }
 
-void GreedyMesh32::GreedyMesh32Axis(
+void GreedyMesh32::GreedyMeshAxis(
     const glm::ivec3 &offsetPosition, const uint32_t (&bits)[],
     uint32_t (&widthStart)[], uint32_t (&heightStart)[], uint32_t (&widthEnd)[],
     uint32_t (&heightEnd)[], std::vector<Vertex> &vertices, FaceType startType,
@@ -197,10 +197,10 @@ void GreedyMesh32::GreedyMesh32Axis(
     for (uint8_t b = 0; b < CHUNK_SIZE; b++) {
       const uint32_t mask = bits[b + (CHUNK_SIZE * a)];
 
-      GreedyMesh32Face(offsetPosition, a, b, mask & ~(mask << 1), widthStart,
-                       heightStart, vertices, startType, material);
-      GreedyMesh32Face(offsetPosition, a, b, mask & ~(mask >> 1), widthEnd,
-                       heightEnd, vertices, endType, material);
+      GreedyMeshFace(offsetPosition, a, b, mask & ~(mask << 1), widthStart,
+                     heightStart, vertices, startType, material);
+      GreedyMeshFace(offsetPosition, a, b, mask & ~(mask >> 1), widthEnd,
+                     heightEnd, vertices, endType, material);
     }
 }
 
@@ -276,37 +276,39 @@ void GreedyMesh32::Octree(SparseVoxelOctree *tree,
 
     int fast = i % CHUNK_SIZE;
     int slow = (i / CHUNK_SIZE) % CHUNK_SIZE;
+    int MSB = 0;
+    int LSB = 0;
 
     if (row > 0) {
-      int rMSB = (CHUNK_SIZE - 1) - __builtin_clz(row) + 1;
-      int rLSB = __builtin_ctz(row) - 1;
+      MSB = CHUNK_SIZE - __builtin_clz(row);
+      LSB = __builtin_ctz(row) - 1;
 
-      if (tree->Get(origin.x + rMSB, fast + origin.y, slow + origin.z))
+      if (tree->Get(origin.x + MSB, fast + origin.y, slow + origin.z))
         padding[i] |= (1U << 1);
 
-      if (tree->Get(origin.x + rLSB, fast + origin.y, slow + origin.z))
+      if (tree->Get(origin.x + LSB, fast + origin.y, slow + origin.z))
         padding[i] |= (1U << 0);
     }
 
     if (column > 0) {
-      int cMSB = (CHUNK_SIZE - 1) - __builtin_clz(column) + 1;
-      int cLSB = __builtin_ctz(column) - 1;
+      MSB = CHUNK_SIZE - __builtin_clz(column);
+      LSB = __builtin_ctz(column) - 1;
 
-      if (tree->Get(fast + origin.x, origin.y + cMSB, slow + origin.z))
+      if (tree->Get(fast + origin.x, origin.y + MSB, slow + origin.z))
         padding[i] |= (1U << 3);
 
-      if (tree->Get(fast + origin.x, origin.y + cLSB, slow + origin.z))
+      if (tree->Get(fast + origin.x, origin.y + LSB, slow + origin.z))
         padding[i] |= (1U << 2);
     }
 
     if (layer > 0) {
-      int lMSB = (CHUNK_SIZE - 1) - __builtin_clz(layer) + 1;
-      int lLSB = __builtin_ctz(layer) - 1;
+      MSB = CHUNK_SIZE - __builtin_clz(layer);
+      LSB = __builtin_ctz(layer) - 1;
 
-      if (tree->Get(slow + origin.x, fast + origin.y, origin.z + lMSB))
+      if (tree->Get(slow + origin.x, fast + origin.y, origin.z + MSB))
         padding[i] |= (1U << 5);
 
-      if (tree->Get(slow + origin.x, fast + origin.y, origin.z + lLSB))
+      if (tree->Get(slow + origin.x, fast + origin.y, origin.z + LSB))
         padding[i] |= (1U << 4);
     }
   }
@@ -335,8 +337,8 @@ void GreedyMesh32::Octree(SparseVoxelOctree *tree,
 
   PrepareWidthHeightMasks(rows, 0, padding, widthStart, heightStart, widthEnd,
                           heightEnd);
-  GreedyMesh32Axis(coord, rows, widthStart, heightStart, widthEnd, heightEnd,
-                   vertices, FaceType::LEFT, FaceType::RIGHT, material);
+  GreedyMeshAxis(coord, rows, widthStart, heightStart, widthEnd, heightEnd,
+                 vertices, FaceType::LEFT, FaceType::RIGHT, material);
 
   std::memset(widthStart, 0, sizeof(widthStart));
   std::memset(heightStart, 0, sizeof(heightStart));
@@ -345,8 +347,8 @@ void GreedyMesh32::Octree(SparseVoxelOctree *tree,
 
   PrepareWidthHeightMasks(columns, 2, padding, widthStart, heightStart,
                           widthEnd, heightEnd);
-  GreedyMesh32Axis(coord, columns, widthStart, heightStart, widthEnd, heightEnd,
-                   vertices, FaceType::BOTTOM, FaceType::TOP, material);
+  GreedyMeshAxis(coord, columns, widthStart, heightStart, widthEnd, heightEnd,
+                 vertices, FaceType::BOTTOM, FaceType::TOP, material);
 
   std::memset(widthStart, 0, sizeof(widthStart));
   std::memset(heightStart, 0, sizeof(heightStart));
@@ -355,6 +357,6 @@ void GreedyMesh32::Octree(SparseVoxelOctree *tree,
 
   PrepareWidthHeightMasks(layers, 4, padding, widthStart, heightStart, widthEnd,
                           heightEnd);
-  GreedyMesh32Axis(coord, layers, widthStart, heightStart, widthEnd, heightEnd,
-                   vertices, FaceType::FRONT, FaceType::BACK, material);
+  GreedyMeshAxis(coord, layers, widthStart, heightStart, widthEnd, heightEnd,
+                 vertices, FaceType::FRONT, FaceType::BACK, material);
 }

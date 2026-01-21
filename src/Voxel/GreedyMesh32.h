@@ -31,7 +31,7 @@ private:
                           uint32_t (&heightStart)[], uint32_t (&widthEnd)[],
                           uint32_t (&heightEnd)[]);
 
-  static void GreedyMesh32Face(const glm::ivec3 &offsetPosition, uint8_t a,
+  static void GreedyMeshFace(const glm::ivec3 &offsetPosition, uint8_t a,
                                uint8_t b, uint32_t bits,
                                uint32_t (&widthMasks)[],
                                uint32_t (&heightMasks)[],
@@ -39,7 +39,7 @@ private:
                                uint32_t material);
 
   static void
-  GreedyMesh32Axis(const glm::ivec3 &offsetPosition, const uint32_t (&bits)[],
+  GreedyMeshAxis(const glm::ivec3 &offsetPosition, const uint32_t (&bits)[],
                    uint32_t (&widthStart)[], uint32_t (&heightStart)[],
                    uint32_t (&widthEnd)[], uint32_t (&heightEnd)[],
                    std::vector<Vertex> &vertices, FaceType startType,
