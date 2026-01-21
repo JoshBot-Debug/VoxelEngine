@@ -45,14 +45,14 @@ void GreedyMesh64::PrepareWidthHeightMasks(
       const uint64_t mask = bits[i];
 
       /**
-       * The first bit that is on on the left/top/front
+       * The first bit that is on on the right/top/front
        */
       const unsigned int msbIndex =
           (mask == 0) ? (CHUNK_SIZE - 1)
                       : (CHUNK_SIZE - 1) - __builtin_clzll(mask);
 
       /**
-       * The first bit that is on on the right/bottom/back
+       * The first bit that is on on the left/bottom/back
        */
       const unsigned int lsbIndex = (mask == 0) ? 0 : __builtin_ctzll(mask);
 
