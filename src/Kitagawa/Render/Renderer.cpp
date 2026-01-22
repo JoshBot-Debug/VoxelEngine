@@ -145,14 +145,16 @@ void Renderer::Render() {
 
     std::vector<Vertex> vertices = tree->GreedyMesh(palette.GetMaterials());
 
-    for (size_t i = 0; i < vertices.size(); i++)
-    {
-      LOG_IVEC3("Position", vertices[i].Position);
-      // if(vertices[i].Position.x > 64) std::cout << "SUS x " << vertices[i].Position.x << std::endl;
-      // if(vertices[i].Position.y > 64) std::cout << "SUS y " << vertices[i].Position.y << std::endl;
-      // if(vertices[i].Position.z > 64) std::cout << "SUS z " << vertices[i].Position.z << std::endl;
-    }
-    
+    // for (size_t i = 0; i < vertices.size(); i++)
+    // {
+    //   LOG_IVEC3("Position", vertices[i].Position);
+    //   // if(vertices[i].Position.x > 64) std::cout << "SUS x " <<
+    //   vertices[i].Position.x << std::endl;
+    //   // if(vertices[i].Position.y > 64) std::cout << "SUS y " <<
+    //   vertices[i].Position.y << std::endl;
+    //   // if(vertices[i].Position.z > 64) std::cout << "SUS z " <<
+    //   vertices[i].Position.z << std::endl;
+    // }
 
     m_GBufferPass.m_VertexCount = vertices.size();
     size_t verticesSize = vertices.size() * sizeof(Vertex);

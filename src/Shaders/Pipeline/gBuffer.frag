@@ -62,5 +62,5 @@ void main(){
     grid
   );
   
-  outNormal=vec4(color,1.);
+  // outNormal=vec4(color,1.);
 }

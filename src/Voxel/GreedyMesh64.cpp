@@ -44,6 +44,10 @@ void GreedyMesh64::PrepareWidthHeightMasks(
        */
       const uint64_t mask = bits[i];
 
+      if (mask < UINT64_MAX)
+        std::cout << "GSG"
+                  << "\n";
+
       /**
        * The first bit that is on on the right/top/front
        */
@@ -128,6 +132,15 @@ void GreedyMesh64::GreedyMeshFace(const glm::ivec3 &offsetPosition, uint8_t a,
     uint8_t heightSize =
         ~height == 0 ? CHUNK_SIZE : __builtin_ctzll(~(height >> heightOffset));
 
+    if (type == FaceType::BACK) {
+
+      std::cout << "\nCheck index " << (w + (CHUNK_SIZE * (int)(widthOffset)))
+                << std::endl;
+      std::cout << "\nCheck height " << std::bitset<64>(height) << std::endl;
+      std::cout << "\nCheck " << (int)heightSize << " " << (int)heightOffset
+                << std::endl;
+    }
+
     for (uint8_t i = heightOffset; i < heightOffset + heightSize; i++) {
       const unsigned int index = w + (CHUNK_SIZE * i);
 
@@ -162,6 +175,8 @@ void GreedyMesh64::GreedyMeshFace(const glm::ivec3 &offsetPosition, uint8_t a,
       break;
 
     case FaceType::LEFT:
+      std::cout << "LEFT " << (int)heightSize << " " << (int)widthSize
+                << std::endl;
       Face::Left(vertices, w + (offsetPosition.x * CHUNK_SIZE),
                  widthOffset + (offsetPosition.y * CHUNK_SIZE),
                  a + (offsetPosition.z * CHUNK_SIZE), 1.0f, widthSize,
@@ -175,12 +190,16 @@ void GreedyMesh64::GreedyMeshFace(const glm::ivec3 &offsetPosition, uint8_t a,
 
       break;
     case FaceType::FRONT:
+      std::cout << "FRONT " << (int)heightSize << " " << (int)widthSize
+                << std::endl;
       Face::Front(vertices, a + (offsetPosition.x * CHUNK_SIZE),
                   widthOffset + (offsetPosition.y * CHUNK_SIZE),
                   w + (offsetPosition.z * CHUNK_SIZE), heightSize, widthSize,
                   1.0f, material);
       break;
     case FaceType::BACK:
+      std::cout << "BACK " << (int)heightSize << " " << (int)widthSize
+                << std::endl;
       Face::Back(vertices, a + (offsetPosition.x * CHUNK_SIZE),
                  widthOffset + (offsetPosition.y * CHUNK_SIZE),
                  w + (offsetPosition.z * CHUNK_SIZE), heightSize, widthSize,
