@@ -64,7 +64,7 @@ void main(){
     // Distance to light
     float Ld=length(D);
     
-    Hit hit=raymarch(P+N*.001,L,Ld);
+    Hit hit=raymarch(P+N*.01,L,Ld);
     
     float shadow=hit.Material!=light.Material?hit.TMin/Ld:1.;
 
