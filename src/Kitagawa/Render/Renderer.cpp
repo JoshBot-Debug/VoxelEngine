@@ -59,6 +59,7 @@ void Renderer::Initialize() {
 
   m_LightingPass.Initialize(RenderPass::LightingPassInit{
       .world = m_World,
+      .svoBuffer = &m_SVOBuffer,
       .lightBuffer = &m_LightBuffer,
       .materialBuffer = &m_MaterialBuffer,
       .materialLUTBuffer = &m_MaterialLUTBuffer,

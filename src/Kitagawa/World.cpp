@@ -129,7 +129,7 @@ const void World::GenerateCornellBox() {
 
   int lightSize = m_ChunkSize / 16;
   m_SVO->Set((m_ChunkSize / 2) - (lightSize / 2) - 1,
-             m_ChunkSize - 1 - lightSize - lightSize,
+             m_ChunkSize - 1 - lightSize,
              (m_ChunkSize / 2) - (lightSize / 2) - 1, light.get(), lightSize);
 
   // glm::ivec3 lightBox =

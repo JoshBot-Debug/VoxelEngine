@@ -22,6 +22,7 @@ layout(std430,set=0,binding=53)readonly buffer Lights{
 
 #include "camera.glsl"
 #include "material.glsl"
+#include "raymarch.glsl"
 
 void main(){
   ivec2 pixel=ivec2(gl_GlobalInvocationID.xy);
@@ -53,7 +54,6 @@ void main(){
   
   for(int i=0;i<lights.count;++i){
     DenseVoxel light=lights.data[i];
-    Material lightMaterial=getMaterial(light.Material);
     
     // Light position
     vec3 Lp=light.Position+(float(1<<light.Depth)/2.);
@@ -61,10 +61,18 @@ void main(){
     vec3 D=Lp-P;
     // Normalized direction
     vec3 L=normalize(D);
+    // Distance to light
+    float Ld=length(D);
+    
+    Hit hit=raymarch(P+N*.001,L,Ld);
+    
+    float shadow=hit.Material!=light.Material?hit.TMin/Ld:1.;
+
+    Material lightMaterial=getMaterial(light.Material);
     
     vec3 brdf=BRDF(N,V,L,material.Albedo.rgb,material.Metallic,material.Roughness);
     
-    Lo+=brdf*(lightMaterial.Emissive.rgb*lightMaterial.Emissive.a);
+    Lo+=brdf*(lightMaterial.Emissive.rgb*lightMaterial.Emissive.a)*shadow;
   }
   
   Lo/=lights.count;

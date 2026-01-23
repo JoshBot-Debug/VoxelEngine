@@ -17,6 +17,7 @@ namespace RenderPass {
 
 struct LightingPassInit {
   World *world = nullptr;
+  Buffer *svoBuffer = nullptr;
   Buffer *lightBuffer = nullptr;
   Buffer *materialBuffer = nullptr;
   Buffer *materialLUTBuffer = nullptr;

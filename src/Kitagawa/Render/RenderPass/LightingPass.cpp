@@ -112,6 +112,13 @@ void LightingPass::CreateDescriptorSetLayout() {
               .descriptorCount = 1,
               .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
           },
+          // m_SVOBuffer
+          VkDescriptorSetLayoutBinding{
+              .binding = Binding::S_SVO,
+              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+          },
       },
       // Binding 1
       {
@@ -220,6 +227,12 @@ void LightingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
         .offset = 0,
         .range = VK_WHOLE_SIZE,
     };
+    // m_SVOBuffer
+    VkDescriptorBufferInfo svoBufferInfo{
+        .buffer = m_Init.svoBuffer->GetBuffer(),
+        .offset = 0,
+        .range = VK_WHOLE_SIZE,
+    };
 
     std::vector<VkWriteDescriptorSet> writes{
         // m_MetadataBuffer
@@ -304,6 +317,17 @@ void LightingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .pBufferInfo = &lightBufferInfo,
         },
+        // m_SVOBuffer
+        VkWriteDescriptorSet{
+            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet = m_DescriptorSets[0][0],
+            .dstBinding = Binding::S_SVO,
+            .dstArrayElement = 0,
+            .descriptorCount = 1,
+            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+            .pBufferInfo = &svoBufferInfo,
+        },
+
     };
 
     vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writes.size()),
