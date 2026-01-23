@@ -40,3 +40,9 @@ Run the project
 - [ ] Greedy mesh on the GPU
 - [ ] All voxels that are disjointed need to be in a seperate SVO.
 - [ ]
+
+  Here's my computer specs:
+
+  **GPU**: Intel(R) Arc(tm) A750 Graphics (DG2)
+  **Driver Version**: 25.0.7
+  Vulkan API Version: 1.4.305

@@ -1,15 +1,12 @@
 #pragma once
 
-#include <bitset>
-#include <cstring>
-#include <vector>
-
-#include <glm/glm.hpp>
-
 #include "Face.h"
 #include "SparseVoxelOctree.h"
 
+#include <cstring>
+#include <glm/glm.hpp>
 #include <immintrin.h>
+#include <vector>
 
 class GreedyMesh64 {
 public:

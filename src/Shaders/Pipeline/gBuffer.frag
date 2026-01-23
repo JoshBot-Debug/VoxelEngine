@@ -30,37 +30,38 @@ void main(){
   outMaterial=vMaterial;
   outMotionVector=vMotionVector;
   
-  vec2 gridPos=vec2(0.);
+  /// TODO: Draw the mesh grid style. Helpful for debugging, keep this code :P, move it out later.
+  // vec2 gridPos=vec2(0.);
   
-  vec3 n=normalize(vWorldNormal);
-  vec3 an=abs(n);
+  // vec3 n=normalize(vWorldNormal);
+  // vec3 an=abs(n);
   
-  if(an.y>an.x&&an.y>an.z)
-  {
-    // top or bottom
-    gridPos=vWorldPos.xz;
-  }
-  else if(an.x>an.y&&an.x>an.z)
-  {
-    // left or right
-    gridPos=vWorldPos.zy;
-  }
-  else
-  {
-    // front or back
-    gridPos=vWorldPos.xy;
-  }
+  // if(an.y>an.x&&an.y>an.z)
+  // {
+    //   // top or bottom
+    //   gridPos=vWorldPos.xz;
+  // }
+  // else if(an.x>an.y&&an.x>an.z)
+  // {
+    //   // left or right
+    //   gridPos=vWorldPos.zy;
+  // }
+  // else
+  // {
+    //   // front or back
+    //   gridPos=vWorldPos.xy;
+  // }
   
-  ivec2 cell=ivec2(floor(gridPos));
-  vec2 local=fract(gridPos);
+  // ivec2 cell=ivec2(floor(gridPos));
+  // vec2 local=fract(gridPos);
   
-  float grid=drawGrid(local);
+  // float grid=drawGrid(local);
   
-  vec3 color=mix(
-    vec3(.3412,.7608,.2353),
-    vec3(0.),
-    grid
-  );
+  // vec3 color=mix(
+    //   vec3(.3412,.7608,.2353),
+    //   vec3(0.),
+    //   grid
+  // );
   
   // outNormal=vec4(color,1.);
 }

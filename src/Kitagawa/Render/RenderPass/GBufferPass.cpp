@@ -443,10 +443,9 @@ void GBufferPass::CreatePipeline() {
       .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
       .depthClampEnable = VK_FALSE,
       .rasterizerDiscardEnable = VK_FALSE,
-      // .polygonMode = VK_POLYGON_MODE_FILL,
-      .polygonMode = VK_POLYGON_MODE_LINE,
+      .polygonMode = VK_POLYGON_MODE_FILL,
+      // .polygonMode = VK_POLYGON_MODE_LINE,
       .cullMode = VK_CULL_MODE_BACK_BIT,
-      // .cullMode = VK_CULL_MODE_NONE,
       .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
       .depthBiasEnable = VK_FALSE,
       .lineWidth = 1.0f,
@@ -630,7 +629,7 @@ void GBufferPass::Render(VkCommandBuffer commandBuffer) {
 
 uint32_t GBufferPass::GetMaxSets() {
   const uint32_t framesInFlight = Akari::Application::GetMaxFramesInFlight();
-  // m_Camera(5) + m_MetadataBuffer
+  // m_Camera(5) + the other set for all other non-per frame buffers
   return framesInFlight + 1;
 }
 } // namespace RenderPass
