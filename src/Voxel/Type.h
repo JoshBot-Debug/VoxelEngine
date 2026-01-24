@@ -6,36 +6,36 @@ struct alignas(16) DDGIProbe {
 };
 
 struct alignas(16) FlatVoxel {
-  uint32_t Depth = 0;
-  uint32_t Children = 0;
+  uint32_t Depth      = 0;
+  uint32_t Children   = 0;
   uint32_t ChildIndex = 0;
-  uint32_t Material = 0;
+  uint32_t Material   = 0;
 };
 
 struct alignas(16) DenseVoxel {
   glm::vec3 Position;
-  uint32_t PadP;
-  uint32_t Depth = 0;
-  uint32_t Material = 0;
-  uint32_t Padding[3] = {};
+  uint32_t  PadP;
+  uint32_t  Depth      = 0;
+  uint32_t  Material   = 0;
+  uint32_t  Padding[3] = {};
 };
 
 struct alignas(16) Material {
-  uint32_t Id = 0;
-  float Metallic = 0.0f;
-  float Roughness = 1.0f;
-  uint32_t Padding = 0;
-  glm::vec4 Albedo = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-  glm::vec4 Emissive = glm::vec4(0.0f);
+  uint32_t  Id        = 0;
+  float     Metallic  = 0.0f;
+  float     Roughness = 1.0f;
+  uint32_t  Padding   = 0;
+  glm::vec4 Albedo    = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+  glm::vec4 Emissive  = glm::vec4(0.0f);
 };
 
 struct alignas(16) Vertex {
   glm::vec3 Position;
-  uint32_t PadP;
+  uint32_t  PadP;
   glm::vec3 Normal;
-  uint32_t PadN;
-  uint32_t Material;
-  uint32_t Padding[3] = {};
+  uint32_t  PadN;
+  uint32_t  Material;
+  uint32_t  Padding[3] = {};
 
   Vertex() = default;
 
@@ -43,9 +43,9 @@ struct alignas(16) Vertex {
     Position.x = x;
     Position.y = y;
     Position.z = z;
-    Normal.x = nx;
-    Normal.y = ny;
-    Normal.z = nz;
+    Normal.x   = nx;
+    Normal.y   = ny;
+    Normal.z   = nz;
   }
 
   Vertex(float x, float y, float z, float nx, float ny, float nz,
@@ -54,12 +54,12 @@ struct alignas(16) Vertex {
     Position.x = x;
     Position.y = y;
     Position.z = z;
-    Normal.x = nx;
-    Normal.y = ny;
-    Normal.z = nz;
+    Normal.x   = nx;
+    Normal.y   = ny;
+    Normal.z   = nz;
   }
 
-  bool operator==(const Vertex &other) const {
+  bool operator==(const Vertex& other) const {
     return Position.x == other.Position.x && Position.y == other.Position.y &&
            Position.z == other.Position.z && Normal.x == other.Normal.x &&
            Normal.y == other.Normal.y && Normal.z == other.Normal.z;
@@ -73,30 +73,37 @@ struct AABB {
 
 struct Plane {
   glm::vec3 Normal;
-  float Distance;
+  float     Distance;
 
   Plane() = default;
-  Plane(const glm::vec3 &n, float distance)
+  Plane(const glm::vec3& n, float distance)
       : Normal(glm::normalize(n)), Distance(distance) {}
 
-  float distance(const glm::vec3 &point) const {
+  float distance(const glm::vec3& point) const {
     return glm::dot(Normal, point) + Distance;
   }
 };
 
 struct Frustum {
-  enum class Intersection { Outside, Intersecting, Inside };
+  enum class Intersection { Outside,
+                            Intersecting,
+                            Inside };
 
   Plane Planes[6]; // left, right, bottom, top, near, far
 
-  enum { LEFT = 0, RIGHT, BOTTOM, TOP, NEAR, FAR };
+  enum { LEFT = 0,
+         RIGHT,
+         BOTTOM,
+         TOP,
+         NEAR,
+         FAR };
 
-  static Frustum FromMatrix(const glm::mat4 &viewProjection) {
+  static Frustum FromMatrix(const glm::mat4& viewProjection) {
     Frustum f;
 
     auto makePlane = [](glm::vec4 v) {
       glm::vec3 n(v.x, v.y, v.z);
-      float len = glm::length(n);
+      float     len = glm::length(n);
       return Plane(n / len, v.w / len);
     };
 
@@ -109,21 +116,21 @@ struct Frustum {
     glm::vec4 rowW(viewProjection[0][3], viewProjection[1][3],
                    viewProjection[2][3], viewProjection[3][3]);
 
-    f.Planes[LEFT] = makePlane(rowW + rowX);
-    f.Planes[RIGHT] = makePlane(rowW - rowX);
+    f.Planes[LEFT]   = makePlane(rowW + rowX);
+    f.Planes[RIGHT]  = makePlane(rowW - rowX);
     f.Planes[BOTTOM] = makePlane(rowW + rowY);
-    f.Planes[TOP] = makePlane(rowW - rowY);
-    f.Planes[NEAR] = makePlane(rowW + rowZ);
-    f.Planes[FAR] = makePlane(rowW - rowZ);
+    f.Planes[TOP]    = makePlane(rowW - rowY);
+    f.Planes[NEAR]   = makePlane(rowW + rowZ);
+    f.Planes[FAR]    = makePlane(rowW - rowZ);
 
     return f;
   }
 
-  Intersection Intersects(const AABB &box) const {
+  Intersection Intersects(const AABB& box) const {
     bool intersects = false;
 
     for (int i = 0; i < 6; i++) {
-      const Plane &p = Planes[i];
+      const Plane& p = Planes[i];
 
       glm::vec3 positive = box.Min;
       glm::vec3 negative = box.Max;

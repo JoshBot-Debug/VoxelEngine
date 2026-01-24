@@ -13,26 +13,26 @@ namespace Render {
 class Buffer {
 private:
   struct Vector {
-    uint64_t count;
-    const void *data;
+    uint64_t    count;
+    const void* data;
   };
 
 public:
   struct Specification {
-    size_t Size = 16;
+    size_t             Size  = 16;
     VkBufferUsageFlags Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
   };
 
 private:
-  VkDevice m_Device;
+  VkDevice         m_Device;
   VkPhysicalDevice m_PhysicalDevice;
-  Specification m_Specification;
+  Specification    m_Specification;
 
-  VkBuffer m_Buffer = VK_NULL_HANDLE;
+  VkBuffer m_Buffer        = VK_NULL_HANDLE;
   VkBuffer m_StagingBuffer = VK_NULL_HANDLE;
 
-  VmaAllocation m_BufferAllocation = VK_NULL_HANDLE;
+  VmaAllocation m_BufferAllocation        = VK_NULL_HANDLE;
   VmaAllocation m_StagingBufferAllocation = VK_NULL_HANDLE;
 
   VkDeviceSize m_Size = 0;
@@ -40,10 +40,10 @@ private:
 private:
   void DestroyBuffer();
 
-  void CopyToGPU(VkCommandBuffer commandBuffer, size_t size, const void *data);
+  void CopyToGPU(VkCommandBuffer commandBuffer, size_t size, const void* data);
 
   template <typename T>
-  std::vector<uint8_t> BuildVector(const std::vector<T> &src) {
+  std::vector<uint8_t> BuildVector(const std::vector<T>& src) {
 
     uint32_t count = static_cast<uint32_t>(src.size());
 
@@ -67,13 +67,13 @@ private:
 
 public:
   Buffer();
-  Buffer(const Specification &specification);
+  Buffer(const Specification& specification);
   ~Buffer();
 
   void CreateBuffer(VkDeviceSize size);
 
   template <typename T>
-  bool Upload(VkCommandBuffer commandBuffer, const std::vector<T> &vector) {
+  bool Upload(VkCommandBuffer commandBuffer, const std::vector<T>& vector) {
 
     std::vector<uint8_t> buffer = BuildVector(vector);
 
@@ -84,9 +84,9 @@ public:
       return false;
     }
 
-    VkBuffer oBuffer = m_Buffer;
-    VkBuffer oStagingBuffer = m_StagingBuffer;
-    VmaAllocation oBufferAllocation = m_BufferAllocation;
+    VkBuffer      oBuffer                  = m_Buffer;
+    VkBuffer      oStagingBuffer           = m_StagingBuffer;
+    VmaAllocation oBufferAllocation        = m_BufferAllocation;
     VmaAllocation oStagingBufferAllocation = m_StagingBufferAllocation;
 
     CreateBuffer(size);
@@ -101,12 +101,12 @@ public:
     return true;
   }
 
-  bool Upload(VkCommandBuffer commandBuffer, size_t size, void *data);
+  bool Upload(VkCommandBuffer commandBuffer, size_t size, void* data);
 
   VkBuffer GetBuffer() const { return m_Buffer; }
 
   VkBufferMemoryBarrier2 GetBarrier(VkPipelineStageFlags2 dstStageMask,
-                                    VkAccessFlags2 dstAccessMask);
+                                    VkAccessFlags2        dstAccessMask);
 
   /// Returns device address (for bindless shaders)
   VkDeviceAddress GetDeviceAddress() const;

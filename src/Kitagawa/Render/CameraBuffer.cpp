@@ -18,7 +18,7 @@ CameraBuffer::CameraBuffer() {
 
     VkBufferCreateInfo bufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = bufferSize,
+        .size  = bufferSize,
         .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
     };
 
@@ -41,7 +41,7 @@ CameraBuffer::CameraBuffer() {
 }
 
 CameraBuffer::~CameraBuffer() {
-  VmaAllocator allocator = Akari::Application::GetVmaAllocator();
+  VmaAllocator   allocator      = Akari::Application::GetVmaAllocator();
   const uint32_t framesInFlight = Akari::Application::GetMaxFramesInFlight();
 
   for (size_t i = 0; i < framesInFlight; i++) {
@@ -49,21 +49,21 @@ CameraBuffer::~CameraBuffer() {
   }
 }
 
-void CameraBuffer::Render(PerspectiveCamera *camera) {
+void CameraBuffer::Render(PerspectiveCamera* camera) {
 
   Camera data{
-      .view = camera->GetViewMatrix(),
-      .projection = camera->GetProjectionMatrix(),
-      .viewProjection = camera->GetViewProjectionMatrix(),
-      .inverseView = camera->GetInverseViewMatrix(),
-      .inverseProjection = camera->GetInverseProjectionMatrix(),
+      .view                  = camera->GetViewMatrix(),
+      .projection            = camera->GetProjectionMatrix(),
+      .viewProjection        = camera->GetViewProjectionMatrix(),
+      .inverseView           = camera->GetInverseViewMatrix(),
+      .inverseProjection     = camera->GetInverseProjectionMatrix(),
       .inverseViewProjection = camera->GetInverseViewProjectionMatrix(),
 
-      .pView = camera->GetPreviousViewMatrix(),
-      .pProjection = camera->GetPreviousProjectionMatrix(),
-      .pViewProjection = camera->GetPreviousViewProjectionMatrix(),
-      .pInverseView = camera->GetPreviousInverseViewMatrix(),
-      .pInverseProjection = camera->GetPreviousInverseProjectionMatrix(),
+      .pView                  = camera->GetPreviousViewMatrix(),
+      .pProjection            = camera->GetPreviousProjectionMatrix(),
+      .pViewProjection        = camera->GetPreviousViewProjectionMatrix(),
+      .pInverseView           = camera->GetPreviousInverseViewMatrix(),
+      .pInverseProjection     = camera->GetPreviousInverseProjectionMatrix(),
       .pInverseViewProjection = camera->GetPreviousInverseViewProjectionMatrix(),
 
       .position = camera->Position,

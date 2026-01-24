@@ -7,6 +7,6 @@ struct Voxel {
   Voxel() = default;
   Voxel(uint32_t material);
 
-  bool operator==(const Voxel &other) const;
-  bool operator!=(const Voxel &other) const;
+  bool operator==(const Voxel& other) const;
+  bool operator!=(const Voxel& other) const;
 };

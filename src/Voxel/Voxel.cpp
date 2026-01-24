@@ -2,8 +2,8 @@
 
 Voxel::Voxel(uint32_t material) : Material(material) {}
 
-bool Voxel::operator==(const Voxel &other) const {
+bool Voxel::operator==(const Voxel& other) const {
   return Material == other.Material;
 }
 
-bool Voxel::operator!=(const Voxel &other) const { return !(*this == other); }
+bool Voxel::operator!=(const Voxel& other) const { return !(*this == other); }

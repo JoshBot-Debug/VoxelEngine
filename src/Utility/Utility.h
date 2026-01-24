@@ -8,7 +8,7 @@
 #include <imgui.h>
 
 inline std::string getExecutableDir() {
-  char result[PATH_MAX];
+  char    result[PATH_MAX];
   ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
   return std::filesystem::path(
              std::string(result,
@@ -17,8 +17,8 @@ inline std::string getExecutableDir() {
       .string();
 }
 
-inline bool GetViewportMouse(float &x, float &y) {
-  ImVec2 mouse = ImGui::GetMousePos();
+inline bool GetViewportMouse(float& x, float& y) {
+  ImVec2 mouse     = ImGui::GetMousePos();
   ImVec2 windowPos = ImGui::GetWindowPos();
 
   ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
@@ -32,7 +32,7 @@ inline bool GetViewportMouse(float &x, float &y) {
     return false;
   }
 
-  float width = viewportMax.x - viewportMin.x;
+  float width  = viewportMax.x - viewportMin.x;
   float height = viewportMax.y - viewportMin.y;
 
   x = mouse.x - viewportMin.x;
@@ -44,9 +44,8 @@ inline bool GetViewportMouse(float &x, float &y) {
   return true;
 }
 
-
-inline bool GetViewportInfo(float &mouseX, float &mouseY, float &viewportWidth, float &viewportHeight) {
-  ImVec2 mouse = ImGui::GetMousePos();
+inline bool GetViewportInfo(float& mouseX, float& mouseY, float& viewportWidth, float& viewportHeight) {
+  ImVec2 mouse     = ImGui::GetMousePos();
   ImVec2 windowPos = ImGui::GetWindowPos();
 
   ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
@@ -60,7 +59,7 @@ inline bool GetViewportInfo(float &mouseX, float &mouseY, float &viewportWidth, 
     return false;
   }
 
-  viewportWidth = viewportMax.x - viewportMin.x;
+  viewportWidth  = viewportMax.x - viewportMin.x;
   viewportHeight = viewportMax.y - viewportMin.y;
 
   mouseX = mouse.x - viewportMin.x;

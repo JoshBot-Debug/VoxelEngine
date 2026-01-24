@@ -16,15 +16,15 @@ namespace Render {
 namespace RenderPass {
 
 struct LightingPassInit {
-  World *world = nullptr;
-  Buffer *svoBuffer = nullptr;
-  Buffer *lightBuffer = nullptr;
-  Buffer *materialBuffer = nullptr;
-  Buffer *materialLUTBuffer = nullptr;
-  CameraBuffer *cameraBuffer = nullptr;
+  World*        world             = nullptr;
+  Buffer*       svoBuffer         = nullptr;
+  Buffer*       lightBuffer       = nullptr;
+  Buffer*       materialBuffer    = nullptr;
+  Buffer*       materialLUTBuffer = nullptr;
+  CameraBuffer* cameraBuffer      = nullptr;
 
-  std::shared_ptr<Akari::Image> depthTexture = nullptr;
-  std::shared_ptr<Akari::Image> normalTexture = nullptr;
+  std::shared_ptr<Akari::Image> depthTexture    = nullptr;
+  std::shared_ptr<Akari::Image> normalTexture   = nullptr;
   std::shared_ptr<Akari::Image> materialTexture = nullptr;
 };
 
@@ -40,13 +40,13 @@ private:
 private:
   VkDevice m_Device;
 
-  VkBuffer m_MetadataBuffer;
+  VkBuffer      m_MetadataBuffer;
   VmaAllocation m_MetadataAllocation;
 
   std::shared_ptr<Akari::Image> m_DirectLight =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
-          .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
-          .Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          .Format     = VK_FORMAT_R32G32B32A32_SFLOAT,
+          .Usage      = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
           .ObjectName = "LightingPass::m_DirectLight",
       });
 
@@ -64,7 +64,7 @@ public:
   /**
    * Second step is to create the descriptor pool size
    */
-  void GetDescriptorPoolSize(std::vector<VkDescriptorPoolSize> &pool) override;
+  void GetDescriptorPoolSize(std::vector<VkDescriptorPoolSize>& pool) override;
 
   /**
    * Setup the descriptor set layout

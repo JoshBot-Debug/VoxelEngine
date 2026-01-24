@@ -19,7 +19,7 @@ private:
   Palette m_Palette;
 
   std::vector<std::shared_ptr<Voxel>> m_Voxels;
-  std::shared_ptr<SparseVoxelOctree> m_SVO = nullptr;
+  std::shared_ptr<SparseVoxelOctree>  m_SVO = nullptr;
 
 private:
   const void GenerateCornellBox();
@@ -30,9 +30,9 @@ public:
 
   void RenderUI();
 
-  const std::shared_ptr<SparseVoxelOctree> &GetSVO() { return m_SVO; };
+  const std::shared_ptr<SparseVoxelOctree>& GetSVO() { return m_SVO; };
 
-  Palette &GetPalette() { return m_Palette; };
+  Palette& GetPalette() { return m_Palette; };
 
   uint32_t GetChunkSize() { return m_ChunkSize; }
 

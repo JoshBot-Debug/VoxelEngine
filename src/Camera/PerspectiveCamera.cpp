@@ -9,11 +9,11 @@ float ToDegree(float degree) {
 
 void PerspectiveCamera::Update() {
 
-  glm::mat4 pView = m_View;
-  glm::mat4 pProjection = m_Projection;
-  glm::mat4 pViewProjection = m_ViewProjection;
-  glm::mat4 pInverseView = m_InverseView;
-  glm::mat4 pInverseProjection = m_InverseProjection;
+  glm::mat4 pView                  = m_View;
+  glm::mat4 pProjection            = m_Projection;
+  glm::mat4 pViewProjection        = m_ViewProjection;
+  glm::mat4 pInverseView           = m_InverseView;
+  glm::mat4 pInverseProjection     = m_InverseProjection;
   glm::mat4 pInverseViewProjection = m_InverseViewProjection;
 
   m_Front.x = sin(glm::radians(Rotation.y)) * cos(glm::radians(Rotation.x));
@@ -23,12 +23,12 @@ void PerspectiveCamera::Update() {
   m_Front = glm::normalize(m_Front);
 
   m_Right = glm::normalize(glm::cross(m_Front, glm::vec3(0.0f, 1.0f, 0.0f)));
-  m_Up = glm::normalize(glm::cross(m_Right, m_Front));
+  m_Up    = glm::normalize(glm::cross(m_Right, m_Front));
 
   m_Roll = glm::rotate(glm::mat4(1.0f), glm::radians(Rotation.z), m_Front);
 
   m_Right = glm::normalize(glm::vec3(m_Roll * glm::vec4(m_Right, 0.0f)));
-  m_Up = glm::normalize(glm::vec3(m_Roll * glm::vec4(m_Up, 0.0f)));
+  m_Up    = glm::normalize(glm::vec3(m_Roll * glm::vec4(m_Up, 0.0f)));
 
   m_View = glm::lookAt(Position, Position + m_Front, m_Up);
 
@@ -50,11 +50,11 @@ void PerspectiveCamera::Update() {
   m_IsDirty = inverseViewProjection != m_InverseViewProjection;
 
   if (m_IsDirty) {
-    m_pView = pView;
-    m_pProjection = pProjection;
-    m_pViewProjection = pViewProjection;
-    m_pInverseView = pInverseView;
-    m_pInverseProjection = pInverseProjection;
+    m_pView                  = pView;
+    m_pProjection            = pProjection;
+    m_pViewProjection        = pViewProjection;
+    m_pInverseView           = pInverseView;
+    m_pInverseProjection     = pInverseProjection;
     m_pInverseViewProjection = pInverseViewProjection;
 
     m_InverseViewProjection = inverseViewProjection;
@@ -62,7 +62,7 @@ void PerspectiveCamera::Update() {
 }
 
 void PerspectiveCamera::OnResize(uint32_t width, uint32_t height) {
-  ViewportWidth = width;
+  ViewportWidth  = width;
   ViewportHeight = height;
 }
 
@@ -93,54 +93,54 @@ void PerspectiveCamera::Rotate(float deltaPitch, float deltaYaw,
 
 void PerspectiveCamera::SetProjection(float fov, float nearPlane,
                                       float farPlane) {
-  FOV = fov;
+  FOV       = fov;
   NearPlane = nearPlane;
-  FarPlane = farPlane;
+  FarPlane  = farPlane;
 }
 
-const glm::mat4 &PerspectiveCamera::GetViewProjectionMatrix() const {
+const glm::mat4& PerspectiveCamera::GetViewProjectionMatrix() const {
   return m_ViewProjection;
 }
 
-const glm::mat4 &PerspectiveCamera::GetInverseViewMatrix() const {
+const glm::mat4& PerspectiveCamera::GetInverseViewMatrix() const {
   return m_InverseView;
 }
 
-const glm::mat4 &PerspectiveCamera::GetInverseProjectionMatrix() const {
+const glm::mat4& PerspectiveCamera::GetInverseProjectionMatrix() const {
   return m_InverseProjection;
 }
 
-const glm::mat4 &PerspectiveCamera::GetInverseViewProjectionMatrix() const {
+const glm::mat4& PerspectiveCamera::GetInverseViewProjectionMatrix() const {
   return m_InverseViewProjection;
 }
 
-const glm::mat4 &PerspectiveCamera::GetProjectionMatrix() const {
+const glm::mat4& PerspectiveCamera::GetProjectionMatrix() const {
   return m_Projection;
 }
 
-const glm::mat4 &PerspectiveCamera::GetViewMatrix() const { return m_View; }
+const glm::mat4& PerspectiveCamera::GetViewMatrix() const { return m_View; }
 
-const glm::mat4 &PerspectiveCamera::GetPreviousViewProjectionMatrix() const {
+const glm::mat4& PerspectiveCamera::GetPreviousViewProjectionMatrix() const {
   return m_pViewProjection;
 };
 
-const glm::mat4 &PerspectiveCamera::GetPreviousProjectionMatrix() const {
+const glm::mat4& PerspectiveCamera::GetPreviousProjectionMatrix() const {
   return m_pProjection;
 };
 
-const glm::mat4 &PerspectiveCamera::GetPreviousViewMatrix() const {
+const glm::mat4& PerspectiveCamera::GetPreviousViewMatrix() const {
   return m_pView;
 };
 
-const glm::mat4 &PerspectiveCamera::GetPreviousInverseViewMatrix() const {
+const glm::mat4& PerspectiveCamera::GetPreviousInverseViewMatrix() const {
   return m_pInverseView;
 };
 
-const glm::mat4 &PerspectiveCamera::GetPreviousInverseProjectionMatrix() const {
+const glm::mat4& PerspectiveCamera::GetPreviousInverseProjectionMatrix() const {
   return m_pInverseProjection;
 };
 
-const glm::mat4 &
+const glm::mat4&
 PerspectiveCamera::GetPreviousInverseViewProjectionMatrix() const {
   return m_pInverseViewProjection;
 };

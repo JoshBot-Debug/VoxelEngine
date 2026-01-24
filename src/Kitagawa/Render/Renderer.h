@@ -2,8 +2,8 @@
 
 #include "Camera/PerspectiveCamera.h"
 
-#include "Kitagawa/World.h"
 #include "Kitagawa/Render/CameraBuffer.h"
+#include "Kitagawa/World.h"
 
 #include "Kitagawa/Render/RenderPass/GBufferPass.h"
 #include "Kitagawa/Render/RenderPass/LightingPass.h"
@@ -15,11 +15,11 @@ namespace Kitagawa {
 
 class Renderer {
 private:
-  World *m_World;
-  PerspectiveCamera *m_Camera;
-  RenderPass::GBufferPass m_GBufferPass;
+  World*                   m_World;
+  PerspectiveCamera*       m_Camera;
+  RenderPass::GBufferPass  m_GBufferPass;
   RenderPass::LightingPass m_LightingPass;
-  RenderPass::ShadingPass m_ShadingPass;
+  RenderPass::ShadingPass  m_ShadingPass;
 
   Buffer m_SVOBuffer;
   Buffer m_LightBuffer;
@@ -29,13 +29,13 @@ private:
 
   CameraBuffer m_CameraBuffer;
 
-  VkDevice m_Device = VK_NULL_HANDLE;
+  VkDevice         m_Device         = VK_NULL_HANDLE;
   VkDescriptorPool m_DescriptorPool = VK_NULL_HANDLE;
 
   std::vector<std::shared_ptr<Akari::Image>> m_DisplayImages = {};
 
 private:
-  void CreateDescripterPool(const std::vector<VkDescriptorPoolSize> &pool);
+  void CreateDescripterPool(const std::vector<VkDescriptorPoolSize>& pool);
   void CreateDescriptorSets();
 
 public:
@@ -48,9 +48,9 @@ public:
 
   void OnResize(uint32_t width, uint32_t height);
 
-  void SetCamera(PerspectiveCamera *camera) { m_Camera = camera; };
+  void SetCamera(PerspectiveCamera* camera) { m_Camera = camera; };
 
-  void SetWorld(World *world) { m_World = world; };
+  void SetWorld(World* world) { m_World = world; };
 
   void RenderUI();
 };

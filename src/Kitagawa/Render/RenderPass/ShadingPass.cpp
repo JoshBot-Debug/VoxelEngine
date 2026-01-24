@@ -21,7 +21,7 @@ void ShadingPass::CreateBuffers() {
 
     VkBufferCreateInfo bufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = bufferSize,
+        .size  = bufferSize,
         .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
     };
 
@@ -37,7 +37,7 @@ void ShadingPass::CreateBuffers() {
 }
 
 void ShadingPass::GetDescriptorPoolSize(
-    std::vector<VkDescriptorPoolSize> &pool) {
+    std::vector<VkDescriptorPoolSize>& pool) {
   const uint32_t framesInFlight = Akari::Application::GetMaxFramesInFlight();
 
   pool.insert(pool.end(), {
@@ -53,26 +53,26 @@ void ShadingPass::CreateDescriptorSetLayout() {
       {
           // m_MetadataBuffer
           VkDescriptorSetLayoutBinding{
-              .binding = Binding::U_METADATA,
-              .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+              .binding         = Binding::U_METADATA,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
               .descriptorCount = 1,
-              .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
 
           // m_DirectLight
           VkDescriptorSetLayoutBinding{
-              .binding = Binding::T_DIRECT_LIGHT,
-              .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+              .binding         = Binding::T_DIRECT_LIGHT,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
               .descriptorCount = 1,
-              .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
 
           // m_Shading
           VkDescriptorSetLayoutBinding{
-              .binding = Binding::T_SHADING,
-              .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+              .binding         = Binding::T_SHADING,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
               .descriptorCount = 1,
-              .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
       },
   };
@@ -80,12 +80,12 @@ void ShadingPass::CreateDescriptorSetLayout() {
   m_DescriptorSetLayouts.resize(bindings.size());
 
   for (size_t i = 0; i < bindings.size(); i++) {
-    std::vector<VkDescriptorSetLayoutBinding> &binding = bindings[i];
+    std::vector<VkDescriptorSetLayoutBinding>& binding = bindings[i];
 
     VkDescriptorSetLayoutCreateInfo layoutInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+        .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
         .bindingCount = static_cast<uint32_t>(binding.size()),
-        .pBindings = binding.data(),
+        .pBindings    = binding.data(),
     };
 
     if (LOG_VK_RESULT(vkCreateDescriptorSetLayout(
@@ -105,10 +105,10 @@ void ShadingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
     m_DescriptorSets[0].emplace_back();
 
     VkDescriptorSetAllocateInfo allocInfo{
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-        .descriptorPool = descriptorPool,
+        .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+        .descriptorPool     = descriptorPool,
         .descriptorSetCount = 1,
-        .pSetLayouts = &m_DescriptorSetLayouts[0],
+        .pSetLayouts        = &m_DescriptorSetLayouts[0],
     };
 
     if (LOG_VK_RESULT(vkAllocateDescriptorSets(m_Device, &allocInfo,
@@ -120,57 +120,57 @@ void ShadingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
     VkDescriptorBufferInfo metadataUBOInfo{
         .buffer = m_MetadataBuffer,
         .offset = 0,
-        .range = sizeof(Metadata),
+        .range  = sizeof(Metadata),
     };
 
     // --- Sampler Images ---
     // m_DirectLight
     VkDescriptorImageInfo directLightInfo{
-        .sampler = m_Init.directLightTexture->m_Sampler,
-        .imageView = m_Init.directLightTexture->m_ImageView,
+        .sampler     = m_Init.directLightTexture->m_Sampler,
+        .imageView   = m_Init.directLightTexture->m_ImageView,
         .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
     };
 
     // --- Storage Images ---
     // m_Shading
     VkDescriptorImageInfo shadingInfo{
-        .sampler = VK_NULL_HANDLE,
-        .imageView = m_Shading->m_ImageView,
+        .sampler     = VK_NULL_HANDLE,
+        .imageView   = m_Shading->m_ImageView,
         .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
     };
 
     std::vector<VkWriteDescriptorSet> writes{
         // m_MetadataBuffer
         VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = m_DescriptorSets[0][0],
-            .dstBinding = Binding::U_METADATA,
+            .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet          = m_DescriptorSets[0][0],
+            .dstBinding      = Binding::U_METADATA,
             .dstArrayElement = 0,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .pBufferInfo = &metadataUBOInfo,
+            .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .pBufferInfo     = &metadataUBOInfo,
         },
 
         // m_DirectLight
         VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = m_DescriptorSets[0][0],
-            .dstBinding = Binding::T_DIRECT_LIGHT,
+            .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet          = m_DescriptorSets[0][0],
+            .dstBinding      = Binding::T_DIRECT_LIGHT,
             .dstArrayElement = 0,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            .pImageInfo = &directLightInfo,
+            .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            .pImageInfo      = &directLightInfo,
         },
 
         // m_Shading
         VkWriteDescriptorSet{
-            .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet = m_DescriptorSets[0][0],
-            .dstBinding = Binding::T_SHADING,
+            .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+            .dstSet          = m_DescriptorSets[0][0],
+            .dstBinding      = Binding::T_SHADING,
             .dstArrayElement = 0,
             .descriptorCount = 1,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            .pImageInfo = &shadingInfo,
+            .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            .pImageInfo      = &shadingInfo,
         },
     };
 
@@ -182,9 +182,9 @@ void ShadingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
 void ShadingPass::CreatePipeline() {
 
   VkPipelineLayoutCreateInfo pipelineLayoutInfo{
-      .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+      .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
       .setLayoutCount = static_cast<uint32_t>(m_DescriptorSetLayouts.size()),
-      .pSetLayouts = m_DescriptorSetLayouts.data(),
+      .pSetLayouts    = m_DescriptorSetLayouts.data(),
   };
 
   if (LOG_VK_RESULT(vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo,
@@ -195,15 +195,15 @@ void ShadingPass::CreatePipeline() {
       getExecutableDir() + "/../src/Shaders/Pipeline/shading.comp.spv");
 
   VkPipelineShaderStageCreateInfo computeStage{
-      .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-      .stage = VK_SHADER_STAGE_COMPUTE_BIT,
+      .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+      .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
       .module = shaderModule,
-      .pName = "main",
+      .pName  = "main",
   };
 
   VkComputePipelineCreateInfo pipelineInfo{
-      .sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
-      .stage = computeStage,
+      .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
+      .stage  = computeStage,
       .layout = m_PipelineLayout,
   };
 

@@ -10,44 +10,44 @@ World::World(uint32_t chunkSize) : m_ChunkSize(chunkSize) {
   m_SVO = std::make_shared<SparseVoxelOctree>(m_ChunkSize);
 
   m_Palette.Create(Palette::Item{
-      .Id = 0,
+      .Id   = 0,
       .Name = "Left Wall",
-      .Mat = std::make_shared<Material>(
+      .Mat  = std::make_shared<Material>(
           Material{.Albedo = glm::vec4{0.63f, 0.067f, 0.051f, 1.0f}}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id = 0,
+      .Id   = 0,
       .Name = "Right Wall",
-      .Mat = std::make_shared<Material>(
+      .Mat  = std::make_shared<Material>(
           Material{.Albedo = glm::vec4{0.14f, 0.45f, 0.090f, 1.0f}}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id = 0,
+      .Id   = 0,
       .Name = "Wall",
-      .Mat = std::make_shared<Material>(
+      .Mat  = std::make_shared<Material>(
           Material{.Albedo = glm::vec4{0.73f, 0.73f, 0.73f, 1.0f}}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id = 0,
+      .Id   = 0,
       .Name = "Cube",
-      .Mat = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f)}),
+      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f)}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id = 0,
+      .Id   = 0,
       .Name = "Sphere",
-      .Mat = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f)}),
+      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f)}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id = 0,
+      .Id   = 0,
       .Name = "Light",
-      .Mat = std::make_shared<Material>(
-          Material{.Albedo = glm::vec4(1.0f),
-                   .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
+      .Mat  = std::make_shared<Material>(
+          Material{.Albedo   = glm::vec4(1.0f),
+                    .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
   });
 
   GenerateCornellBox();
@@ -56,12 +56,12 @@ World::World(uint32_t chunkSize) : m_ChunkSize(chunkSize) {
 void World::RenderUI() { m_Palette.RenderUI(); }
 
 const void World::GenerateCornellBox() {
-  auto leftWallMaterial = m_Palette.Find("Left Wall");
+  auto leftWallMaterial  = m_Palette.Find("Left Wall");
   auto rightWallMaterial = m_Palette.Find("Right Wall");
-  auto wallMaterial = m_Palette.Find("Wall");
-  auto cubeMaterial = m_Palette.Find("Cube");
-  auto sphereMaterial = m_Palette.Find("Sphere");
-  auto lightMaterial = m_Palette.Find("Light");
+  auto wallMaterial      = m_Palette.Find("Wall");
+  auto cubeMaterial      = m_Palette.Find("Cube");
+  auto sphereMaterial    = m_Palette.Find("Sphere");
+  auto lightMaterial     = m_Palette.Find("Light");
 
   auto leftWall =
       m_Voxels.emplace_back(std::make_shared<Voxel>(leftWallMaterial->Id));
@@ -95,7 +95,7 @@ const void World::GenerateCornellBox() {
     }
     const glm::vec2 blockDistanceFromWall =
         glm::vec2({chunkSize / 4, chunkSize / 6});
-    const int blockSize = chunkSize / 4;
+    const int blockSize   = chunkSize / 4;
     const int blockHeight = chunkSize / 2;
 
     // Add the rectangle
@@ -109,9 +109,9 @@ const void World::GenerateCornellBox() {
 
     // Add the sphere
     int radius = chunkSize / 8;
-    int cx = blockDistanceFromWall.x + (chunkSize / 2);
-    int cy = radius;
-    int cz = blockDistanceFromWall.y + (chunkSize / 2);
+    int cx     = blockDistanceFromWall.x + (chunkSize / 2);
+    int cy     = radius;
+    int cz     = blockDistanceFromWall.y + (chunkSize / 2);
 
     for (int z = 0; z < chunkSize; ++z) {
       for (int y = 0; y < chunkSize; ++y) {

@@ -10,11 +10,11 @@
 namespace Kitagawa {
 
 Controller::Controller() {
-  GLFWwindow *windowHandle = Akari::Application::Get().GetWindowHandle();
+  GLFWwindow* windowHandle = Akari::Application::Get().GetWindowHandle();
   glfwSetScrollCallback(windowHandle, Akari::Input::ScrollCallback);
 }
 
-void Controller::Update(float deltaTime, PerspectiveCamera &camera) {
+void Controller::Update(float deltaTime, PerspectiveCamera& camera) {
 
   if (m_Focus) {
     glm::vec3 translate(0.0f);
@@ -65,7 +65,7 @@ void Controller::Update(float deltaTime, PerspectiveCamera &camera) {
   m_Mouse = Akari::Input::MousePosition();
 }
 
-void Controller::RenderUI(PerspectiveCamera &camera) {
+void Controller::RenderUI(PerspectiveCamera& camera) {
   ImGui::Spacing();
 
   if (ImGui::CollapsingHeader("Camera ##CameraMenu")) {

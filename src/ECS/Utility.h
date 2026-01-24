@@ -2,8 +2,7 @@
 
 #include "Entity.h"
 
-namespace ECS
-{
+namespace ECS {
 
 /**
  * @brief Mutates a component value and marks it as changed in the ECS registry.
@@ -26,11 +25,10 @@ namespace ECS
  * update), false if mutation is still in progress (i.e., current was different
  * from next).
  */
-template <typename C, typename T> inline bool Mutate(ECS::Entity* entity, T& current, const T& next)
-{
+template <typename C, typename T>
+inline bool Mutate(ECS::Entity* entity, T& current, const T& next) {
   bool mutated = current != next;
-  if (mutated)
-  {
+  if (mutated) {
     current = next;
     entity->MarkChanged<C>();
   }

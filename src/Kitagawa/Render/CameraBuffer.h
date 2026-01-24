@@ -27,12 +27,12 @@ public:
     glm::mat4 pInverseProjection;
     glm::mat4 pInverseViewProjection;
     glm::vec3 position;
-    float farPlane;
+    float     farPlane;
   };
 
 private:
-  std::vector<void *> m_Mapped;
-  std::vector<VkBuffer> m_Buffers;
+  std::vector<void*>         m_Mapped;
+  std::vector<VkBuffer>      m_Buffers;
   std::vector<VmaAllocation> m_Allocations;
 
 public:
@@ -41,7 +41,7 @@ public:
 
   VkBuffer GetBuffer(uint32_t frame) { return m_Buffers[frame]; };
 
-  void Render(PerspectiveCamera *camera);
+  void Render(PerspectiveCamera* camera);
 };
 
 } // namespace Render

@@ -5,7 +5,7 @@
 #include "Utility/Debug.h"
 #include "imgui.h"
 
-const float CELL_SIZE = 100.0f;
+const float CELL_SIZE    = 100.0f;
 const float CELL_PADDING = 15.0f;
 const float LABEL_HEIGHT = 20.0f;
 
@@ -22,7 +22,7 @@ void Palette::RenderPalette() {
     columns = 1;
 
   for (size_t i = 0; i < m_Items.size(); i++) {
-    Item &item = m_Items[i];
+    Item& item = m_Items[i];
     ImGui::PushID(item.Id);
 
     ImGui::BeginGroup(); // <--- group keeps cell + label together
@@ -37,7 +37,7 @@ void Palette::RenderPalette() {
     // Draw colored rect
     ImVec2 pMin = ImGui::GetItemRectMin();
     ImVec2 pMax = ImGui::GetItemRectMax();
-    ImU32 col =
+    ImU32  col =
         ImGui::GetColorU32(ImVec4{item.Mat->Albedo.r, item.Mat->Albedo.g,
                                   item.Mat->Albedo.b, item.Mat->Albedo.a});
     ImGui::GetWindowDrawList()->AddRectFilled(pMin, pMax, col);
@@ -52,10 +52,10 @@ void Palette::RenderPalette() {
     }
 
     // --- Label (below cell) ---
-    const char *text = item.Name.c_str();
-    ImVec2 textSize = ImGui::CalcTextSize(text);
-    float textX = pMin.x + (CELL_SIZE - textSize.x) * 0.5f;
-    float textY = pMax.y + 4.0f; // gap below square
+    const char* text     = item.Name.c_str();
+    ImVec2      textSize = ImGui::CalcTextSize(text);
+    float       textX    = pMin.x + (CELL_SIZE - textSize.x) * 0.5f;
+    float       textY    = pMax.y + 4.0f; // gap below square
     ImGui::GetWindowDrawList()->AddText(ImVec2(textX, textY),
                                         IM_COL32(255, 255, 255, 255), text);
 
@@ -79,16 +79,16 @@ void Palette::RenderEditor() {
 
   RenderFileMenu();
 
-  float width = ImGui::GetContentRegionAvail().x;
-  const int LABEL_WIDTH = 100;
-  int MAX_INPUT_WIDTH = std::min(500, static_cast<int>(width) - LABEL_WIDTH);
+  float     width           = ImGui::GetContentRegionAvail().x;
+  const int LABEL_WIDTH     = 100;
+  int       MAX_INPUT_WIDTH = std::min(500, static_cast<int>(width) - LABEL_WIDTH);
 
   auto item = std::find_if(m_Items.begin(), m_Items.end(),
-                           [SelectedItem = m_SelectedItem](const Item &item) {
+                           [SelectedItem = m_SelectedItem](const Item& item) {
                              return item.Id == SelectedItem;
                            });
 
-  auto Label = [MAX_INPUT_WIDTH](const std::string &label) {
+  auto Label = [MAX_INPUT_WIDTH](const std::string& label) {
     ImGui::AlignTextToFramePadding();
     ImGui::TextUnformatted(label.c_str());
     ImGui::SameLine(LABEL_WIDTH);
@@ -192,24 +192,24 @@ void Palette::RenderUI() {
 void Palette::Create() {
   uint32_t nextId = static_cast<uint32_t>(m_Items.size()) + 1;
   m_Items.emplace_back(Item{
-      .Id = nextId,
+      .Id   = nextId,
       .Name = "Material #" + std::to_string(nextId),
-      .Mat = std::make_shared<Material>(nextId),
+      .Mat  = std::make_shared<Material>(nextId),
   });
   m_Dirty = true;
 }
 
 void Palette::Create(Item item) {
-  item.Id = static_cast<uint32_t>(m_Items.size()) + 1;
+  item.Id      = static_cast<uint32_t>(m_Items.size()) + 1;
   item.Mat->Id = item.Id;
   m_Items.emplace_back(item);
   m_Dirty = true;
 }
 
-std::shared_ptr<Material> Palette::Find(const std::string &name) {
+std::shared_ptr<Material> Palette::Find(const std::string& name) {
   auto item =
       std::find_if(m_Items.begin(), m_Items.end(),
-                   [name](const Item &item) { return item.Name == name; });
+                   [name](const Item& item) { return item.Name == name; });
 
   if (item == m_Items.end())
     return nullptr;

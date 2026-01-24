@@ -6,22 +6,22 @@
 #include <vector>
 
 #include "Type.h"
-#include "Voxel.h"
 #include "Utility/Debug.h"
+#include "Voxel.h"
 
 class Palette {
 public:
   struct Item {
-    uint32_t Id;
-    std::string Name;
+    uint32_t                  Id;
+    std::string               Name;
     std::shared_ptr<Material> Mat;
   };
 
 private:
-  bool m_Dirty = false;
-  uint32_t m_SelectedItem = 0;
-  std::vector<Item> m_Items = {};
-  std::function<void()> m_Flush = nullptr;
+  bool                  m_Dirty        = false;
+  uint32_t              m_SelectedItem = 0;
+  std::vector<Item>     m_Items        = {};
+  std::function<void()> m_Flush        = nullptr;
 
 private:
   void RenderPalette();
@@ -29,16 +29,16 @@ private:
   void RenderFileMenu();
 
 public:
-  Palette() = default;
+  Palette()  = default;
   ~Palette() = default;
 
   void RenderUI();
 
   void Create();
-  
+
   void Create(Item item);
 
-  std::shared_ptr<Material> Find(const std::string &name);
+  std::shared_ptr<Material> Find(const std::string& name);
 
   void OnFlush(std::function<void()> callback) { m_Flush = callback; };
 

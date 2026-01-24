@@ -2,13 +2,13 @@
 #include <chrono>
 
 HeightMap::HeightMap(int width, int height,
-                     const TerrainSpecification &specification)
+                     const TerrainSpecification& specification)
     : Terrain(specification) {
   Initialize(width, height);
 }
 
 void HeightMap::Initialize(int width, int height) {
-  m_Width = width;
+  m_Width  = width;
   m_Height = height;
 
   if (Terrain.Seed == 0)
@@ -26,7 +26,7 @@ void HeightMap::Initialize(int width, int height) {
 
 utils::NoiseMap HeightMap::Build(double lowerXBound, double upperXBound,
                                  double lowerZBound, double upperZBound) {
-  utils::NoiseMap heightMap;
+  utils::NoiseMap             heightMap;
   utils::NoiseMapBuilderPlane heightMapBuilder;
 
   heightMapBuilder.SetSourceModule(m_ScaleBias);

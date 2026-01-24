@@ -8,29 +8,28 @@ namespace Kitagawa {
 namespace Render {
 
 Buffer::Buffer() {
-  m_Device = Akari::Application::GetDevice();
+  m_Device         = Akari::Application::GetDevice();
   m_PhysicalDevice = Akari::Application::GetPhysicalDevice();
   CreateBuffer(m_Specification.Size);
 }
 
-Buffer::Buffer(const Specification &specification)
+Buffer::Buffer(const Specification& specification)
     : m_Specification(specification) {
-  m_Device = Akari::Application::GetDevice();
+  m_Device         = Akari::Application::GetDevice();
   m_PhysicalDevice = Akari::Application::GetPhysicalDevice();
 }
 
 Buffer::~Buffer() { DestroyBuffer(); }
 
-bool Buffer::Upload(VkCommandBuffer commandBuffer, size_t size, void *data)
-{
+bool Buffer::Upload(VkCommandBuffer commandBuffer, size_t size, void* data) {
   if (m_Size >= size) {
     CopyToGPU(commandBuffer, size, data);
     return false;
   }
 
-  VkBuffer oBuffer = m_Buffer;
-  VkBuffer oStagingBuffer = m_StagingBuffer;
-  VmaAllocation oBufferAllocation = m_BufferAllocation;
+  VkBuffer      oBuffer                  = m_Buffer;
+  VkBuffer      oStagingBuffer           = m_StagingBuffer;
+  VmaAllocation oBufferAllocation        = m_BufferAllocation;
   VmaAllocation oStagingBufferAllocation = m_StagingBufferAllocation;
 
   CreateBuffer(size);
@@ -38,33 +37,32 @@ bool Buffer::Upload(VkCommandBuffer commandBuffer, size_t size, void *data)
   CopyToGPU(commandBuffer, size, data);
 
   vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), oBuffer,
-                    oBufferAllocation);
+                   oBufferAllocation);
   vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), oStagingBuffer,
-                    oStagingBufferAllocation);
+                   oStagingBufferAllocation);
 
   return true;
 }
 
 VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask,
-                                          VkAccessFlags2 dstAccessMask)
-{
+                                          VkAccessFlags2        dstAccessMask) {
   return VkBufferMemoryBarrier2{
-      .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
-      .srcStageMask = VK_PIPELINE_STAGE_2_COPY_BIT,
-      .srcAccessMask = VK_ACCESS_2_TRANSFER_WRITE_BIT,
-      .dstStageMask = dstStageMask,
-      .dstAccessMask = dstAccessMask,
+      .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+      .srcStageMask        = VK_PIPELINE_STAGE_2_COPY_BIT,
+      .srcAccessMask       = VK_ACCESS_2_TRANSFER_WRITE_BIT,
+      .dstStageMask        = dstStageMask,
+      .dstAccessMask       = dstAccessMask,
       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .buffer = m_Buffer,
-      .offset = 0,
-      .size = VK_WHOLE_SIZE,
+      .buffer              = m_Buffer,
+      .offset              = 0,
+      .size                = VK_WHOLE_SIZE,
   };
 }
 
 VkDeviceAddress Buffer::GetDeviceAddress() const {
   VkBufferDeviceAddressInfo addressInfo{
-      .sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
+      .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
       .buffer = m_Buffer,
   };
 
@@ -78,9 +76,9 @@ void Buffer::CreateBuffer(VkDeviceSize size) {
   // Staging Buffer
   {
     VkBufferCreateInfo bufferInfo{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = m_Size,
-        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size        = m_Size,
+        .usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
 
@@ -97,9 +95,9 @@ void Buffer::CreateBuffer(VkDeviceSize size) {
   // GPU Buffer
   {
     VkBufferCreateInfo bufferInfo{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size = m_Size,
-        .usage = m_Specification.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size        = m_Size,
+        .usage       = m_Specification.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
 
@@ -120,14 +118,14 @@ void Buffer::DestroyBuffer() {
 }
 
 void Buffer::CopyToGPU(VkCommandBuffer commandBuffer, size_t size,
-                       const void *data) {
+                       const void* data) {
   vmaCopyMemoryToAllocation(Akari::Application::GetVmaAllocator(), data,
                             m_StagingBufferAllocation, 0, size);
 
   VkBufferCopy copyRegion{
       .srcOffset = 0,
       .dstOffset = 0,
-      .size = size,
+      .size      = size,
   };
 
   vkCmdCopyBuffer(commandBuffer, m_StagingBuffer, m_Buffer, 1, &copyRegion);

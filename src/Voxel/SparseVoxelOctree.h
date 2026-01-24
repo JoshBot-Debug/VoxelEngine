@@ -28,7 +28,7 @@ private:
    * Pointer to the root node of the Sparse Voxel Octree.
    * Should never be empty, is always initialized in the constructor.
    */
-  std::atomic<Node *> m_Root = nullptr;
+  std::atomic<Node*> m_Root = nullptr;
 
   /**
    * The coordinate of this SVO chunk in the global grid of chunks.
@@ -76,7 +76,7 @@ private:
    * @param voxel  The voxel type to set at the marked positions.
    * @param size   The current size of the region being processed.
    */
-  void Set(const std::vector<uint64_t> &mask, int x, int y, int z, Voxel *voxel,
+  void Set(const std::vector<uint64_t>& mask, int x, int y, int z, Voxel* voxel,
            int size);
 
   /**
@@ -91,7 +91,7 @@ private:
    *
    * @return          True if a voxel was set
    */
-  Node *Set(Node *node, int x, int y, int z, Voxel *voxel, int leafSize,
+  Node* Set(Node* node, int x, int y, int z, Voxel* voxel, int leafSize,
             int size);
 
   /**
@@ -107,7 +107,7 @@ private:
    * @return        Pointer to the node at the target position, or nullptr if
    * not found or filtered out.
    */
-  Node *Get(Node *node, int x, int y, int z, int size, uint32_t material = 0);
+  Node* Get(Node* node, int x, int y, int z, int size, uint32_t material = 0);
 
   /**
    * Internal recursive deleter that traverses the octree and removes the voxel
@@ -128,13 +128,13 @@ private:
    *
    * @return          The node
    */
-  Node *Clear(Node *&node, int x, int y, int z, int leafSize, int size,
-              Voxel *target = nullptr);
+  Node* Clear(Node*& node, int x, int y, int z, int leafSize, int size,
+              Voxel* target = nullptr);
 
   /**
    * Returns the total memory used in bytes by this node and all it's children.
    */
-  size_t GetMemoryUsage(Node *node);
+  size_t GetMemoryUsage(Node* node);
 
   /**
    * Flatten the tree into a vector that contains all internal nodes
@@ -142,7 +142,7 @@ private:
    *
    * @param node A pointer to the node to start flattening from
    */
-  void Flatten(Node *node);
+  void Flatten(Node* node);
 
   /**
    * Filter the tree for selected nodes
@@ -153,14 +153,14 @@ private:
    * @param size Size of the node
    * @param node Pointer to the node from which to start a recursive search
    */
-  void Filter(std::vector<DenseVoxel> &vector,
-              const std::function<bool(Node *node)> &filter, glm::vec3 position,
-              int size, Node *node);
+  void Filter(std::vector<DenseVoxel>&               vector,
+              const std::function<bool(Node* node)>& filter, glm::vec3 position,
+              int size, Node* node);
 
   /**
    * @returns An average of all voxels at this node's position
    */
-  Voxel AverageVoxel(Node *node);
+  Voxel AverageVoxel(Node* node);
 
   /**
    * Traverses the octree starting from the given node and applies a callback
@@ -171,8 +171,8 @@ private:
    * @param size The size of the node's bounding cube.
    * @param node The current octree node to process.
    */
-  void TraverseNodes(std::function<void(Node *node)> callback,
-                     glm::vec3 position, int size, Node *node);
+  void TraverseNodes(std::function<void(Node* node)> callback,
+                     glm::vec3 position, int size, Node* node);
 
   /**
    * Recursively performs frustum culling starting from the given node.
@@ -184,8 +184,8 @@ private:
    * @param size The size of the node's bounding cube.
    * @param node The current octree node to process.
    */
-  void FrustumCull(const Frustum &frustum, glm::vec3 position, int size,
-                   Node *node);
+  void FrustumCull(const Frustum& frustum, glm::vec3 position, int size,
+                   Node* node);
 
 public:
   /**
@@ -226,7 +226,7 @@ public:
    *
    * @return Root node of the SVO.
    */
-  Node *GetRoot();
+  Node* GetRoot();
 
   /**
    * Efficiently sets multiple voxels in the SVO using a 3D bitmask.
@@ -261,7 +261,7 @@ public:
    * @param mask   A bitmask indicating which voxels to set (1 = set, 0 = skip).
    * @param voxel  Pointer to the voxel type to set at the marked positions.
    */
-  void Set(const std::vector<uint64_t> &mask, Voxel *voxel);
+  void Set(const std::vector<uint64_t>& mask, Voxel* voxel);
 
   /**
    * Sets a voxel at the given 3D world position.
@@ -271,7 +271,7 @@ public:
    * @param leafSize  The smallest voxel size (default is 1 unit).
    * @return          True if a voxel was set
    */
-  Node *Set(glm::vec3 position, Voxel *voxel, int leafSize = 1);
+  Node* Set(glm::vec3 position, Voxel* voxel, int leafSize = 1);
 
   /**
    * Sets a voxel at the given 3D world position.
@@ -281,7 +281,7 @@ public:
    * @param leafSize  The smallest voxel size (default is 1 unit).
    * @return          True if a voxel was set
    */
-  Node *Set(int x, int y, int z, Voxel *voxel, int leafSize = 1);
+  Node* Set(int x, int y, int z, Voxel* voxel, int leafSize = 1);
 
   /**
    * Retrieves the node at the given 3D world position.
@@ -292,7 +292,7 @@ public:
    * @return          Pointer to the node at that position, or nullptr if not
    * found or filtered out.
    */
-  Node *Get(glm::vec3 position, uint32_t material = 0);
+  Node* Get(glm::vec3 position, uint32_t material = 0);
 
   /**
    * Retrieves the node at the given 3D world position.
@@ -303,7 +303,7 @@ public:
    * @return          Pointer to the node at that position, or nullptr if not
    * found or filtered out.
    */
-  Node *Get(int x, int y, int z, uint32_t material = 0);
+  Node* Get(int x, int y, int z, uint32_t material = 0);
 
   /**
    * Calls node.clear() on the root node.
@@ -325,7 +325,7 @@ public:
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    * @param target    Optional voxel filter; only deletes if matching this.
    */
-  void Clear(glm::ivec3 position, int leafSize = 1, Voxel *target = nullptr);
+  void Clear(glm::ivec3 position, int leafSize = 1, Voxel* target = nullptr);
 
   /**
    * Clear a voxel at the given x, y, z coordinates in
@@ -338,7 +338,7 @@ public:
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    * @param target    Optional voxel filter; only deletes if matching this.
    */
-  void Clear(int x, int y, int z, int leafSize = 1, Voxel *target = nullptr);
+  void Clear(int x, int y, int z, int leafSize = 1, Voxel* target = nullptr);
 
   /**
    * Returns the total memory usage of the SVO in bytes.
@@ -441,12 +441,12 @@ public:
    * |  10   |   0   | FF228B22 |     0     | #FF228B22| Sum    (6,0,0)
    * +-------+-------+----------+-----------+----------+
    */
-  std::vector<FlatVoxel> &Flatten();
+  std::vector<FlatVoxel>& Flatten();
 
   /**
    * Returns the flattened tree for raytracing, etc.
    */
-  std::vector<FlatVoxel> &GetFlatTree();
+  std::vector<FlatVoxel>& GetFlatTree();
 
   /**
    * Returns true if the tree has changed since .Flatten() was last called
@@ -458,7 +458,7 @@ public:
    *
    * @param filter Filter callback
    */
-  std::vector<DenseVoxel> Filter(const std::function<bool(Node *node)> &filter);
+  std::vector<DenseVoxel> Filter(const std::function<bool(Node* node)>& filter);
 
   /**
    * Returns a dense voxel grid of mipmaps in a flat vector
@@ -474,9 +474,9 @@ public:
    * @param size The size of the current child at position x, starts at m_Size
    * @param node The node to start recursively checking, starts at m_Root
    */
-  void FillDenseMipmap(std::vector<uint32_t> &out, uint32_t offset,
+  void FillDenseMipmap(std::vector<uint32_t>& out, uint32_t offset,
                        uint32_t mipSize, glm::vec3 position, int size,
-                       Node *node);
+                       Node* node);
 
   /**
    * Computes the best possible positions for each DDGI probe.
@@ -485,8 +485,8 @@ public:
    */
   std::vector<DDGIProbe> GenerateDDGIProbes(uint32_t size);
 
-  void GenerateDDGIProbes(std::vector<DDGIProbe> &probes, uint32_t targetDepth,
-                          glm::vec3 position, int size, Node *node);
+  void GenerateDDGIProbes(std::vector<DDGIProbe>& probes, uint32_t targetDepth,
+                          glm::vec3 position, int size, Node* node);
 
   /**
    * Rounds up to the nearest power of 2
@@ -499,8 +499,8 @@ public:
    * @param texSize The size of the texture for each probe. 6,8,16
    */
   static std::tuple<uint32_t, uint32_t>
-  ComputeDDGIAtlasSize(uint32_t count, uint32_t texSize, uint32_t &tilesPerRow,
-                       uint32_t &tilesPerCol);
+  ComputeDDGIAtlasSize(uint32_t count, uint32_t texSize, uint32_t& tilesPerRow,
+                       uint32_t& tilesPerCol);
 
   /**
    * Returns the size of the last computed DDGI probe vector.
@@ -522,5 +522,5 @@ public:
    *
    * @param frustum The view frustum to test against.
    */
-  void FrustumCull(const Frustum &frustum);
+  void FrustumCull(const Frustum& frustum);
 };

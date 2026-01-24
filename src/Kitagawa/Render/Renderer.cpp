@@ -5,14 +5,14 @@
 namespace Kitagawa {
 
 void Renderer::CreateDescripterPool(
-    const std::vector<VkDescriptorPoolSize> &pool) {
+    const std::vector<VkDescriptorPoolSize>& pool) {
 
   VkDescriptorPoolCreateInfo poolInfo{
-      .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+      .sType   = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
       .maxSets = m_GBufferPass.GetMaxSets() + m_LightingPass.GetMaxSets() +
                  m_ShadingPass.GetMaxSets(),
       .poolSizeCount = static_cast<uint32_t>(pool.size()),
-      .pPoolSizes = pool.data(),
+      .pPoolSizes    = pool.data(),
   };
 
   if (LOG_VK_RESULT(vkCreateDescriptorPool(m_Device, &poolInfo, nullptr,
@@ -52,25 +52,25 @@ Renderer::~Renderer() {
 void Renderer::Initialize() {
 
   m_GBufferPass.Initialize(RenderPass::GBufferPassInit{
-      .world = m_World,
+      .world        = m_World,
       .vertexBuffer = &m_VertexBuffer,
       .cameraBuffer = &m_CameraBuffer,
   });
 
   m_LightingPass.Initialize(RenderPass::LightingPassInit{
-      .world = m_World,
-      .svoBuffer = &m_SVOBuffer,
-      .lightBuffer = &m_LightBuffer,
-      .materialBuffer = &m_MaterialBuffer,
+      .world             = m_World,
+      .svoBuffer         = &m_SVOBuffer,
+      .lightBuffer       = &m_LightBuffer,
+      .materialBuffer    = &m_MaterialBuffer,
       .materialLUTBuffer = &m_MaterialLUTBuffer,
-      .cameraBuffer = &m_CameraBuffer,
-      .depthTexture = m_GBufferPass.GetTexture(Binding::T_DEPTH),
-      .normalTexture = m_GBufferPass.GetTexture(Binding::T_NORMAL),
-      .materialTexture = m_GBufferPass.GetTexture(Binding::T_MATERIAL),
+      .cameraBuffer      = &m_CameraBuffer,
+      .depthTexture      = m_GBufferPass.GetTexture(Binding::T_DEPTH),
+      .normalTexture     = m_GBufferPass.GetTexture(Binding::T_NORMAL),
+      .materialTexture   = m_GBufferPass.GetTexture(Binding::T_MATERIAL),
   });
 
   m_ShadingPass.Initialize(RenderPass::ShadingPassInit{
-      .world = m_World,
+      .world              = m_World,
       .directLightTexture = m_LightingPass.GetTexture(Binding::T_DIRECT_LIGHT),
   });
 
@@ -92,8 +92,8 @@ void Renderer::Initialize() {
 }
 
 void Renderer::Render() {
-  Palette &palette = m_World->GetPalette();
-  std::shared_ptr<SparseVoxelOctree> tree = m_World->GetSVO();
+  Palette&                           palette = m_World->GetPalette();
+  std::shared_ptr<SparseVoxelOctree> tree    = m_World->GetSVO();
 
   VkCommandBuffer commandBuffer =
       Akari::Application::GetCommandBuffer({.Begin = true});
@@ -111,7 +111,7 @@ void Renderer::Render() {
     // Build the Material Index lookup table
     {
       uint32_t maxMaterialId = 0;
-      for (auto &mat : materials)
+      for (auto& mat : materials)
         maxMaterialId = mat.Id > maxMaterialId ? mat.Id : maxMaterialId;
 
       std::vector<uint32_t> materialLUT(maxMaterialId + 1, 0);
@@ -135,7 +135,7 @@ void Renderer::Render() {
     if (m_SVOBuffer.Upload(commandBuffer, treeNodes))
       resized = true;
 
-    std::vector<DenseVoxel> lightNodes = tree->Filter([&palette](Node *node) {
+    std::vector<DenseVoxel> lightNodes = tree->Filter([&palette](Node* node) {
       auto material = palette.GetMaterial(node->Voxel->Material);
       return material && material->Emissive.a > 0.0f;
     });
@@ -146,7 +146,7 @@ void Renderer::Render() {
     std::vector<Vertex> vertices = tree->GreedyMesh(palette.GetMaterials());
 
     m_GBufferPass.m_VertexCount = vertices.size();
-    size_t verticesSize = vertices.size() * sizeof(Vertex);
+    size_t verticesSize         = vertices.size() * sizeof(Vertex);
     if (m_VertexBuffer.Upload(commandBuffer, verticesSize, vertices.data()))
       resized = true;
 
@@ -217,11 +217,11 @@ void Renderer::RenderUI() {
 
   uint32_t thumbSize = ImGui::GetContentRegionAvail().x;
 
-  for (auto &image : m_DisplayImages) {
-    float aspect = (float)image->GetWidth() / (float)image->GetHeight();
-    float w = aspect > 1.0f ? thumbSize : thumbSize * aspect;
-    float h = aspect > 1.0f ? thumbSize / aspect : thumbSize;
-    const char *name = image->GetSpecification().ObjectName;
+  for (auto& image : m_DisplayImages) {
+    float       aspect = (float)image->GetWidth() / (float)image->GetHeight();
+    float       w      = aspect > 1.0f ? thumbSize : thumbSize * aspect;
+    float       h      = aspect > 1.0f ? thumbSize / aspect : thumbSize;
+    const char* name   = image->GetSpecification().ObjectName;
     if (name)
       ImGui::TextUnformatted(name);
 

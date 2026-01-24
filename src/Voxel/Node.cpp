@@ -2,15 +2,15 @@
 
 Node::Node() {}
 
-Node::Node(uint8_t depth, VoxelType *voxel) : Depth(depth), Voxel(voxel) {}
+Node::Node(uint8_t depth, VoxelType* voxel) : Depth(depth), Voxel(voxel) {}
 
 Node::~Node() { Clear(); }
 
-bool Node::operator==(const Node &other) const {
+bool Node::operator==(const Node& other) const {
   return Voxel->Material == other.Voxel->Material;
 }
 
-bool Node::operator!=(const Node &other) const { return !(*this == other); }
+bool Node::operator!=(const Node& other) const { return !(*this == other); }
 
 void Node::Clear() {
   Voxel = nullptr;

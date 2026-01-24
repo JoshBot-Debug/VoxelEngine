@@ -16,7 +16,7 @@ namespace Render {
 namespace RenderPass {
 
 struct ShadingPassInit {
-  World *world = nullptr;
+  World* world = nullptr;
 
   std::shared_ptr<Akari::Image> directLightTexture = nullptr;
 };
@@ -32,13 +32,13 @@ private:
 private:
   VkDevice m_Device;
 
-  VkBuffer m_MetadataBuffer;
+  VkBuffer      m_MetadataBuffer;
   VmaAllocation m_MetadataAllocation;
 
   std::shared_ptr<Akari::Image> m_Shading =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
-          .Format = VK_FORMAT_R32G32B32A32_SFLOAT,
-          .Usage = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          .Format     = VK_FORMAT_R32G32B32A32_SFLOAT,
+          .Usage      = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
           .ObjectName = "ShadingPass::m_Shading",
       });
 
@@ -56,7 +56,7 @@ public:
   /**
    * Second step is to create the descriptor pool size
    */
-  void GetDescriptorPoolSize(std::vector<VkDescriptorPoolSize> &pool) override;
+  void GetDescriptorPoolSize(std::vector<VkDescriptorPoolSize>& pool) override;
 
   /**
    * Setup the descriptor set layout

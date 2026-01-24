@@ -10,7 +10,7 @@
 
 class GreedyMesh64 {
 public:
-  static constexpr uint8_t CHUNK_SIZE = 64;
+  static constexpr uint8_t      CHUNK_SIZE  = 64;
   static constexpr unsigned int MASK_LENGTH = CHUNK_SIZE * CHUNK_SIZE;
 
 private:
@@ -28,21 +28,21 @@ private:
                           uint64_t (&heightStart)[], uint64_t (&widthEnd)[],
                           uint64_t (&heightEnd)[]);
 
-  static void GreedyMeshFace(const glm::ivec3 &offsetPosition, uint8_t a,
+  static void GreedyMeshFace(const glm::ivec3& offsetPosition, uint8_t a,
                              uint8_t b, uint64_t bits, uint64_t (&widthMasks)[],
                              uint64_t (&heightMasks)[],
-                             std::vector<Vertex> &vertices, FaceType type,
+                             std::vector<Vertex>& vertices, FaceType type,
                              uint32_t material);
 
-  static void GreedyMeshAxis(const glm::ivec3 &offsetPosition,
+  static void GreedyMeshAxis(const glm::ivec3& offsetPosition,
                              const uint64_t (&bits)[], uint64_t (&widthStart)[],
                              uint64_t (&heightStart)[], uint64_t (&widthEnd)[],
                              uint64_t (&heightEnd)[],
-                             std::vector<Vertex> &vertices, FaceType startType,
+                             std::vector<Vertex>& vertices, FaceType startType,
                              FaceType endType, uint32_t material);
 
 public:
-  static void Octree(SparseVoxelOctree *tree, std::vector<Vertex> &vertices,
+  static void Octree(SparseVoxelOctree* tree, std::vector<Vertex>& vertices,
                      int originX, int originY, int originZ,
                      uint32_t material = 0);
 };
