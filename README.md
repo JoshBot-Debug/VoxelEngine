@@ -33,16 +33,8 @@ Run the project
 
 ---
 
-## Project plan
-
-1. Add/Remove voxels
-
-- [ ] Greedy mesh on the GPU
+## TODO
+- [x] Greedy mesh on the GPU
 - [ ] All voxels that are disjointed need to be in a seperate SVO.
-- [ ]
-
-  Here's my computer specs:
-
-  **GPU**: Intel(R) Arc(tm) A750 Graphics (DG2)
-  **Driver Version**: 25.0.7
-  Vulkan API Version: 1.4.305
+- [x] Implement copy on write (cow) for the SVO
+- [ ] Add the ability to create/update/delete voxels (sandbox tools)
