@@ -250,6 +250,12 @@ void ShadingPass::Render(VkCommandBuffer commandBuffer) {
   vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
 }
 
+uint32_t ShadingPass::GetMaxSets() {
+  const uint32_t framesInFlight = Akari::Application::GetMaxFramesInFlight();
+  // m_Camera(5) + the other set for all other non-per frame buffers
+  return framesInFlight + 1;
+}
+
 } // namespace RenderPass
 } // namespace Render
 } // namespace Kitagawa

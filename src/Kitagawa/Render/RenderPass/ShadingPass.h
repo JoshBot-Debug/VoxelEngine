@@ -87,11 +87,7 @@ public:
     }
   }
 
-  uint32_t GetMaxSets() {
-    const uint32_t framesInFlight = Akari::Application::GetMaxFramesInFlight();
-    // m_Camera(5) + m_MetadataBuffer
-    return framesInFlight + 1;
-  }
+  uint32_t GetMaxSets();
 };
 
 } // namespace RenderPass
