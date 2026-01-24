@@ -610,21 +610,27 @@ void GBufferPass::Render(VkCommandBuffer commandBuffer) {
   vkCmdBeginRenderPass(commandBuffer, &renderPassBeginInfo,
                        VK_SUBPASS_CONTENTS_INLINE);
 
-  vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
+  //  First pipline
+  {
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      m_Pipeline);
 
-  VkDeviceSize offsets[] = {0};
-  VkBuffer vertexBuffer = m_Init.vertexBuffer->GetBuffer();
-  vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
+    VkDeviceSize offsets[] = {0};
+    VkBuffer vertexBuffer = m_Init.vertexBuffer->GetBuffer();
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, &vertexBuffer, offsets);
 
-  VkDescriptorSet sets[] = {
-      m_DescriptorSets[0][0],
-      m_DescriptorSets[1][Akari::Application::GetCurrentFrameIndex()],
-  };
+    VkDescriptorSet sets[] = {
+        m_DescriptorSets[0][0],
+        m_DescriptorSets[1][Akari::Application::GetCurrentFrameIndex()],
+    };
 
-  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
-                          m_PipelineLayout, 0, 2, sets, 0, nullptr);
+    vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            m_PipelineLayout, 0, 2, sets, 0, nullptr);
 
-  vkCmdDraw(commandBuffer, m_VertexCount, 1, 0, 0);
+    vkCmdDraw(commandBuffer, m_VertexCount, 1, 0, 0);
+  }
+
+  /// TODO: Create another pipline to draw out the rays, etc
 
   vkCmdEndRenderPass(commandBuffer);
 
