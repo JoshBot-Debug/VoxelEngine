@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <glm/glm.hpp>
 #include <vector>
 
@@ -27,7 +28,7 @@ private:
    * Pointer to the root node of the Sparse Voxel Octree.
    * Should never be empty, is always initialized in the constructor.
    */
-  Node *m_Root = nullptr;
+  std::atomic<Node *> m_Root = nullptr;
 
   /**
    * The coordinate of this SVO chunk in the global grid of chunks.
@@ -90,8 +91,8 @@ private:
    *
    * @return          True if a voxel was set
    */
-  bool Set(Node *node, int x, int y, int z, Voxel *voxel, int leafSize,
-           int size);
+  Node *Set(Node *node, int x, int y, int z, Voxel *voxel, int leafSize,
+            int size);
 
   /**
    * Internal recursive getter that traverses the tree to find a voxel at the
@@ -270,7 +271,7 @@ public:
    * @param leafSize  The smallest voxel size (default is 1 unit).
    * @return          True if a voxel was set
    */
-  bool Set(glm::vec3 position, Voxel *voxel, int leafSize = 1);
+  Node *Set(glm::vec3 position, Voxel *voxel, int leafSize = 1);
 
   /**
    * Sets a voxel at the given 3D world position.
@@ -280,7 +281,7 @@ public:
    * @param leafSize  The smallest voxel size (default is 1 unit).
    * @return          True if a voxel was set
    */
-  bool Set(int x, int y, int z, Voxel *voxel, int leafSize = 1);
+  Node *Set(int x, int y, int z, Voxel *voxel, int leafSize = 1);
 
   /**
    * Retrieves the node at the given 3D world position.
