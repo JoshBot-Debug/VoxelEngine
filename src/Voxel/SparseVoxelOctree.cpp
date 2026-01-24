@@ -169,6 +169,9 @@ Node *SparseVoxelOctree::Get(Node *node, int x, int y, int z, int size,
     return node;
   }
 
+  if (size == 1)
+    return nullptr;
+
   int half = size / 2;
 
   int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);

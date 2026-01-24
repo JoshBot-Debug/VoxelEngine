@@ -74,27 +74,32 @@ const void World::GenerateCornellBox() {
   auto light =
       m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
 
-  for (int a = 0; a < m_ChunkSize; a++)
-    for (int b = 0; b < m_ChunkSize; b++) {
-      // Top wall
-      m_SVO->Set(a, m_ChunkSize - 1, b, wall.get());
-      // Bottom wall
-      m_SVO->Set(a, 0, b, wall.get());
+  // std::thread([&]() {
+  //   for (int a = 0; a < m_ChunkSize; a++)
+  //     for (int b = 0; b < m_ChunkSize; b++) {
 
-      // Left wall
-      m_SVO->Set(0, a, b, leftWall.get());
-      // Right wall
-      m_SVO->Set(m_ChunkSize - 1, a, b, rightWall.get());
+  //       std::this_thread::sleep_for(std::chrono::seconds(1));
 
-      // Back wall
-      m_SVO->Set(a, b, 0, wall.get());
-    }
+  //       // Top wall
+  //       m_SVO->Set(a, m_ChunkSize - 1, b, wall.get());
+  //       // Bottom wall
+  //       m_SVO->Set(a, 0, b, wall.get());
 
-  for (int a = 1; a < m_ChunkSize - 1; a++)
-    for (int b = 1; b < m_ChunkSize - 1; b++) {
-      // Front wall
-      m_SVO->Set(a, b, m_ChunkSize - 1, wall.get());
-    }
+  //       // Left wall
+  //       m_SVO->Set(0, a, b, leftWall.get());
+  //       // Right wall
+  //       m_SVO->Set(m_ChunkSize - 1, a, b, rightWall.get());
+
+  //       // Back wall
+  //       m_SVO->Set(a, b, 0, wall.get());
+  //     }
+  // }).detach();
+
+  // for (int a = 1; a < m_ChunkSize - 1; a++)
+  //   for (int b = 1; b < m_ChunkSize - 1; b++) {
+  //     // Front wall
+  //     m_SVO->Set(a, b, m_ChunkSize - 1, wall.get());
+  //   }
 
   const glm::vec2 blockDistanceFromWall =
       glm::vec2({m_ChunkSize / 4, m_ChunkSize / 6});
