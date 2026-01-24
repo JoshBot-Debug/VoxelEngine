@@ -23,6 +23,8 @@ public:
     Buffer*            vertexBuffer = nullptr;
     CameraBuffer*      cameraBuffer = nullptr;
     PerspectiveCamera* camera       = nullptr;
+    uint32_t           width        = 0;
+    uint32_t           height       = 0;
   };
 
 private:
@@ -72,7 +74,9 @@ public:
 
   void CreateBuffer() override;
 
-  bool OnResizeFramebuffer(uint32_t width, uint32_t height) override;
+  bool ResizeFramebuffer(uint32_t width, uint32_t height) override;
+
+  std::shared_ptr<Akari::Image> GetTexture(Binding binding) override;
 };
 
 } // namespace Render

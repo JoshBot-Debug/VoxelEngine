@@ -3,7 +3,17 @@
 namespace Kitagawa {
 namespace Render {
 
-void XGBufferPass::Initialize(const Initializer& init) { m_Init = init; }
+void XGBufferPass::Initialize(const Initializer& init) {
+  m_Init = init;
+  CreateBuffer();
+  ResizeFramebuffer(init.width, init.height);
+  CreateRenderPass({.attachments = std::vector<AttachmentDescription2>{
+                        {.format = m_Normal->GetSpecification().Format},
+                        {.format = m_Material->GetSpecification().Format},
+                        {.format = m_MotionVector->GetSpecification().Format},
+                        {.format = m_Depth->GetSpecification().Format, .depth = true},
+                    }});
+}
 
 void XGBufferPass::CreateBuffer() {
   VmaAllocator allocator = Akari::Application::GetVmaAllocator();
@@ -31,9 +41,10 @@ void XGBufferPass::CreateBuffer() {
   }
 }
 
-bool XGBufferPass::OnResizeFramebuffer(uint32_t width, uint32_t height) {
+bool XGBufferPass::ResizeFramebuffer(uint32_t width, uint32_t height) {
   if (!m_Depth->Resize(width, height))
     return false;
+
   m_Normal->Resize(width, height);
   m_Material->Resize(width, height);
   m_MotionVector->Resize(width, height);
@@ -55,6 +66,21 @@ bool XGBufferPass::OnResizeFramebuffer(uint32_t width, uint32_t height) {
   });
 
   return true;
+}
+
+std::shared_ptr<Akari::Image> XGBufferPass::GetTexture(Binding binding) {
+  switch (binding) {
+  case Binding::T_DEPTH:
+    return m_Depth;
+  case Binding::T_NORMAL:
+    return m_Normal;
+  case Binding::T_MATERIAL:
+    return m_Material;
+  case Binding::T_MOTION_VECTOR:
+    return m_MotionVector;
+  default:
+    throw std::runtime_error("Invalid binding " + binding);
+  }
 }
 
 } // namespace Render

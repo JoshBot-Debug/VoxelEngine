@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <stdint.h>
 #include <vulkan/vulkan.h>
 
@@ -18,16 +19,22 @@ public:
   };
 
   struct AttachmentDescription2 {
-    const void*                  pNext;
-    VkAttachmentDescriptionFlags flags;
+    VkStructureType              sType = VK_STRUCTURE_TYPE_ATTACHMENT_DESCRIPTION_2;
+    const void*                  pNext = nullptr;
+    VkAttachmentDescriptionFlags flags = 0;
     VkFormat                     format;
-    VkSampleCountFlagBits        samples;
-    VkAttachmentLoadOp           loadOp;
-    VkAttachmentStoreOp          storeOp;
-    VkAttachmentLoadOp           stencilLoadOp;
-    VkAttachmentStoreOp          stencilStoreOp;
-    VkImageLayout                initialLayout;
-    VkImageLayout                finalLayout;
+    VkSampleCountFlagBits        samples        = VK_SAMPLE_COUNT_1_BIT;
+    VkAttachmentLoadOp           loadOp         = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    VkAttachmentStoreOp          storeOp        = VK_ATTACHMENT_STORE_OP_STORE;
+    VkAttachmentLoadOp           stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    VkAttachmentStoreOp          stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    VkImageLayout                initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
+    VkImageLayout                finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    bool                         depth          = false;
+  };
+
+  struct RenderPassCreateInfo {
+    std::vector<AttachmentDescription2> attachments;
   };
 
 private:
@@ -37,11 +44,15 @@ private:
 public:
   virtual void CreateBuffer(){};
 
-  virtual bool OnResizeFramebuffer(uint32_t width, uint32_t height) {
+  virtual bool ResizeFramebuffer(uint32_t width, uint32_t height) {
     return false;
   };
 
-  void CreateRenderPass();
+  virtual std::shared_ptr<Akari::Image> GetTexture(Binding binding) {
+    return nullptr;
+  };
+
+  void CreateRenderPass(const RenderPassCreateInfo& info);
 
   void CreateFramebuffer(const FramebufferCreateInfo& info);
 };
