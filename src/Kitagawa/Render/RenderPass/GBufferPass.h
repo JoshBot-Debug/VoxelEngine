@@ -8,6 +8,7 @@
 #include "Kitagawa/Render/Pipeline.h"
 #include "Kitagawa/World.h"
 
+#include "Camera/PerspectiveCamera.h"
 #include "Application.h"
 #include "Image.h"
 
@@ -19,6 +20,7 @@ struct GBufferPassInit {
   World *world = nullptr;
   Buffer *vertexBuffer = nullptr;
   CameraBuffer *cameraBuffer = nullptr;
+  PerspectiveCamera *camera = nullptr;
 };
 
 class GBufferPass : public Pipeline<GBufferPassInit> {
@@ -38,12 +40,17 @@ private:
   VkBuffer m_MetadataBuffer;
   VmaAllocation m_MetadataAllocation;
 
+  VkBuffer m_DepthBuffer;
+  VmaAllocation m_DepthBufferAllocation;
+  void *m_DepthBufferPtr = nullptr;
+  VkRect2D m_RenderArea;
+
   std::shared_ptr<Akari::Image> m_Depth =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
           .AspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
           .Format = VK_FORMAT_D32_SFLOAT,
           .Usage = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-                   VK_IMAGE_USAGE_SAMPLED_BIT,
+                   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
           .ObjectName = "GBufferPass::m_Depth",
       });
 
@@ -118,6 +125,11 @@ public:
    * When the screen resizes
    */
   bool OnResize(uint32_t width, uint32_t height) override;
+
+  /**
+   * Returns the value of the depth buffer at mouse coords
+   */
+  float *GetDepth();
 
   std::shared_ptr<Akari::Image> GetTexture(Binding binding) override {
     switch (binding) {

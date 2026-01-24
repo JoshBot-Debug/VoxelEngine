@@ -6,6 +6,7 @@
 #include "Image.h"
 
 #include "Utility/Debug.h"
+#include "Utility/Utility.h"
 
 #include "Kitagawa/Controller.h"
 #include "Kitagawa/Render/Renderer.h"
@@ -95,18 +96,7 @@ public:
     m_ViewportWidth = ImGui::GetContentRegionAvail().x;
     m_ViewportHeight = ImGui::GetContentRegionAvail().y;
 
-    ImVec2 mouse = ImGui::GetMousePos();
-    ImVec2 window = ImGui::GetWindowPos();
-
-    ImVec2 contentMin = ImGui::GetWindowContentRegionMin();
-    ImVec2 contentMax = ImGui::GetWindowContentRegionMax();
-
-    float contentHeight = contentMax.y - contentMin.y;
-
-    float relativeY = ImGui::GetMousePos().y - (window.y + contentMin.y);
-
-    m_ViewportMouse.x = mouse.x - window.x - contentMin.x;
-    m_ViewportMouse.y = contentHeight - relativeY;
+    GetViewportMouse(m_ViewportMouse.x, m_ViewportMouse.y);
 
     m_Controller.SetFocus(ImGui::IsWindowFocused());
 

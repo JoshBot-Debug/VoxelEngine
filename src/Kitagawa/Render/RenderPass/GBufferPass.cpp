@@ -11,9 +11,11 @@ GBufferPass::GBufferPass() : m_Device(Akari::Application::GetDevice()) {}
 GBufferPass::~GBufferPass() {
   VmaAllocator allocator = Akari::Application::GetVmaAllocator();
   vmaDestroyBuffer(allocator, m_MetadataBuffer, m_MetadataAllocation);
+  vmaDestroyBuffer(allocator, m_DepthBuffer, m_DepthBufferAllocation);
 }
 
 void GBufferPass::CreateBuffers() {
+  VmaAllocator allocator = Akari::Application::GetVmaAllocator();
 
   // Metadata
   {
@@ -30,9 +32,30 @@ void GBufferPass::CreateBuffers() {
         .usage = VMA_MEMORY_USAGE_AUTO,
     };
 
-    vmaCreateBuffer(Akari::Application::GetVmaAllocator(), &bufferInfo,
-                    &allocCreateInfo, &m_MetadataBuffer, &m_MetadataAllocation,
-                    nullptr);
+    vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_MetadataBuffer,
+                    &m_MetadataAllocation, nullptr);
+  }
+
+  // Depth buffer
+  {
+    VkBufferCreateInfo bufferInfo = {
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = sizeof(float),
+        .usage = VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+    };
+
+    VmaAllocationCreateInfo allocCreateInfo = {
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT |
+                 VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO,
+    };
+
+    VmaAllocationInfo allocInfo = {};
+
+    vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_DepthBuffer,
+                    &m_DepthBufferAllocation, &allocInfo);
+
+    m_DepthBufferPtr = allocInfo.pMappedData;
   }
 }
 
@@ -516,15 +539,26 @@ bool GBufferPass::OnResize(uint32_t width, uint32_t height) {
   return true;
 }
 
+float *GBufferPass::GetDepth() {
+  if (!m_DepthBufferPtr)
+    return nullptr;
+  return reinterpret_cast<float *>(m_DepthBufferPtr);
+}
+
 void GBufferPass::Render(VkCommandBuffer commandBuffer) {
+
+  VmaAllocator allocator = Akari::Application::GetVmaAllocator();
+
+  glm::vec2 mouse{0};
+  GetViewportMouse(mouse.x, mouse.y);
 
   Metadata metadata{
       .frame = Akari::Application::GetFrameCount(),
       .worldSize = m_Init.world->GetSVO()->GetSize(),
   };
 
-  vmaCopyMemoryToAllocation(Akari::Application::GetVmaAllocator(), &metadata,
-                            m_MetadataAllocation, 0, sizeof(Metadata));
+  vmaCopyMemoryToAllocation(allocator, &metadata, m_MetadataAllocation, 0,
+                            sizeof(Metadata));
 
   uint32_t groupSizeX = 16;
   uint32_t groupSizeY = 16;
@@ -541,7 +575,7 @@ void GBufferPass::Render(VkCommandBuffer commandBuffer) {
       .maxDepth = 1.0f,
   };
 
-  VkRect2D scissor{
+  m_RenderArea = {
       .offset = {0, 0},
       .extent =
           {
@@ -551,7 +585,7 @@ void GBufferPass::Render(VkCommandBuffer commandBuffer) {
   };
 
   vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-  vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+  vkCmdSetScissor(commandBuffer, 0, 1, &m_RenderArea);
 
   std::vector<VkClearValue> clearValues = {
       // m_Normal
@@ -568,7 +602,7 @@ void GBufferPass::Render(VkCommandBuffer commandBuffer) {
       .sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
       .renderPass = m_RenderPass,
       .framebuffer = m_Framebuffer,
-      .renderArea = scissor,
+      .renderArea = m_RenderArea,
       .clearValueCount = static_cast<uint32_t>(clearValues.size()),
       .pClearValues = clearValues.data(),
   };
@@ -608,6 +642,23 @@ void GBufferPass::Render(VkCommandBuffer commandBuffer) {
     m_MotionVector->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                     VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
                                     VK_ACCESS_2_SHADER_READ_BIT);
+
+    // Write the depth buffer value at current mouse position to CPU memory
+    {
+      m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                          VK_ACCESS_2_TRANSFER_READ_BIT,
+                          VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+
+      VkBufferImageCopy copyDepth{};
+      copyDepth.imageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+      copyDepth.imageSubresource.layerCount = 1;
+      copyDepth.imageOffset = {(int)mouse.x, (int)mouse.y, 0};
+      copyDepth.imageExtent = {1, 1, 1};
+
+      vkCmdCopyImageToBuffer(commandBuffer, m_Depth->m_Image,
+                             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                             m_DepthBuffer, 1, &copyDepth);
+    }
 
     m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                         VK_ACCESS_2_SHADER_READ_BIT,

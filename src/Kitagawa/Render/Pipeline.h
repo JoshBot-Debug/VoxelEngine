@@ -83,6 +83,8 @@ public:
 
   VkPipeline GetPipeline() { return m_Pipeline; };
   VkPipelineLayout GetPipelineLayout() { return m_PipelineLayout; };
+  VkRenderPass GetRenderPass() { return m_RenderPass; };
+  VkFramebuffer GetFrameBuffer() { return m_Framebuffer; };
 
   virtual std::shared_ptr<Akari::Image> GetTexture(Binding binding) = 0;
 

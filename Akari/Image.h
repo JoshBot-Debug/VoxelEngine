@@ -17,7 +17,8 @@ public:
     float MaxLOD = 0.0f;
     VkImageType ImageType = VkImageType::VK_IMAGE_TYPE_2D;
     VkImageViewType ViewType = VkImageViewType::VK_IMAGE_VIEW_TYPE_2D;
-    VkImageAspectFlags AspectMask = VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageAspectFlags AspectMask =
+        VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT;
     VkFormat Format = (VkFormat)0;
     VkImageUsageFlags Usage = VkImageUsageFlagBits::VK_IMAGE_USAGE_STORAGE_BIT;
     VkFilter MagFilter = VK_FILTER_LINEAR;
@@ -35,8 +36,6 @@ public:
 private:
   Specification m_Specification;
 
-  VkImage m_Image = VK_NULL_HANDLE;
-
   VkBuffer m_StagingBuffer = VK_NULL_HANDLE;
 
   VkImageLayout m_CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
@@ -47,6 +46,7 @@ private:
   VmaAllocation m_StagingBufferAllocation = VK_NULL_HANDLE;
 
 public:
+  VkImage m_Image = VK_NULL_HANDLE;
   VkSampler m_Sampler = VK_NULL_HANDLE;
   VkImageView m_ImageView = VK_NULL_HANDLE;
   VkDescriptorSet m_DescriptorSet = VK_NULL_HANDLE;
@@ -67,15 +67,15 @@ public:
   void Transition(VkCommandBuffer commandBuffer, VkImageLayout newLayout,
                   VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask,
                   VkPipelineStageFlags2 srcStageMask,
-                  VkPipelineStageFlags2 dstStageMask,
-                  uint32_t baseMipLevel = 0, uint32_t levelCount = 1,
-                  uint32_t baseArrayLayer = 0, uint32_t layerCount = 1);
+                  VkPipelineStageFlags2 dstStageMask, uint32_t baseMipLevel = 0,
+                  uint32_t levelCount = 1, uint32_t baseArrayLayer = 0,
+                  uint32_t layerCount = 1);
 
   void Transition(VkCommandBuffer commandBuffer, VkImageLayout newLayout,
                   VkAccessFlags2 dstAccessMask,
-                  VkPipelineStageFlags2 dstStageMask,
-                  uint32_t baseMipLevel = 0, uint32_t levelCount = 1,
-                  uint32_t baseArrayLayer = 0, uint32_t layerCount = 1);
+                  VkPipelineStageFlags2 dstStageMask, uint32_t baseMipLevel = 0,
+                  uint32_t levelCount = 1, uint32_t baseArrayLayer = 0,
+                  uint32_t layerCount = 1);
 
   bool Resize(uint32_t width, uint32_t height);
 
@@ -85,7 +85,8 @@ public:
 
   void BindImGuiDescriptor(VkImageLayout layout);
 
-  void SetCurrentState(VkImageLayout layout, VkPipelineStageFlags2 stageMask, VkAccessFlags2 accessMask);
+  void SetCurrentState(VkImageLayout layout, VkPipelineStageFlags2 stageMask,
+                       VkAccessFlags2 accessMask);
 };
 
 } // namespace Akari

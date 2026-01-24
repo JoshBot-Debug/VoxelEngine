@@ -16,7 +16,7 @@ void Image::Initialize(const Specification &specification) {
   m_Specification = specification;
 
   VkDevice device = Akari::Application::GetDevice();
-
+  VmaAllocator allocator = Akari::Application::GetVmaAllocator();
   VkResult err;
 
   // Create the Image
@@ -44,8 +44,8 @@ void Image::Initialize(const Specification &specification) {
     m_CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     VmaAllocationCreateInfo allocInfo = {.usage = VMA_MEMORY_USAGE_AUTO};
-    err = vmaCreateImage(Akari::Application::GetVmaAllocator(), &info,
-                         &allocInfo, &m_Image, &m_ImageAllocation, nullptr);
+    err = vmaCreateImage(allocator, &info, &allocInfo, &m_Image,
+                         &m_ImageAllocation, nullptr);
     CheckVkResult(err);
   }
 
@@ -112,15 +112,14 @@ void Image::Release() {
       [sampler = m_Sampler, imageView = m_ImageView, image = m_Image,
        stagingBuffer = m_StagingBuffer, imageAllocation = m_ImageAllocation,
        stagingBufferAllocation = m_StagingBufferAllocation]() {
+        VmaAllocator allocator = Akari::Application::GetVmaAllocator();
         VkDevice device = Akari::Application::GetDevice();
 
         vkDestroySampler(device, sampler, nullptr);
         vkDestroyImageView(device, imageView, nullptr);
 
-        vmaDestroyImage(Akari::Application::GetVmaAllocator(), image,
-                        imageAllocation);
-        vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), stagingBuffer,
-                         stagingBufferAllocation);
+        vmaDestroyImage(allocator, image, imageAllocation);
+        vmaDestroyBuffer(allocator, stagingBuffer, stagingBufferAllocation);
       });
 
   m_Image = VK_NULL_HANDLE;
@@ -133,6 +132,8 @@ void Image::Release() {
 }
 
 void Image::SetData(const void *data, uint32_t mipLevel) {
+  VmaAllocator allocator = Akari::Application::GetVmaAllocator();
+
   uint32_t mipWidth = std::max(1u, m_Specification.Width >> mipLevel);
   uint32_t mipHeight = std::max(1u, m_Specification.Height >> mipLevel);
   uint32_t mipDepth = std::max(1u, m_Specification.Depth >> mipLevel);
@@ -158,14 +159,14 @@ void Image::SetData(const void *data, uint32_t mipLevel) {
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
     };
 
-    VmaAllocationCreateInfo allocInfo = {
+    VmaAllocationCreateInfo allocCreateInfo = {
         .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
         .usage = VMA_MEMORY_USAGE_AUTO,
     };
 
-    CheckVkResult(vmaCreateBuffer(Akari::Application::GetVmaAllocator(),
-                                  &bufferInfo, &allocInfo, &m_StagingBuffer,
-                                  &m_StagingBufferAllocation, nullptr));
+    CheckVkResult(vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo,
+                                  &m_StagingBuffer, &m_StagingBufferAllocation,
+                                  nullptr));
   }
 
   size_t mipOffset = 0;
@@ -177,9 +178,8 @@ void Image::SetData(const void *data, uint32_t mipLevel) {
     mipOffset += w * h * d * BytesPerPixel(m_Specification.Format);
   }
 
-  CheckVkResult(vmaCopyMemoryToAllocation(Akari::Application::GetVmaAllocator(),
-                                          data, m_StagingBufferAllocation,
-                                          mipOffset, mipSize));
+  CheckVkResult(vmaCopyMemoryToAllocation(
+      allocator, data, m_StagingBufferAllocation, mipOffset, mipSize));
 }
 
 void Image::CopyToImage(VkCommandBuffer commandBuffer) {

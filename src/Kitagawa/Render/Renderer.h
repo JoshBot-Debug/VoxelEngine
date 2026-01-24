@@ -2,8 +2,8 @@
 
 #include "Camera/PerspectiveCamera.h"
 
-#include "Kitagawa/Render/CameraBuffer.h"
 #include "Kitagawa/World.h"
+#include "Kitagawa/Render/CameraBuffer.h"
 
 #include "Kitagawa/Render/RenderPass/GBufferPass.h"
 #include "Kitagawa/Render/RenderPass/LightingPass.h"
