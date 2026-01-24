@@ -74,11 +74,11 @@ const void World::GenerateCornellBox() {
   auto light =
       m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
 
-  std::thread([chunkSize = m_ChunkSize, svo = m_SVO, wall, leftWall,
-               rightWall]() {
+  std::thread([chunkSize = m_ChunkSize, svo = m_SVO, sphere, cube, wall,
+               leftWall, rightWall]() {
     for (int a = 0; a < chunkSize; a++) {
-      std::this_thread::sleep_for(std::chrono::milliseconds(64));
       for (int b = 0; b < chunkSize; b++) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
         // Top wall
         svo->Set(a, chunkSize - 1, b, wall.get());
         // Bottom wall
@@ -93,59 +93,45 @@ const void World::GenerateCornellBox() {
         svo->Set(a, b, chunkSize - 1, wall.get());
       }
     }
-  }).detach();
+    const glm::vec2 blockDistanceFromWall =
+        glm::vec2({chunkSize / 4, chunkSize / 6});
+    const int blockSize = chunkSize / 4;
+    const int blockHeight = chunkSize / 2;
 
-  const glm::vec2 blockDistanceFromWall =
-      glm::vec2({m_ChunkSize / 4, m_ChunkSize / 6});
-  const int blockSize = m_ChunkSize / 4;
-  const int blockHeight = m_ChunkSize / 2;
-
-  // Add the rectangle
-  for (int z = 0; z < blockSize; z++)
-    for (int x = 0; x < blockSize; x++)
-      for (int y = 0; y < blockHeight; y++) {
-        m_SVO->Set(x + blockDistanceFromWall.x, y + 1,
+    // Add the rectangle
+    for (int z = 0; z < blockSize; z++)
+      for (int x = 0; x < blockSize; x++)
+        for (int y = 0; y < blockHeight; y++) {
+          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          svo->Set(x + blockDistanceFromWall.x, y + 1,
                    z + blockDistanceFromWall.y, cube.get());
-      }
+        }
 
-  // Add the sphere
-  int radius = m_ChunkSize / 8;
-  int cx = blockDistanceFromWall.x + (m_ChunkSize / 2);
-  int cy = radius;
-  int cz = blockDistanceFromWall.y + (m_ChunkSize / 2);
+    // Add the sphere
+    int radius = chunkSize / 8;
+    int cx = blockDistanceFromWall.x + (chunkSize / 2);
+    int cy = radius;
+    int cz = blockDistanceFromWall.y + (chunkSize / 2);
 
-  for (int z = 0; z < m_ChunkSize; ++z) {
-    for (int y = 0; y < m_ChunkSize; ++y) {
-      for (int x = 0; x < m_ChunkSize; ++x) {
-        float dx = x - cx;
-        float dy = y - cy;
-        float dz = z - cz;
-        if (dx * dx + dy * dy + dz * dz <= radius * radius)
-          m_SVO->Set(x, y + 1, z, sphere.get());
+    for (int z = 0; z < chunkSize; ++z) {
+      for (int y = 0; y < chunkSize; ++y) {
+        for (int x = 0; x < chunkSize; ++x) {
+          float dx = x - cx;
+          float dy = y - cy;
+          float dz = z - cz;
+          if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            svo->Set(x, y + 1, z, sphere.get());
+          }
+        }
       }
     }
-  }
+  }).detach();
 
   int lightSize = m_ChunkSize / 16;
   m_SVO->Set((m_ChunkSize / 2) - (lightSize / 2) - 1,
              m_ChunkSize - 1 - lightSize,
              (m_ChunkSize / 2) - (lightSize / 2) - 1, light.get(), lightSize);
-
-  // glm::ivec3 lightBox =
-  //     glm::ivec3(m_ChunkSize / 8, m_ChunkSize / 16, m_ChunkSize / 8);
-
-  // int center = m_ChunkSize / 2;
-
-  // for (int z = 0; z < lightBox.x; z += 2) {
-  //   for (int y = 0; y < lightBox.y; y += 2) {
-  //     for (int x = 0; x < lightBox.z; x += 2) {
-  //       m_SVO->Set(x + (m_ChunkSize / 2) - (lightBox.x / 2),
-  //                   y + m_ChunkSize - lightBox.y - 4,
-  //                   z + (m_ChunkSize / 2) - (lightBox.z / 2), light.get(),
-  //                   1);
-  //     }
-  //   }
-  // }
 }
 
 void World::Flush() {

@@ -448,7 +448,7 @@ void GBufferPass::CreatePipeline() {
       .cullMode = VK_CULL_MODE_BACK_BIT,
       .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
       .depthBiasEnable = VK_FALSE,
-      .lineWidth = 1.0f,
+      .lineWidth = 2.0f,
   };
 
   VkPipelineMultisampleStateCreateInfo multisampling{

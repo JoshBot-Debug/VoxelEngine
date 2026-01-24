@@ -96,8 +96,8 @@ Node *SparseVoxelOctree::Set(Node *node, int x, int y, int z, Voxel *voxel,
      * Set the voxel and if there are any children, they need to be cleared out
      */
     for (int i = 0; i < 8; i++) {
-      /// TODO: May want to defer the deletion of nodes
-      delete node->Children[i];
+      /// TODO: Must defer the deletion of nodes
+      // delete node->Children[i];
       node->Children[i] = nullptr;
     }
 
@@ -133,8 +133,8 @@ Node *SparseVoxelOctree::Set(Node *node, int x, int y, int z, Voxel *voxel,
       return node;
 
   for (int i = 0; i < 8; i++) {
-    /// TODO: May want to defer the deletion of nodes
-    delete node->Children[i];
+    /// TODO: Must defer the deletion of nodes
+    // delete node->Children[i];
     node->Children[i] = nullptr;
   }
 
@@ -209,7 +209,7 @@ Node *SparseVoxelOctree::Clear(Node *&node, int x, int y, int z, int leafSize,
       return node;
 
     if (size != m_Size) {
-      /// TODO: May want to defer this deletion
+      /// TODO: Must defer this deletion
       delete node;
       node = nullptr;
     } else
