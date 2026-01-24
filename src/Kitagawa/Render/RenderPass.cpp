@@ -1,13 +1,16 @@
 #include "RenderPass.h"
 
-#include "Application.h"
 #include <array>
+
+#include "Application.h"
 
 namespace Kitagawa {
 namespace Render {
 
 void RenderPass::CreateRenderPass(const RenderPassCreateInfo& info) {
   VkDevice device = Akari::Application::GetDevice();
+
+  auto infoAttachments = info.attachments;
 
   std::vector<VkAttachmentDescription2> attachments;
   std::vector<VkAttachmentReference2>   colorRefs;
@@ -20,7 +23,7 @@ void RenderPass::CreateRenderPass(const RenderPassCreateInfo& info) {
       .aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
   };
 
-  std::sort(info.attachments.begin(), info.attachments.end(), [](AttachmentDescription2& a, AttachmentDescription2& b) {
+  std::sort(infoAttachments.begin(), infoAttachments.end(), [](const AttachmentDescription2& a, const AttachmentDescription2& b) {
     return a.depth > b.depth;
   });
 

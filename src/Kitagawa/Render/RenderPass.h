@@ -2,7 +2,11 @@
 
 #include <memory>
 #include <stdint.h>
+#include <vector>
 #include <vulkan/vulkan.h>
+
+#include "Image.h"
+#include "Binding.h"
 
 namespace Kitagawa {
 namespace Render {
