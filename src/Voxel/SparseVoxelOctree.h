@@ -126,10 +126,10 @@ private:
    * @param target    Optional voxel filter; only deletes a voxel if it matches
    *                  this value. If nullptr, deletes unconditionally.
    *
-   * @return          True if a voxel was found and cleared; false otherwise.
+   * @return          The node
    */
-  bool Clear(Node *&node, int x, int y, int z, int leafSize, int size,
-             Voxel *target = nullptr);
+  Node *Clear(Node *&node, int x, int y, int z, int leafSize, int size,
+              Voxel *target = nullptr);
 
   /**
    * Returns the total memory used in bytes by this node and all it's children.
@@ -324,10 +324,8 @@ public:
    * @param position  Voxel-space coordinates to clear (x, y, z).
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    * @param target    Optional voxel filter; only deletes if matching this.
-   *
-   * @return          True if a voxel was found and cleared; false otherwise.
    */
-  bool Clear(glm::ivec3 position, int leafSize = 1, Voxel *target = nullptr);
+  void Clear(glm::ivec3 position, int leafSize = 1, Voxel *target = nullptr);
 
   /**
    * Clear a voxel at the given x, y, z coordinates in
@@ -339,10 +337,8 @@ public:
    * @param x, y, z   Voxel-space coordinates to clear.
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    * @param target    Optional voxel filter; only deletes if matching this.
-   *
-   * @return          True if a voxel was found and cleared; false otherwise.
    */
-  bool Clear(int x, int y, int z, int leafSize = 1, Voxel *target = nullptr);
+  void Clear(int x, int y, int z, int leafSize = 1, Voxel *target = nullptr);
 
   /**
    * Returns the total memory usage of the SVO in bytes.
