@@ -7,3 +7,20 @@ PointerAlignment: Left
 
 AlignConsecutiveDeclarations: true
 AlignConsecutiveAssignments: true
+
+# ---- Prevent early folding ----
+BinPackArguments: false
+BinPackParameters: false
+
+AllowAllArgumentsOnNextLine: false
+AllowAllParametersOfDeclarationOnNextLine: false
+
+BreakConstructorInitializers: BeforeComma
+PackConstructorInitializers: Never
+
+BreakBeforeBinaryOperators: None
+BreakBeforeTernaryOperators: false
+
+PenaltyBreakAssignment: 10000
+PenaltyBreakBeforeFirstCallParameter: 10000
+PenaltyBreakComment: 10000

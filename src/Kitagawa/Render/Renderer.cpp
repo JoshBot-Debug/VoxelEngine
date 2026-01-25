@@ -4,8 +4,7 @@
 
 namespace Kitagawa {
 
-void Renderer::CreateDescripterPool(
-    const std::vector<VkDescriptorPoolSize>& pool) {
+void Renderer::CreateDescripterPool(const std::vector<VkDescriptorPoolSize>& pool) {
 
   VkDescriptorPoolCreateInfo poolInfo{
       .sType   = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,

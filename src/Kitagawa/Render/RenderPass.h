@@ -5,8 +5,9 @@
 #include <vector>
 #include <vulkan/vulkan.h>
 
-#include "Image.h"
 #include "Binding.h"
+#include "Image.h"
+#include "Kitagawa/Render/XPipeline.h"
 
 namespace Kitagawa {
 namespace Render {
@@ -42,10 +43,13 @@ public:
   };
 
 private:
-  VkRenderPass  m_RenderPass  = nullptr;
-  VkFramebuffer m_Framebuffer = nullptr;
+  VkRenderPass           m_RenderPass  = nullptr;
+  VkFramebuffer          m_Framebuffer = nullptr;
+  std::vector<XPipeline> m_Pipelines   = {};
 
 public:
+  ~RenderPass();
+
   virtual void CreateBuffer(){};
 
   virtual bool ResizeFramebuffer(uint32_t width, uint32_t height) {
@@ -55,6 +59,8 @@ public:
   virtual std::shared_ptr<Akari::Image> GetTexture(Binding binding) {
     return nullptr;
   };
+
+  void AttachPipeline(const XPipeline& pipeline);
 
   void CreateRenderPass(const RenderPassCreateInfo& info);
 

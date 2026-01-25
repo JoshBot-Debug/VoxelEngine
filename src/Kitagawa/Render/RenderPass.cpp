@@ -7,6 +7,17 @@
 namespace Kitagawa {
 namespace Render {
 
+RenderPass::~RenderPass() {
+  VkDevice device = Akari::Application::GetDevice();
+
+  vkDestroyFramebuffer(device, m_Framebuffer, nullptr);
+  vkDestroyRenderPass(device, m_RenderPass, nullptr);
+}
+
+void RenderPass::AttachPipeline(const XPipeline& pipeline) {
+  m_Pipelines.emplace_back(pipeline);
+}
+
 void RenderPass::CreateRenderPass(const RenderPassCreateInfo& info) {
   VkDevice device = Akari::Application::GetDevice();
 

@@ -163,8 +163,7 @@ void GBufferPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
   {
     const uint32_t framesInFlight = Akari::Application::GetMaxFramesInFlight();
 
-    std::vector<VkDescriptorSetLayout> layouts(framesInFlight,
-                                               m_DescriptorSetLayouts[1]);
+    std::vector<VkDescriptorSetLayout> layouts(framesInFlight, m_DescriptorSetLayouts[1]);
 
     VkDescriptorSetAllocateInfo allocInfo{
         .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,

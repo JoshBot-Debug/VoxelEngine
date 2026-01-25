@@ -13,6 +13,22 @@ void XGBufferPass::Initialize(const Initializer& init) {
                         {.format = m_MotionVector->GetSpecification().Format},
                         {.format = m_Depth->GetSpecification().Format, .depth = true},
                     }});
+
+  // XPipeline pipeline;
+  // pipeline.CreateDescriptorSet({
+  //     // .descriptorPool = init.de
+  //     .layoutBindings = {
+  //         VkDescriptorSetLayoutBinding{
+  //             .binding         = Binding::U_CAMERA,
+  //             .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+  //             .descriptorCount = 1,
+  //             .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT,
+  //         }},
+  //     .descriptorSetCount = Akari::Application::GetMaxFramesInFlight(),
+  //     .pBufferInfo        = [init = &m_Init](int i) {
+  //       return VkDescriptorBufferInfo{.buffer = init->cameraBuffer->GetBuffer(i), .offset = 0, .range = sizeof(CameraBuffer::Camera)};
+  //     },
+  // });
 }
 
 void XGBufferPass::CreateBuffer() {
@@ -34,8 +50,7 @@ void XGBufferPass::CreateBuffer() {
 
     VmaAllocationInfo allocInfo = {};
 
-    vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_DepthBuffer,
-                    &m_DepthBufferAllocation, &allocInfo);
+    vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_DepthBuffer, &m_DepthBufferAllocation, &allocInfo);
 
     m_DepthBufferMappedPtr = allocInfo.pMappedData;
   }
