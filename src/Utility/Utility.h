@@ -7,7 +7,7 @@
 
 #include <imgui.h>
 
-inline std::string getExecutableDir() {
+inline std::string GetExecutableDir() {
   char    result[PATH_MAX];
   ssize_t count = readlink("/proc/self/exe", result, PATH_MAX);
   return std::filesystem::path(

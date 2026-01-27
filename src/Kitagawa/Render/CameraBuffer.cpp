@@ -44,9 +44,8 @@ CameraBuffer::~CameraBuffer() {
   VmaAllocator   allocator      = Akari::Application::GetVmaAllocator();
   const uint32_t framesInFlight = Akari::Application::GetMaxFramesInFlight();
 
-  for (size_t i = 0; i < framesInFlight; i++) {
+  for (size_t i = 0; i < framesInFlight; i++)
     vmaDestroyBuffer(allocator, m_Buffers[i], m_Allocations[i]);
-  }
 }
 
 void CameraBuffer::Render(PerspectiveCamera* camera) {

@@ -6,7 +6,8 @@ namespace Kitagawa {
 namespace Render {
 namespace RenderPass {
 
-LightingPass::LightingPass() : m_Device(Akari::Application::GetDevice()) {}
+LightingPass::LightingPass()
+    : m_Device(Akari::Application::GetDevice()) {}
 
 LightingPass::~LightingPass() {
   VmaAllocator allocator = Akari::Application::GetVmaAllocator();
@@ -30,9 +31,7 @@ void LightingPass::CreateBuffers() {
         .usage = VMA_MEMORY_USAGE_AUTO,
     };
 
-    vmaCreateBuffer(Akari::Application::GetVmaAllocator(), &bufferInfo,
-                    &allocCreateInfo, &m_MetadataBuffer, &m_MetadataAllocation,
-                    nullptr);
+    vmaCreateBuffer(Akari::Application::GetVmaAllocator(), &bufferInfo, &allocCreateInfo, &m_MetadataBuffer, &m_MetadataAllocation, nullptr);
   }
 }
 
@@ -144,7 +143,10 @@ void LightingPass::CreateDescriptorSetLayout() {
     };
 
     if (LOG_VK_RESULT(vkCreateDescriptorSetLayout(
-            m_Device, &layoutInfo, nullptr, &m_DescriptorSetLayouts[i])))
+            m_Device,
+            &layoutInfo,
+            nullptr,
+            &m_DescriptorSetLayouts[i])))
       throw std::runtime_error("Failed to create descriptor set layout " +
                                std::to_string(i));
   }
@@ -168,8 +170,7 @@ void LightingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
         .pSetLayouts        = &m_DescriptorSetLayouts[0],
     };
 
-    if (LOG_VK_RESULT(vkAllocateDescriptorSets(m_Device, &allocInfo,
-                                               &m_DescriptorSets[0][0])))
+    if (LOG_VK_RESULT(vkAllocateDescriptorSets(m_Device, &allocInfo, &m_DescriptorSets[0][0])))
       throw std::runtime_error("Failed to allocate descriptor sets 0");
 
     // --- Uniform Buffers ---
@@ -327,11 +328,9 @@ void LightingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
             .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .pBufferInfo     = &svoBufferInfo,
         },
-
     };
 
-    vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writes.size()),
-                           writes.data(), 0, nullptr);
+    vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
   }
 
   // Descriptor Set 1
@@ -350,8 +349,7 @@ void LightingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
 
     m_DescriptorSets[1].resize(framesInFlight);
 
-    if (LOG_VK_RESULT(vkAllocateDescriptorSets(m_Device, &allocInfo,
-                                               m_DescriptorSets[1].data())))
+    if (LOG_VK_RESULT(vkAllocateDescriptorSets(m_Device, &allocInfo, m_DescriptorSets[1].data())))
       throw std::runtime_error("Failed to allocate descriptor sets 1");
 
     for (size_t i = 0; i < framesInFlight; i++) {
@@ -376,8 +374,7 @@ void LightingPass::CreateDescriptorSets(VkDescriptorPool descriptorPool) {
           },
       };
 
-      vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writes.size()),
-                             writes.data(), 0, nullptr);
+      vkUpdateDescriptorSets(m_Device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
     }
   }
 }
@@ -390,12 +387,11 @@ void LightingPass::CreatePipeline() {
       .pSetLayouts    = m_DescriptorSetLayouts.data(),
   };
 
-  if (LOG_VK_RESULT(vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo,
-                                           nullptr, &m_PipelineLayout)))
+  if (LOG_VK_RESULT(vkCreatePipelineLayout(m_Device, &pipelineLayoutInfo, nullptr, &m_PipelineLayout)))
     throw std::runtime_error("Failed to create pipeline layout");
 
   VkShaderModule shaderModule = CreateShaderModule(
-      getExecutableDir() + "/../src/Shaders/Pipeline/lighting.comp.spv");
+      GetExecutableDir() + "/../src/Shaders/Pipeline/lighting.comp.spv");
 
   VkPipelineShaderStageCreateInfo computeStage{
       .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -411,7 +407,12 @@ void LightingPass::CreatePipeline() {
   };
 
   if (LOG_VK_RESULT(vkCreateComputePipelines(
-          m_Device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &m_Pipeline)))
+          m_Device,
+          VK_NULL_HANDLE,
+          1,
+          &pipelineInfo,
+          nullptr,
+          &m_Pipeline)))
     throw std::runtime_error("Failed to create the compute pipeline");
 
   vkDestroyShaderModule(m_Device, shaderModule, nullptr);
@@ -428,8 +429,7 @@ void LightingPass::Render(VkCommandBuffer commandBuffer) {
       .worldSize = m_Init.world->GetSVO()->GetSize(),
   };
 
-  vmaCopyMemoryToAllocation(Akari::Application::GetVmaAllocator(), &metadata,
-                            m_MetadataAllocation, 0, sizeof(Metadata));
+  vmaCopyMemoryToAllocation(Akari::Application::GetVmaAllocator(), &metadata, m_MetadataAllocation, 0, sizeof(Metadata));
 
   uint32_t groupSizeX = 16;
   uint32_t groupSizeY = 16;
@@ -439,9 +439,7 @@ void LightingPass::Render(VkCommandBuffer commandBuffer) {
   uint32_t groupCountY =
       (m_DirectLight->GetHeight() + groupSizeY - 1) / groupSizeY;
 
-  m_DirectLight->Transition(commandBuffer, VK_IMAGE_LAYOUT_GENERAL,
-                            VK_ACCESS_2_SHADER_WRITE_BIT,
-                            VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+  m_DirectLight->Transition(commandBuffer, VK_IMAGE_LAYOUT_GENERAL, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
   vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_Pipeline);
 
@@ -450,14 +448,15 @@ void LightingPass::Render(VkCommandBuffer commandBuffer) {
       m_DescriptorSets[1][Akari::Application::GetCurrentFrameIndex()],
   };
 
-  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE,
-                          m_PipelineLayout, 0, 2, sets, 0, nullptr);
+  vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, m_PipelineLayout, 0, 2, sets, 0, nullptr);
 
   vkCmdDispatch(commandBuffer, groupCountX, groupCountY, 1);
 
   m_DirectLight->Transition(
-      commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-      VK_ACCESS_2_SHADER_READ_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
+      commandBuffer,
+      VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+      VK_ACCESS_2_SHADER_READ_BIT,
+      VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
 }
 
 uint32_t LightingPass::GetMaxSets() {

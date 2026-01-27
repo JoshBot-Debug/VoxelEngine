@@ -5,7 +5,7 @@ struct FlatVoxel{
   uint Material;
 };
 
-layout(std430,set=0,binding=50)readonly buffer SparseVoxelOctree{
+layout(std430,set=1,binding=50)readonly buffer SparseVoxelOctree{
   uint count;
   uint padding[3];
   FlatVoxel data[];

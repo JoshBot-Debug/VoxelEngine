@@ -1,15 +1,12 @@
 #pragma once
 
-#include <memory>
 #include <stdint.h>
 #include <vector>
 #include <vulkan/vulkan.h>
 
-#include "Binding.h"
-#include "Image.h"
-#include "Kitagawa/Render/XPipeline.h"
+#include "Pipeline.h"
 
-namespace Kitagawa {
+namespace Akari {
 namespace Render {
 
 class RenderPass {
@@ -42,30 +39,28 @@ public:
     std::vector<AttachmentDescription2> attachments;
   };
 
+  struct BeginRenderPassInfo {
+    VkCommandBuffer           commandBuffer;
+    std::vector<VkClearValue> clearColor;
+  };
+
 private:
-  VkRenderPass           m_RenderPass  = nullptr;
-  VkFramebuffer          m_Framebuffer = nullptr;
-  std::vector<XPipeline> m_Pipelines   = {};
+  VkRenderPass          m_RenderPass  = nullptr;
+  VkFramebuffer         m_Framebuffer = nullptr;
+
+  FramebufferCreateInfo m_FramebufferCreateInfo;
 
 public:
   ~RenderPass();
 
-  virtual void CreateBuffer(){};
-
-  virtual bool ResizeFramebuffer(uint32_t width, uint32_t height) {
-    return false;
-  };
-
-  virtual std::shared_ptr<Akari::Image> GetTexture(Binding binding) {
-    return nullptr;
-  };
-
-  void AttachPipeline(const XPipeline& pipeline);
-
   void CreateRenderPass(const RenderPassCreateInfo& info);
 
   void CreateFramebuffer(const FramebufferCreateInfo& info);
+
+  void BeginRenderPass(const BeginRenderPassInfo& info);
+
+  const VkRenderPass GetRenderPass() const { return m_RenderPass; }
 };
 
 } // namespace Render
-} // namespace Kitagawa
+} // namespace Akari

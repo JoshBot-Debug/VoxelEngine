@@ -1,10 +1,8 @@
 #include "RenderPass.h"
 
-#include <array>
-
 #include "Application.h"
 
-namespace Kitagawa {
+namespace Akari {
 namespace Render {
 
 RenderPass::~RenderPass() {
@@ -12,10 +10,6 @@ RenderPass::~RenderPass() {
 
   vkDestroyFramebuffer(device, m_Framebuffer, nullptr);
   vkDestroyRenderPass(device, m_RenderPass, nullptr);
-}
-
-void RenderPass::AttachPipeline(const XPipeline& pipeline) {
-  m_Pipelines.emplace_back(pipeline);
 }
 
 void RenderPass::CreateRenderPass(const RenderPassCreateInfo& info) {
@@ -35,11 +29,11 @@ void RenderPass::CreateRenderPass(const RenderPassCreateInfo& info) {
   };
 
   std::sort(infoAttachments.begin(), infoAttachments.end(), [](const AttachmentDescription2& a, const AttachmentDescription2& b) {
-    return a.depth > b.depth;
+    return a.depth < b.depth;
   });
 
-  for (uint32_t i = 0; i < static_cast<uint32_t>(info.attachments.size()); i++) {
-    auto& attachment = info.attachments[i];
+  for (uint32_t i = 0; i < static_cast<uint32_t>(infoAttachments.size()); i++) {
+    auto& attachment = infoAttachments[i];
 
     auto vkAttachment = VkAttachmentDescription2{
         .sType          = attachment.sType,
@@ -59,7 +53,7 @@ void RenderPass::CreateRenderPass(const RenderPassCreateInfo& info) {
       attachments.emplace_back(vkAttachment);
       colorRefs.emplace_back(VkAttachmentReference2{VK_STRUCTURE_TYPE_ATTACHMENT_REFERENCE_2, nullptr, i, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT});
     } else {
-      attachments.emplace(attachments.begin(), vkAttachment);
+      attachments.emplace_back(vkAttachment);
       depthRef.attachment = i;
     }
   }
@@ -155,7 +149,43 @@ void RenderPass::CreateFramebuffer(const FramebufferCreateInfo& info) {
     throw std::runtime_error("failed to create framebuffer!");
 
   vkDestroyFramebuffer(device, previousFramebuffer, nullptr);
+
+  m_FramebufferCreateInfo = info;
+}
+
+void RenderPass::BeginRenderPass(const BeginRenderPassInfo &info) {
+  VkViewport viewport{
+      .x        = 0.0f,
+      .y        = 0.0f,
+      .width    = (float)m_FramebufferCreateInfo.width,
+      .height   = (float)m_FramebufferCreateInfo.height,
+      .minDepth = 0.0f,
+      .maxDepth = 1.0f,
+  };
+
+  VkRect2D renderArea = {
+      .offset = {0, 0},
+      .extent =
+          {
+              .width  = m_FramebufferCreateInfo.width,
+              .height = m_FramebufferCreateInfo.height,
+          },
+  };
+
+  vkCmdSetViewport(info.commandBuffer, 0, 1, &viewport);
+  vkCmdSetScissor(info.commandBuffer, 0, 1, &renderArea);
+
+  VkRenderPassBeginInfo renderPassBeginInfo{
+      .sType           = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+      .renderPass      = m_RenderPass,
+      .framebuffer     = m_Framebuffer,
+      .renderArea      = renderArea,
+      .clearValueCount = static_cast<uint32_t>(info.clearColor.size()),
+      .pClearValues    = info.clearColor.data(),
+  };
+
+  vkCmdBeginRenderPass(info.commandBuffer, &renderPassBeginInfo, VK_SUBPASS_CONTENTS_INLINE);
 }
 
 } // namespace Render
-} // namespace Kitagawa
+} // namespace Akari

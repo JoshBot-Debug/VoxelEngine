@@ -192,7 +192,7 @@ void ShadingPass::CreatePipeline() {
     throw std::runtime_error("Failed to create pipeline layout");
 
   VkShaderModule shaderModule = CreateShaderModule(
-      getExecutableDir() + "/../src/Shaders/Pipeline/shading.comp.spv");
+      GetExecutableDir() + "/../src/Shaders/Pipeline/shading.comp.spv");
 
   VkPipelineShaderStageCreateInfo computeStage{
       .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,

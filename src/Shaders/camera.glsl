@@ -1,5 +1,5 @@
 
-layout(set=1,binding=0)uniform Camera{
+layout(set=0,binding=0)uniform Camera{
   mat4 view;
   mat4 projection;
   mat4 viewProjection;

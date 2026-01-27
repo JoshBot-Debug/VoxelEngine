@@ -14,8 +14,7 @@ void Renderer::CreateDescripterPool(const std::vector<VkDescriptorPoolSize>& poo
       .pPoolSizes    = pool.data(),
   };
 
-  if (LOG_VK_RESULT(vkCreateDescriptorPool(m_Device, &poolInfo, nullptr,
-                                           &m_DescriptorPool)))
+  if (LOG_VK_RESULT(vkCreateDescriptorPool(m_Device, &poolInfo, nullptr, &m_DescriptorPool)))
     throw std::runtime_error("Failed to create descriptor pool");
 }
 

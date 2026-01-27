@@ -397,9 +397,9 @@ void GBufferPass::CreatePipeline() {
   CreateRenderPass();
 
   VkShaderModule vertModule = CreateShaderModule(
-      getExecutableDir() + "/../src/Shaders/Pipeline/gBuffer.vert.spv");
+      GetExecutableDir() + "/../src/Shaders/Pipeline/gBuffer.vert.spv");
   VkShaderModule fragModule = CreateShaderModule(
-      getExecutableDir() + "/../src/Shaders/Pipeline/gBuffer.frag.spv");
+      GetExecutableDir() + "/../src/Shaders/Pipeline/gBuffer.frag.spv");
 
   VkPipelineShaderStageCreateInfo vertStage{
       .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
@@ -557,12 +557,6 @@ void GBufferPass::Render(VkCommandBuffer commandBuffer) {
 
   vmaCopyMemoryToAllocation(allocator, &metadata, m_MetadataAllocation, 0,
                             sizeof(Metadata));
-
-  uint32_t groupSizeX = 16;
-  uint32_t groupSizeY = 16;
-
-  uint32_t groupCountX = (m_Depth->GetWidth() + groupSizeX - 1) / groupSizeX;
-  uint32_t groupCountY = (m_Depth->GetHeight() + groupSizeY - 1) / groupSizeY;
 
   VkViewport viewport{
       .x        = 0.0f,

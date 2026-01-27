@@ -7,13 +7,13 @@ struct Material{
   vec4 Emissive;
 };
 
-layout(std430,set=0,binding=51)readonly buffer Materials{
+layout(std430,set=1,binding=51)readonly buffer Materials{
   uint count;
   uint padding[3];
   Material data[];
 }materials;
 
-layout(std430,set=0,binding=52)readonly buffer MaterialLUT{
+layout(std430,set=1,binding=52)readonly buffer MaterialLUT{
   uint count;
   uint padding[3];
   uint data[];

@@ -39,3 +39,4 @@ Run the project
 - [x] Implement copy on write (cow) for the SVO
 - [ ] Add the ability to render rays (raymarching for debug and stuff)
 - [ ] Add the ability to create/update/delete voxels (sandbox tools) - to help improve debugging, etc
+- [ ] MAJOR: Rework how render pass & pipelines are created
