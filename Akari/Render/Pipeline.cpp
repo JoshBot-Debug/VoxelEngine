@@ -217,18 +217,11 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
       .stencilTestEnable     = VK_FALSE,
   };
 
-  std::array<VkPipelineColorBlendAttachmentState, 3> colorBlendAttachments{};
-  for (auto& cb : colorBlendAttachments) {
-    cb.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-                        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-    cb.blendEnable = VK_FALSE;
-  }
-
   VkPipelineColorBlendStateCreateInfo colorBlending{
       .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
       .logicOpEnable   = VK_FALSE,
-      .attachmentCount = static_cast<uint32_t>(colorBlendAttachments.size()),
-      .pAttachments    = colorBlendAttachments.data(),
+      .attachmentCount = static_cast<uint32_t>(info.colorBlendAttachments.size()),
+      .pAttachments    = info.colorBlendAttachments.data(),
   };
 
   VkGraphicsPipelineCreateInfo pipelineInfo{

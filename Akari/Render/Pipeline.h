@@ -33,11 +33,12 @@ public:
   };
 
   struct PipelineInfo {
-    uint32_t                                       vertexStride;
-    std::vector<VkVertexInputAttributeDescription> attribs;
-    VkRenderPass                                   renderPass;
-    std::string                                    vertexShaderFile;
-    std::string                                    fragmentShaderFile;
+    uint32_t                                         vertexStride;
+    std::vector<VkVertexInputAttributeDescription>   attribs;
+    VkRenderPass                                     renderPass;
+    std::string                                      vertexShaderFile;
+    std::string                                      fragmentShaderFile;
+    std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
   };
 
   struct ComputePipelineInfo {

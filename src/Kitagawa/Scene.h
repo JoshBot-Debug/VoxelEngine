@@ -16,6 +16,11 @@ private:
     uint32_t height;
   };
 
+  struct RayVertex {
+    glm::vec3 Position;
+    glm::vec3 Color;
+  };
+
 private:
   PerspectiveCamera*             m_Camera = nullptr;
   Kitagawa::World*               m_World  = nullptr;
@@ -28,13 +33,19 @@ private:
   Kitagawa::Render::Buffer m_MaterialBuffer;
   Kitagawa::Render::Buffer m_MaterialLUTBuffer;
   Kitagawa::Render::Buffer m_VertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+  Kitagawa::Render::Buffer m_DebugVertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
 
   uint32_t m_VertexCount = 0;
 
   Akari::Render::RenderPass m_GBufferPass;
   Akari::Render::Pipeline   m_LightingPipeline;
   Akari::Render::Pipeline   m_ShadingPipeline;
+  Akari::Render::Pipeline   m_DebugPipeline;
   Akari::Render::Pipeline   m_GeometryPipeline;
+
+  VkBuffer      m_DepthBuffer;
+  VmaAllocation m_DepthBufferAllocation;
+  void*         m_DepthBufferPtr = nullptr;
 
   std::shared_ptr<Akari::Image> m_Depth =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
