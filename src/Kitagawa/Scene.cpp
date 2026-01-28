@@ -8,6 +8,7 @@ using namespace Akari::Render;
 
 Scene::Scene() {
   m_DisplayImages = {
+      m_Debug,
       m_Normal,
       m_MotionVector,
       m_DirectLight,
@@ -75,6 +76,7 @@ void Scene::Initialize(const InitializeInfo& init) {
           {.format = m_Normal->GetSpecification().Format},
           {.format = m_Material->GetSpecification().Format},
           {.format = m_MotionVector->GetSpecification().Format},
+          {.format = m_Debug->GetSpecification().Format},
           {.format = m_Depth->GetSpecification().Format, .depth = true},
       },
   });
@@ -215,7 +217,10 @@ void Scene::Initialize(const InitializeInfo& init) {
           {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
           {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
           {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
+          {.blendEnable = VK_FALSE, .colorWriteMask = 0},
       },
+      .depthTestEnable  = VK_TRUE,
+      .depthWriteEnable = VK_TRUE,
   });
 
   m_LightingPipeline.CreateComputePipeline({
@@ -227,6 +232,7 @@ void Scene::Initialize(const InitializeInfo& init) {
   });
 
   m_DebugPipeline.CreatePipeline({
+      .topology     = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
       .vertexStride = sizeof(RayVertex),
       .attribs      = {
           {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(RayVertex, Position)},
@@ -239,7 +245,10 @@ void Scene::Initialize(const InitializeInfo& init) {
           {.blendEnable = VK_FALSE, .colorWriteMask = 0},
           {.blendEnable = VK_FALSE, .colorWriteMask = 0},
           {.blendEnable = VK_FALSE, .colorWriteMask = 0},
+          {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
       },
+      .depthTestEnable  = VK_FALSE,
+      .depthWriteEnable = VK_FALSE,
   });
 
   m_World->GetPalette().OnFlush([this]() { m_World->GetSVO()->Flush(); });
@@ -285,12 +294,8 @@ void Scene::Render() {
           resized = true;
       }
 
-      bufferBarriers.emplace_back(m_MaterialBuffer.GetBarrier(
-          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-          VK_ACCESS_2_SHADER_READ_BIT));
-      bufferBarriers.emplace_back(m_MaterialLUTBuffer.GetBarrier(
-          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-          VK_ACCESS_2_SHADER_READ_BIT));
+      bufferBarriers.emplace_back(m_MaterialBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+      bufferBarriers.emplace_back(m_MaterialLUTBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
     }
 
     if (tree->IsDirty()) {
@@ -314,15 +319,46 @@ void Scene::Render() {
       if (m_VertexBuffer.Upload(commandBuffer, verticesSize, vertices.data()))
         resized = true;
 
-      bufferBarriers.emplace_back(m_SVOBuffer.GetBarrier(
-          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-          VK_ACCESS_2_SHADER_READ_BIT));
-      bufferBarriers.emplace_back(m_LightBuffer.GetBarrier(
-          VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
-          VK_ACCESS_2_SHADER_READ_BIT));
-      bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(
-          VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT,
-          VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
+      bufferBarriers.emplace_back(m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+      bufferBarriers.emplace_back(m_LightBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+      bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
+    }
+
+    // Write the depth buffer value at current mouse position to CPU memory
+    {
+      m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_2_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
+
+      VkBufferImageCopy copyDepth{};
+      copyDepth.imageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+      copyDepth.imageSubresource.layerCount = 1;
+      copyDepth.imageOffset                 = {(int)mouse.x, (int)mouse.y, 0};
+      copyDepth.imageExtent                 = {1, 1, 1};
+
+      vkCmdCopyImageToBuffer(commandBuffer, m_Depth->m_Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_DepthBuffer, 1, &copyDepth);
+
+      float depth = *reinterpret_cast<float*>(m_DepthBufferPtr);
+      float ndcX  = (2.0f * mouse.x) / viewport.x - 1.0f;
+      float ndcY  = 1.0f - (2.0f * mouse.y) / viewport.y; // Vulkan Y
+      float ndcZ  = depth * 2.0f - 1.0f;
+
+      glm::vec4 clip(ndcX, ndcY, ndcZ, 1.0f);
+
+      glm::vec4 view = m_Camera->GetInverseProjectionMatrix() * clip;
+      view /= view.w;
+
+      glm::vec4 world = m_Camera->GetInverseViewMatrix() * view;
+
+      glm::vec3 hitPoint = glm::vec3(world);
+      glm::vec3 rayOrigin = m_Camera->Position;
+
+      std::vector<RayVertex> line = {
+          {rayOrigin, {1, 0, 0}},
+          {hitPoint, {1, 0, 0}},
+      };
+
+      m_DebugVertexBuffer.Upload(commandBuffer, line.size() * sizeof(RayVertex), line.data());
+      bufferBarriers.emplace_back(m_DebugVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
+      m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_SHADER_READ_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     }
 
     if (bufferBarriers.size() > 0) {
@@ -349,6 +385,8 @@ void Scene::Render() {
           {.color = {{0.0f, 0.0f, 0.0f, 0.0f}}},
           // m_MotionVector
           {.color = {{0.0f, 0.0f, 0.0f, 0.0f}}},
+          // m_Debug
+          {.color = {{0.0f, 0.0f, 0.0f, 0.0f}}},
           // m_Depth
           {.depthStencil = {0.0f, 0}},
       },
@@ -365,84 +403,25 @@ void Scene::Render() {
         },
         .vertexCount = m_VertexCount,
     });
+    
+    m_DebugPipeline.Draw({
+        .commandBuffer  = commandBuffer,
+        .vertexBuffer   = m_DebugVertexBuffer.GetBuffer(),
+        .offsets        = {0},
+        .descriptorSets = {
+            m_DebugPipeline.GetDescriptorSet(0, Akari::Application::GetCurrentFrameIndex()),
+        },
+        .vertexCount = 6,
+    });
   }
 
   m_Depth->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
   m_Normal->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
   m_Material->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
   m_MotionVector->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+  m_Debug->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
   vkCmdEndRenderPass(commandBuffer);
-
-  // Write the depth buffer value at current mouse position to CPU memory
-  {
-    m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_2_TRANSFER_READ_BIT, VK_PIPELINE_STAGE_2_TRANSFER_BIT);
-
-    VkBufferImageCopy copyDepth{};
-    copyDepth.imageSubresource.aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
-    copyDepth.imageSubresource.layerCount = 1;
-    copyDepth.imageOffset                 = {(int)mouse.x, (int)mouse.y, 0};
-    copyDepth.imageExtent                 = {1, 1, 1};
-
-    vkCmdCopyImageToBuffer(commandBuffer, m_Depth->m_Image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, m_DepthBuffer, 1, &copyDepth);
-
-    float depth = *reinterpret_cast<float*>(m_DepthBufferPtr);
-    float ndcX = (2.0f * mouse.x) / viewport.x - 1.0f;
-    float ndcY = 1.0f - (2.0f * mouse.y) / viewport.y; // Vulkan Y
-    float ndcZ = depth * 2.0f - 1.0f;
-
-    glm::vec4 clip(ndcX, ndcY, ndcZ, 1.0f);
-
-    glm::vec4 view = m_Camera->GetInverseProjectionMatrix() * clip;
-    view /= view.w;
-
-    glm::vec4 world = m_Camera->GetInverseViewMatrix() * view;
-
-    glm::vec3 hitPoint = glm::vec3(world);
-
-    glm::vec3 rayOrigin = m_Camera->Position;
-    glm::vec3 rayDir    = glm::normalize(hitPoint - rayOrigin);
-
-    std::vector<RayVertex> line = {
-        {rayOrigin, {1, 0, 0}},
-        {hitPoint, {1, 0, 0}},
-    };
-
-    std::cout << "depth: " << depth << std::endl;
-
-    // m_DebugVertexBuffer.Upload(commandBuffer, line);
-
-    // m_GBufferPass.BeginRenderPass({
-    //     .commandBuffer = commandBuffer,
-    //     .clearColor    = {
-    //         // m_Normal
-    //         {.color = {{0.0f, 0.0f, 0.0f, 1.0f}}},
-    //         // m_Material
-    //         {.color = {{0.0f, 0.0f, 0.0f, 0.0f}}},
-    //         // m_MotionVector
-    //         {.color = {{0.0f, 0.0f, 0.0f, 0.0f}}},
-    //         // m_Depth
-    //         {.depthStencil = {0.0f, 0}},
-    //     },
-    // });
-
-    // m_DebugPipeline.Draw({
-    //     .commandBuffer  = commandBuffer,
-    //     .vertexBuffer   = m_DebugVertexBuffer.GetBuffer(),
-    //     .offsets        = {0},
-    //     .descriptorSets = {
-    //         m_DebugPipeline.GetDescriptorSet(0, Akari::Application::GetCurrentFrameIndex()),
-    //     },
-    //     .vertexCount = 2,
-    // });
-
-    // m_Depth->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
-    // m_Normal->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
-    // m_Material->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
-    // m_MotionVector->SetCurrentState(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
-
-    // vkCmdEndRenderPass(commandBuffer);
-  }
 
   uint32_t groupSizeX = 16;
   uint32_t groupSizeY = 16;
@@ -489,8 +468,7 @@ void Scene::Render() {
   m_OutputImage->Transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_SHADER_READ_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
   m_DirectLight->Transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_SHADER_READ_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
   Akari::Application::FlushCommandBuffer(commandBuffer);
-  ImGui::Image(m_OutputImage->m_DescriptorSet,
-               ImVec2{(float)m_OutputImage->GetWidth(), (float)m_OutputImage->GetHeight()});
+  ImGui::Image(m_OutputImage->m_DescriptorSet, ImVec2{(float)m_OutputImage->GetWidth(), (float)m_OutputImage->GetHeight()});
 }
 
 void Scene::RenderUI() {
@@ -695,6 +673,9 @@ void Scene::OnResize(uint32_t width, uint32_t height) {
 
   m_Material->Resize(width, height);
 
+  if (m_Debug->Resize(width, height))
+    m_Debug->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
   if (m_Normal->Resize(width, height))
     m_Normal->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
@@ -707,10 +688,11 @@ void Scene::OnResize(uint32_t width, uint32_t height) {
   if (m_OutputImage->Resize(width, height))
     m_OutputImage->BindImGuiDescriptor(VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-  VkImageView pAttachments[4] = {
+  VkImageView pAttachments[5] = {
       m_Normal->m_ImageView,
       m_Material->m_ImageView,
       m_MotionVector->m_ImageView,
+      m_Debug->m_ImageView,
       m_Depth->m_ImageView,
   };
 
@@ -718,7 +700,7 @@ void Scene::OnResize(uint32_t width, uint32_t height) {
       .width           = width,
       .height          = height,
       .pAttachments    = pAttachments,
-      .attachmentCount = 4,
+      .attachmentCount = 5,
   });
 
   CreateDescriptorSets();

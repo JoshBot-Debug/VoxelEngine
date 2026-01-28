@@ -17,6 +17,7 @@ Buffer::Buffer(const Specification& specification)
     : m_Specification(specification) {
   m_Device         = Akari::Application::GetDevice();
   m_PhysicalDevice = Akari::Application::GetPhysicalDevice();
+  CreateBuffer(m_Specification.Size);
 }
 
 Buffer::~Buffer() { DestroyBuffer(); }
@@ -36,10 +37,8 @@ bool Buffer::Upload(VkCommandBuffer commandBuffer, size_t size, void* data) {
 
   CopyToGPU(commandBuffer, size, data);
 
-  vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), oBuffer,
-                   oBufferAllocation);
-  vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), oStagingBuffer,
-                   oStagingBufferAllocation);
+  vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), oBuffer, oBufferAllocation);
+  vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), oStagingBuffer, oStagingBufferAllocation);
 
   return true;
 }
@@ -87,9 +86,7 @@ void Buffer::CreateBuffer(VkDeviceSize size) {
         .usage = VMA_MEMORY_USAGE_AUTO,
     };
 
-    vmaCreateBuffer(Akari::Application::GetVmaAllocator(), &bufferInfo,
-                    &allocInfo, &m_StagingBuffer, &m_StagingBufferAllocation,
-                    nullptr);
+    vmaCreateBuffer(Akari::Application::GetVmaAllocator(), &bufferInfo, &allocInfo, &m_StagingBuffer, &m_StagingBufferAllocation, nullptr);
   }
 
   // GPU Buffer
@@ -103,24 +100,19 @@ void Buffer::CreateBuffer(VkDeviceSize size) {
 
     VmaAllocationCreateInfo allocInfo = {.usage = VMA_MEMORY_USAGE_AUTO};
 
-    vmaCreateBuffer(Akari::Application::GetVmaAllocator(), &bufferInfo,
-                    &allocInfo, &m_Buffer, &m_BufferAllocation, nullptr);
+    vmaCreateBuffer(Akari::Application::GetVmaAllocator(), &bufferInfo, &allocInfo, &m_Buffer, &m_BufferAllocation, nullptr);
   }
 }
 
 void Buffer::DestroyBuffer() {
-  vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), m_Buffer,
-                   m_BufferAllocation);
-  vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), m_StagingBuffer,
-                   m_StagingBufferAllocation);
+  vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), m_Buffer, m_BufferAllocation);
+  vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), m_StagingBuffer, m_StagingBufferAllocation);
 
   m_Size = 0;
 }
 
-void Buffer::CopyToGPU(VkCommandBuffer commandBuffer, size_t size,
-                       const void* data) {
-  vmaCopyMemoryToAllocation(Akari::Application::GetVmaAllocator(), data,
-                            m_StagingBufferAllocation, 0, size);
+void Buffer::CopyToGPU(VkCommandBuffer commandBuffer, size_t size, const void* data) {
+  vmaCopyMemoryToAllocation(Akari::Application::GetVmaAllocator(), data, m_StagingBufferAllocation, 0, size);
 
   VkBufferCopy copyRegion{
       .srcOffset = 0,

@@ -33,12 +33,15 @@ public:
   };
 
   struct PipelineInfo {
+    VkPrimitiveTopology                              topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     uint32_t                                         vertexStride;
     std::vector<VkVertexInputAttributeDescription>   attribs;
     VkRenderPass                                     renderPass;
     std::string                                      vertexShaderFile;
     std::string                                      fragmentShaderFile;
     std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
+    VkBool32                                         depthTestEnable;
+    VkBool32                                         depthWriteEnable;
   };
 
   struct ComputePipelineInfo {

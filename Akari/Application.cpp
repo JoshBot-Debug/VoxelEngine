@@ -257,6 +257,7 @@ static void SetupVulkan(std::vector<const char *> &instanceExtensions) {
 
     features2.features.fillModeNonSolid = VK_TRUE;
     features2.features.wideLines = VK_TRUE;
+    features2.features.independentBlend = VK_TRUE;
 
     const float pQueuePriorities[] = {1.0f};
 

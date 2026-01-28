@@ -56,6 +56,14 @@ private:
           .ObjectName = "m_GBufferPass::m_Depth",
       });
 
+  std::shared_ptr<Akari::Image> m_Debug =
+      std::make_shared<Akari::Image>(Akari::Image::Specification{
+          .Format = VK_FORMAT_R16G16B16A16_SFLOAT,
+          .Usage =
+              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          .ObjectName = "m_GBufferPass::m_Debug",
+      });
+
   std::shared_ptr<Akari::Image> m_Normal =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
           .Format = VK_FORMAT_R16G16B16A16_SFLOAT,

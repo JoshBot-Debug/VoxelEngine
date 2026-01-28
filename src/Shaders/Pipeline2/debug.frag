@@ -1,9 +1,9 @@
 #version 460
 
 layout(location=0)in vec3 vColor;
-layout(location=0)out vec4 outColor;
+layout(location=3)out vec4 outDebug;
 
 void main()
 {
-  outColor=vec4(vColor,1.);
+  outDebug=vec4(vColor,1.);
 }

@@ -2,7 +2,7 @@
 
 #include "common.glsl"
 
-layout(location=0)in vec3 inPos;
+layout(location=0)in vec3 inPosition;
 layout(location=1)in vec3 inColor;
 
 layout(location=0)out vec3 vColor;
@@ -11,5 +11,7 @@ layout(location=0)out vec3 vColor;
 
 void main(){
   vColor=inColor;
-  gl_Position=camera.viewProjection*vec4(inPos,1.);
+  vec4 worldPosition=vec4(inPosition,1.);
+  vec4 currentClip=camera.viewProjection*worldPosition;
+  gl_Position=currentClip;
 }
