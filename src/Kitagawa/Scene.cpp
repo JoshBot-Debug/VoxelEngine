@@ -348,7 +348,7 @@ void Scene::Render() {
 
       glm::vec4 world = m_Camera->GetInverseViewMatrix() * view;
 
-      glm::vec3 hitPoint = glm::vec3(world);
+      glm::vec3 hitPoint  = glm::vec3(world);
       glm::vec3 rayOrigin = m_Camera->Position;
 
       std::vector<RayVertex> line = {
@@ -403,7 +403,7 @@ void Scene::Render() {
         },
         .vertexCount = m_VertexCount,
     });
-    
+
     m_DebugPipeline.Draw({
         .commandBuffer  = commandBuffer,
         .vertexBuffer   = m_DebugVertexBuffer.GetBuffer(),

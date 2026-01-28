@@ -35,8 +35,10 @@ void PerspectiveCamera::Update() {
   m_InverseView = glm::inverse(m_View);
 
   m_Projection = glm::perspective(
-      glm::radians(FOV), glm::max((float)ViewportWidth / ViewportHeight, 1.0f),
-      FarPlane, NearPlane);
+      glm::radians(FOV),
+      glm::max((float)ViewportWidth / ViewportHeight, 1.0f),
+      FarPlane,
+      NearPlane);
 
   // Flip y for vulkan
   m_Projection[1][1] *= -1;
@@ -84,15 +86,17 @@ void PerspectiveCamera::Translate(float deltaX, float deltaY, float deltaZ) {
   Position += deltaZ * m_Front;
 }
 
-void PerspectiveCamera::Rotate(float deltaPitch, float deltaYaw,
-                               float deltaRoll) {
+void PerspectiveCamera::Rotate(float deltaPitch, float deltaYaw, float deltaRoll) {
   Rotation.x = ToDegree(Rotation.x + deltaPitch);
   Rotation.y = ToDegree(Rotation.y + deltaYaw);
   Rotation.z = ToDegree(Rotation.z + deltaRoll);
 }
 
-void PerspectiveCamera::SetProjection(float fov, float nearPlane,
-                                      float farPlane) {
+const glm::vec3& PerspectiveCamera::GetForward() {
+  return m_Front;
+}
+
+void PerspectiveCamera::SetProjection(float fov, float nearPlane, float farPlane) {
   FOV       = fov;
   NearPlane = nearPlane;
   FarPlane  = farPlane;

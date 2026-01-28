@@ -53,6 +53,8 @@ public:
 
   void Rotate(float deltaPitch, float deltaYaw, float deltaRoll);
 
+  const glm::vec3& GetForward();
+
   const glm::vec3 GetRayDirection(int pixelX, int pixelY);
 
   const glm::mat4& GetViewProjectionMatrix() const;
