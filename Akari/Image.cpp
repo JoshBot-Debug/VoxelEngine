@@ -246,7 +246,7 @@ void Image::Clear(VkCommandBuffer commandBuffer, float r, float g, float b,
                        &range);
 }
 
-void Image::Transition(VkCommandBuffer commandBuffer, VkImageLayout newLayout,
+void Image::Transition(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout,
                        VkAccessFlags2 srcAccessMask,
                        VkAccessFlags2 dstAccessMask,
                        VkPipelineStageFlags2 srcStageMask,
@@ -260,7 +260,7 @@ void Image::Transition(VkCommandBuffer commandBuffer, VkImageLayout newLayout,
       .srcAccessMask = srcAccessMask,
       .dstStageMask = dstStageMask,
       .dstAccessMask = dstAccessMask,
-      .oldLayout = m_CurrentLayout,
+      .oldLayout = oldLayout,
       .newLayout = newLayout,
       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,

@@ -70,42 +70,13 @@ void RenderPass::CreateRenderPass(const RenderPassCreateInfo& info) {
       .colorAttachmentCount    = static_cast<uint32_t>(colorRefs.size()),
       .pColorAttachments       = colorRefs.data(),
       .pResolveAttachments     = nullptr,
-      .pDepthStencilAttachment = &depthRef,
+      .pDepthStencilAttachment = nullptr,
       .preserveAttachmentCount = 0,
       .pPreserveAttachments    = nullptr,
   };
 
-  // Dependencies
-  std::vector<VkSubpassDependency2> dependencies{
-      VkSubpassDependency2{
-          .sType        = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-          .pNext        = nullptr,
-          .srcSubpass   = VK_SUBPASS_EXTERNAL,
-          .dstSubpass   = 0,
-          .srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-          .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
-                          VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT,
-          .srcAccessMask = VK_ACCESS_2_SHADER_READ_BIT,
-          .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
-                           VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-          .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-          .viewOffset      = 0,
-      },
-      VkSubpassDependency2{
-          .sType        = VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,
-          .pNext        = nullptr,
-          .srcSubpass   = 0,
-          .dstSubpass   = VK_SUBPASS_EXTERNAL,
-          .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
-                          VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
-          .dstStageMask  = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-          .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
-                           VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
-          .dstAccessMask   = VK_ACCESS_2_SHADER_READ_BIT,
-          .dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT,
-          .viewOffset      = 0,
-      },
-  };
+  if (depthRef.attachment > 0)
+    subpass.pDepthStencilAttachment = &depthRef;
 
   // Render pass info
   VkRenderPassCreateInfo2 rpInfo{
@@ -116,8 +87,6 @@ void RenderPass::CreateRenderPass(const RenderPassCreateInfo& info) {
       .pAttachments            = attachments.data(),
       .subpassCount            = 1,
       .pSubpasses              = &subpass,
-      .dependencyCount         = static_cast<uint32_t>(dependencies.size()),
-      .pDependencies           = dependencies.data(),
       .correlatedViewMaskCount = 0,
       .pCorrelatedViewMasks    = nullptr,
   };
@@ -153,7 +122,7 @@ void RenderPass::CreateFramebuffer(const FramebufferCreateInfo& info) {
   m_FramebufferCreateInfo = info;
 }
 
-void RenderPass::BeginRenderPass(const BeginRenderPassInfo &info) {
+void RenderPass::BeginRenderPass(const BeginRenderPassInfo& info) {
   VkViewport viewport{
       .x        = 0.0f,
       .y        = 0.0f,

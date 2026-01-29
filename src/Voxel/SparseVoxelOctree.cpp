@@ -1,17 +1,21 @@
 #include "SparseVoxelOctree.h"
 
 #include <execution>
+#include <stack>
 #include <tuple>
 
 #include "Voxel/GreedyMesh32.h"
 #include "Voxel/GreedyMesh64.h"
 
 SparseVoxelOctree::SparseVoxelOctree()
-    : m_Size(256), m_Depth(8), m_Root(new Node(8)) {}
+    : m_Size(256)
+    , m_Depth(8)
+    , m_Root(new Node(8)) {}
 
 SparseVoxelOctree::SparseVoxelOctree(uint32_t size)
-    : m_Size(size), m_Depth(static_cast<uint8_t>(std::log2(size))),
-      m_Root(new Node(static_cast<uint8_t>(std::log2(size)))) {}
+    : m_Size(size)
+    , m_Depth(static_cast<uint8_t>(std::log2(size)))
+    , m_Root(new Node(static_cast<uint8_t>(std::log2(size)))) {}
 
 SparseVoxelOctree::~SparseVoxelOctree() {
   Clear();
@@ -35,8 +39,7 @@ void SparseVoxelOctree::Set(const std::vector<uint64_t>& mask, Voxel* voxel) {
         Set(mask, x, y, z, voxel, 64);
 }
 
-void SparseVoxelOctree::Set(const std::vector<uint64_t>& mask, int x, int y,
-                            int z, Voxel* voxel, int size) {
+void SparseVoxelOctree::Set(const std::vector<uint64_t>& mask, int x, int y, int z, Voxel* voxel, int size) {
   bool isFullBlock = true;
 
   for (int dz = 0; dz < size && isFullBlock; ++dz)
@@ -74,8 +77,7 @@ void SparseVoxelOctree::Set(const std::vector<uint64_t>& mask, int x, int y,
 }
 
 Node* SparseVoxelOctree::Set(glm::vec3 position, Voxel* voxel, int leafSize) {
-  return Set(static_cast<int>(position.x), static_cast<int>(position.y),
-             static_cast<int>(position.z), voxel, leafSize);
+  return Set(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), voxel, leafSize);
 }
 
 Node* SparseVoxelOctree::Set(int x, int y, int z, Voxel* voxel, int leafSize) {
@@ -85,8 +87,7 @@ Node* SparseVoxelOctree::Set(int x, int y, int z, Voxel* voxel, int leafSize) {
   return next;
 }
 
-Node* SparseVoxelOctree::Set(Node* node, int x, int y, int z, Voxel* voxel,
-                             int leafSize, int size) {
+Node* SparseVoxelOctree::Set(Node* node, int x, int y, int z, Voxel* voxel, int leafSize, int size) {
   node = new Node(*node);
 
   if (size == leafSize) {
@@ -112,8 +113,7 @@ Node* SparseVoxelOctree::Set(Node* node, int x, int y, int z, Voxel* voxel,
   if (!node->Children[index])
     node->Children[index] = new Node(static_cast<uint8_t>(std::log2(half)));
 
-  node->Children[index] = Set(node->Children[index], x % half, y % half,
-                              z % half, voxel, leafSize, half);
+  node->Children[index] = Set(node->Children[index], x % half, y % half, z % half, voxel, leafSize, half);
 
   if (node->Voxel)
     node->Voxel = nullptr;
@@ -144,8 +144,7 @@ Node* SparseVoxelOctree::Set(Node* node, int x, int y, int z, Voxel* voxel,
 }
 
 Node* SparseVoxelOctree::Get(glm::vec3 position, uint32_t material) {
-  return Get(static_cast<int>(position.x), static_cast<int>(position.y),
-             static_cast<int>(position.z), material);
+  return Get(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), material);
 }
 
 Node* SparseVoxelOctree::Get(int x, int y, int z, uint32_t material) {
@@ -153,8 +152,7 @@ Node* SparseVoxelOctree::Get(int x, int y, int z, uint32_t material) {
   return Get(root, x, y, z, m_Size, material);
 }
 
-Node* SparseVoxelOctree::Get(Node* node, int x, int y, int z, int size,
-                             uint32_t material) {
+Node* SparseVoxelOctree::Get(Node* node, int x, int y, int z, int size, uint32_t material) {
 
   /// TODO: This "fix" works because I removed neighbour chunks. In reality
   /// I need to check if the x,y,z is somewhere outside of the world, if it is,
@@ -187,12 +185,10 @@ Node* SparseVoxelOctree::Get(Node* node, int x, int y, int z, int size,
 
   int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
 
-  return Get(node->Children[index], x % half, y % half, z % half, half,
-             material);
+  return Get(node->Children[index], x % half, y % half, z % half, half, material);
 }
 
-Node* SparseVoxelOctree::Clear(Node*& node, int x, int y, int z, int leafSize,
-                               int size, Voxel* filter) {
+Node* SparseVoxelOctree::Clear(Node*& node, int x, int y, int z, int leafSize, int size, Voxel* filter) {
   /// TODO: After implementing copy on read, this clear is mostly wrong. Need to
   /// investigate
 
@@ -223,8 +219,7 @@ Node* SparseVoxelOctree::Clear(Node*& node, int x, int y, int z, int leafSize,
 
   int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
 
-  node->Children[index] = Clear(node->Children[index], x % half, y % half,
-                                z % half, leafSize, half, filter);
+  node->Children[index] = Clear(node->Children[index], x % half, y % half, z % half, leafSize, half, filter);
 
   if (size == m_Size)
     return node;
@@ -248,13 +243,11 @@ void SparseVoxelOctree::Clear() {
   root->Clear();
 }
 
-void SparseVoxelOctree::Clear(glm::ivec3 position, int leafSize,
-                              Voxel* filter) {
+void SparseVoxelOctree::Clear(glm::ivec3 position, int leafSize, Voxel* filter) {
   Clear(position.x, position.y, position.z, leafSize, filter);
 }
 
-void SparseVoxelOctree::Clear(int x, int y, int z, int leafSize,
-                              Voxel* target) {
+void SparseVoxelOctree::Clear(int x, int y, int z, int leafSize, Voxel* target) {
   Node* root = m_Root.load(std::memory_order::acquire);
   Node* next = Clear(root, x, y, z, leafSize, m_Size, target);
   m_Root.store(next, std::memory_order::release);
@@ -357,7 +350,9 @@ SparseVoxelOctree::Filter(const std::function<bool(Node* node)>& filter) {
 
 void SparseVoxelOctree::Filter(std::vector<DenseVoxel>&               vector,
                                const std::function<bool(Node* node)>& filter,
-                               glm::vec3 position, int size, Node* node) {
+                               glm::vec3                              position,
+                               int                                    size,
+                               Node*                                  node) {
   if (!node)
     return;
 
@@ -415,9 +410,11 @@ std::vector<uint32_t> SparseVoxelOctree::GenerateMipmaps() {
 }
 
 void SparseVoxelOctree::FillDenseMipmap(std::vector<uint32_t>& out,
-                                        uint32_t offset, uint32_t mipSize,
-                                        glm::vec3 position, int size,
-                                        Node* node) {
+                                        uint32_t               offset,
+                                        uint32_t               mipSize,
+                                        glm::vec3              position,
+                                        int                    size,
+                                        Node*                  node) {
   if (!node)
     return;
 
@@ -451,8 +448,7 @@ void SparseVoxelOctree::FillDenseMipmap(std::vector<uint32_t>& out,
     glm::vec3 childPosition =
         position + childOffset * static_cast<float>(childSize);
 
-    FillDenseMipmap(out, offset, mipSize, childPosition, childSize,
-                    node->Children[i]);
+    FillDenseMipmap(out, offset, mipSize, childPosition, childSize, node->Children[i]);
   }
 }
 
@@ -469,8 +465,7 @@ Voxel SparseVoxelOctree::AverageVoxel(Node* node) {
   size_t                               max = 0;
   std::unordered_map<uint32_t, size_t> frequency;
 
-  std::function<void(Node*)> recurse = [&recurse, &frequency, &voxel,
-                                        &max](Node* n) {
+  std::function<void(Node*)> recurse = [&recurse, &frequency, &voxel, &max](Node* n) {
     if (!n)
       return;
 
@@ -497,8 +492,7 @@ std::vector<DDGIProbe> SparseVoxelOctree::GenerateDDGIProbes(uint32_t size) {
 
   std::vector<DDGIProbe> probes;
 
-  GenerateDDGIProbes(probes, static_cast<uint32_t>(std::log2(size)), {0, 0, 0},
-                     m_Size, root);
+  GenerateDDGIProbes(probes, static_cast<uint32_t>(std::log2(size)), {0, 0, 0}, m_Size, root);
 
   m_DDGIProbeSize = probes.size();
 
@@ -507,8 +501,9 @@ std::vector<DDGIProbe> SparseVoxelOctree::GenerateDDGIProbes(uint32_t size) {
 
 void SparseVoxelOctree::GenerateDDGIProbes(std::vector<DDGIProbe>& probes,
                                            uint32_t                targetDepth,
-                                           glm::vec3 position, int size,
-                                           Node* node) {
+                                           glm::vec3               position,
+                                           int                     size,
+                                           Node*                   node) {
 
   if (!node)
     return;
@@ -539,8 +534,7 @@ void SparseVoxelOctree::GenerateDDGIProbes(std::vector<DDGIProbe>& probes,
     glm::vec3 childPosition =
         position + childOffset * static_cast<float>(childSize);
 
-    GenerateDDGIProbes(probes, targetDepth, childPosition, childSize,
-                       node->Children[i]);
+    GenerateDDGIProbes(probes, targetDepth, childPosition, childSize, node->Children[i]);
   }
 }
 
@@ -557,9 +551,7 @@ uint32_t SparseVoxelOctree::RoundUpToPowerOfTwo(uint32_t n) {
 }
 
 std::tuple<uint32_t, uint32_t>
-SparseVoxelOctree::ComputeDDGIAtlasSize(uint32_t count, uint32_t texSize,
-                                        uint32_t& tilesPerRow,
-                                        uint32_t& tilesPerCol) {
+SparseVoxelOctree::ComputeDDGIAtlasSize(uint32_t count, uint32_t texSize, uint32_t& tilesPerRow, uint32_t& tilesPerCol) {
   tilesPerRow =
       static_cast<uint32_t>(std::ceil(std::sqrt(static_cast<float>(count))));
   tilesPerCol =
@@ -579,7 +571,9 @@ SparseVoxelOctree::GreedyMesh(std::vector<Material> materials) {
   std::iota(ids.begin(), ids.end(), 0);
 
   std::for_each(
-      std::execution::par_unseq, ids.begin(), ids.end(),
+      std::execution::par_unseq,
+      ids.begin(),
+      ids.end(),
       [this, &results, &materials](size_t i) {
         const Material&     material = materials[i];
         std::vector<Vertex> vertices;
@@ -598,15 +592,15 @@ SparseVoxelOctree::GreedyMesh(std::vector<Material> materials) {
   std::vector<Vertex> result = {};
 
   for (auto& v : results)
-    result.insert(result.end(), std::make_move_iterator(v.begin()),
-                  std::make_move_iterator(v.end()));
+    result.insert(result.end(), std::make_move_iterator(v.begin()), std::make_move_iterator(v.end()));
 
   return result;
 }
 
 void SparseVoxelOctree::TraverseNodes(std::function<void(Node* node)> callback,
-                                      glm::vec3 position, int size,
-                                      Node* node) {
+                                      glm::vec3                       position,
+                                      int                             size,
+                                      Node*                           node) {
 
   if (!node)
     return;
@@ -632,8 +626,7 @@ void SparseVoxelOctree::TraverseNodes(std::function<void(Node* node)> callback,
   }
 }
 
-void SparseVoxelOctree::FrustumCull(const Frustum& frustum, glm::vec3 position,
-                                    int size, Node* node) {
+void SparseVoxelOctree::FrustumCull(const Frustum& frustum, glm::vec3 position, int size, Node* node) {
   if (!node)
     return;
 
@@ -677,4 +670,101 @@ void SparseVoxelOctree::FrustumCull(const Frustum& frustum, glm::vec3 position,
 void SparseVoxelOctree::FrustumCull(const Frustum& frustum) {
   Node* root = m_Root.load(std::memory_order::relaxed);
   FrustumCull(frustum, glm::vec3(0.0f), m_Size, root);
+}
+
+bool SparseVoxelOctree::intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const glm::vec3& min, const glm::vec3& max, float& tMin, float& tMax, glm::vec3& outNormal) {
+  tMin      = 0.0f;
+  tMax      = 1e30f;
+  outNormal = glm::vec3(0.0f);
+
+  for (int i = 0; i < 3; i++) {
+    if (direction[i] != 0.0f) {
+      float invD = 1.0f / direction[i];
+      float t1   = (min[i] - origin[i]) * invD;
+      float t2   = (max[i] - origin[i]) * invD;
+
+      glm::vec3 n1(0.0f), n2(0.0f);
+      n1[i] = -1.0f;
+      n2[i] = 1.0f;
+
+      if (t1 > t2) {
+        std::swap(t1, t2);
+        std::swap(n1, n2);
+      }
+
+      // IMPORTANT PART
+      if (t1 > tMin) {
+        tMin      = t1;
+        outNormal = n1;
+      }
+
+      tMax = std::min(tMax, t2);
+
+      if (tMin > tMax)
+        return false;
+    } else if (origin[i] < min[i] || origin[i] > max[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, int size) {
+
+  float     tMin, tMax;
+  glm::vec3 normal;
+
+  if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
+    return Hit();
+
+  if (node->Voxel)
+    return Hit{
+        .IsValid  = true,
+        .Position = nodeMin,
+        .Normal   = normal,
+        .Node     = node,
+    };
+
+  if (!node->Children)
+    return Hit();
+
+  float half = size / 2.0f;
+
+  int dirX = direction.x >= 0 ? 0 : 1;
+  int dirY = direction.y >= 0 ? 0 : 1;
+  int dirZ = direction.z >= 0 ? 0 : 1;
+
+  int order[8];
+  int index = 0;
+
+  for (int dx = 0; dx <= 1; dx++)
+    for (int dy = 0; dy <= 1; dy++)
+      for (int dz = 0; dz <= 1; dz++)
+        order[index++] = ((dx ^ dirX) << 2) | ((dy ^ dirY) << 1) | (dz ^ dirZ);
+
+  for (int j = 0; j < 8; j++) {
+    int i = order[j];
+
+    Node* child = node->Children[i];
+    if (!child)
+      continue;
+
+    int x = (i & 4) ? 1 : 0;
+    int y = (i & 2) ? 1 : 0;
+    int z = (i & 1) ? 1 : 0;
+
+    glm::vec3 childMin = nodeMin + glm::vec3(x, y, z) * half;
+
+    Hit hit = Raymarch(child, origin, direction, childMin, half);
+
+    if (hit.IsValid)
+      return hit;
+  }
+
+  return Hit();
+}
+
+SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(glm::vec3 origin, glm::vec3 direction) {
+  return Raymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
 }

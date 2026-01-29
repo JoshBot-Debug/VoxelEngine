@@ -31,7 +31,7 @@ public:
     VkAttachmentLoadOp           stencilLoadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     VkAttachmentStoreOp          stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     VkImageLayout                initialLayout  = VK_IMAGE_LAYOUT_UNDEFINED;
-    VkImageLayout                finalLayout    = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkImageLayout                finalLayout    = VK_IMAGE_LAYOUT_UNDEFINED;
     bool                         depth          = false;
   };
 

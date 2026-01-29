@@ -42,6 +42,7 @@ public:
     std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
     VkBool32                                         depthTestEnable;
     VkBool32                                         depthWriteEnable;
+    VkCompareOp                                      depthCompareOp = VK_COMPARE_OP_GREATER;
   };
 
   struct ComputePipelineInfo {

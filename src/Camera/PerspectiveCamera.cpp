@@ -92,8 +92,20 @@ void PerspectiveCamera::Rotate(float deltaPitch, float deltaYaw, float deltaRoll
   Rotation.z = ToDegree(Rotation.z + deltaRoll);
 }
 
+const glm::mat4& PerspectiveCamera::GetRoll() {
+  return m_Roll;
+}
+
 const glm::vec3& PerspectiveCamera::GetForward() {
   return m_Front;
+}
+
+const glm::vec3& PerspectiveCamera::GetUp() {
+  return m_Up;
+}
+
+const glm::vec3& PerspectiveCamera::GetRight() {
+  return m_Right;
 }
 
 void PerspectiveCamera::SetProjection(float fov, float nearPlane, float farPlane) {

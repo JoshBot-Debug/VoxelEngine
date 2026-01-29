@@ -11,6 +11,20 @@
 #include "Voxel/Voxel.h"
 
 class SparseVoxelOctree {
+
+  using VoxelNode = Node;
+
+public:
+  /**
+   * The hit struct for raymarching
+   */
+  struct Hit {
+    bool       IsValid  = false;
+    glm::vec3  Position = glm::vec3(0.);
+    glm::vec3  Normal   = glm::vec3(0.);
+    VoxelNode* Node     = nullptr;
+  };
+
 private:
   /**
    * The total side length of the root node's region.
@@ -76,8 +90,7 @@ private:
    * @param voxel  The voxel type to set at the marked positions.
    * @param size   The current size of the region being processed.
    */
-  void Set(const std::vector<uint64_t>& mask, int x, int y, int z, Voxel* voxel,
-           int size);
+  void Set(const std::vector<uint64_t>& mask, int x, int y, int z, Voxel* voxel, int size);
 
   /**
    * Internal recursive setter that traverses and builds the tree as needed.
@@ -91,8 +104,7 @@ private:
    *
    * @return          True if a voxel was set
    */
-  Node* Set(Node* node, int x, int y, int z, Voxel* voxel, int leafSize,
-            int size);
+  Node* Set(Node* node, int x, int y, int z, Voxel* voxel, int leafSize, int size);
 
   /**
    * Internal recursive getter that traverses the tree to find a voxel at the
@@ -128,8 +140,7 @@ private:
    *
    * @return          The node
    */
-  Node* Clear(Node*& node, int x, int y, int z, int leafSize, int size,
-              Voxel* target = nullptr);
+  Node* Clear(Node*& node, int x, int y, int z, int leafSize, int size, Voxel* target = nullptr);
 
   /**
    * Returns the total memory used in bytes by this node and all it's children.
@@ -154,8 +165,10 @@ private:
    * @param node Pointer to the node from which to start a recursive search
    */
   void Filter(std::vector<DenseVoxel>&               vector,
-              const std::function<bool(Node* node)>& filter, glm::vec3 position,
-              int size, Node* node);
+              const std::function<bool(Node* node)>& filter,
+              glm::vec3                              position,
+              int                                    size,
+              Node*                                  node);
 
   /**
    * @returns An average of all voxels at this node's position
@@ -172,7 +185,9 @@ private:
    * @param node The current octree node to process.
    */
   void TraverseNodes(std::function<void(Node* node)> callback,
-                     glm::vec3 position, int size, Node* node);
+                     glm::vec3                       position,
+                     int                             size,
+                     Node*                           node);
 
   /**
    * Recursively performs frustum culling starting from the given node.
@@ -184,8 +199,17 @@ private:
    * @param size The size of the node's bounding cube.
    * @param node The current octree node to process.
    */
-  void FrustumCull(const Frustum& frustum, glm::vec3 position, int size,
-                   Node* node);
+  void FrustumCull(const Frustum& frustum, glm::vec3 position, int size, Node* node);
+
+  /**
+   * Perform an AABB intersection test
+   */
+  bool intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const glm::vec3& min, const glm::vec3& max, float& tMin, float& tMax, glm::vec3& outNormal);
+
+  /**
+   * Perform a recursive raymarch on the SVO
+   */
+  Hit Raymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, int size);
 
 public:
   /**
@@ -474,9 +498,7 @@ public:
    * @param size The size of the current child at position x, starts at m_Size
    * @param node The node to start recursively checking, starts at m_Root
    */
-  void FillDenseMipmap(std::vector<uint32_t>& out, uint32_t offset,
-                       uint32_t mipSize, glm::vec3 position, int size,
-                       Node* node);
+  void FillDenseMipmap(std::vector<uint32_t>& out, uint32_t offset, uint32_t mipSize, glm::vec3 position, int size, Node* node);
 
   /**
    * Computes the best possible positions for each DDGI probe.
@@ -485,8 +507,7 @@ public:
    */
   std::vector<DDGIProbe> GenerateDDGIProbes(uint32_t size);
 
-  void GenerateDDGIProbes(std::vector<DDGIProbe>& probes, uint32_t targetDepth,
-                          glm::vec3 position, int size, Node* node);
+  void GenerateDDGIProbes(std::vector<DDGIProbe>& probes, uint32_t targetDepth, glm::vec3 position, int size, Node* node);
 
   /**
    * Rounds up to the nearest power of 2
@@ -499,8 +520,7 @@ public:
    * @param texSize The size of the texture for each probe. 6,8,16
    */
   static std::tuple<uint32_t, uint32_t>
-  ComputeDDGIAtlasSize(uint32_t count, uint32_t texSize, uint32_t& tilesPerRow,
-                       uint32_t& tilesPerCol);
+  ComputeDDGIAtlasSize(uint32_t count, uint32_t texSize, uint32_t& tilesPerRow, uint32_t& tilesPerCol);
 
   /**
    * Returns the size of the last computed DDGI probe vector.
@@ -523,4 +543,9 @@ public:
    * @param frustum The view frustum to test against.
    */
   void FrustumCull(const Frustum& frustum);
+
+  /**
+   * Perform a recursive raymarch from the root node of the SVO
+   */
+  Hit Raymarch(glm::vec3 origin, glm::vec3 direction);
 };

@@ -3,7 +3,6 @@
 layout(location=0)out vec4 outNormal;
 layout(location=1)out uint outMaterial;
 layout(location=2)out vec2 outMotionVector;
-layout(location=3)out vec4 outDebug;
 
 layout(location=0)in vec3 vNormal;
 layout(location=1)in flat uint vMaterial;
@@ -28,7 +27,6 @@ float drawGrid(vec2 local)
 
 void main(){
   outNormal=vec4(vNormal,1.);
-  outDebug=vec4(vNormal,1.);
   outMaterial=vMaterial;
   outMotionVector=vMotionVector;
   

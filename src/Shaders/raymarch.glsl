@@ -19,7 +19,7 @@ struct StackEntry{
 
 const uint MAX_STACK=24;
 
-Hit raymarch(vec3 rayOrigin,vec3 rayDirection,float rayLength)
+Hit raymarch(vec3 origin,vec3 direction,float dist)
 {
   Hit payload;
   payload.IsValid=false;
@@ -49,9 +49,9 @@ Hit raymarch(vec3 rayOrigin,vec3 rayDirection,float rayLength)
       return payload;
     }
     
-    uint dirX=rayDirection.x>=0.?1u:0u;
-    uint dirY=rayDirection.y>=0.?1u:0u;
-    uint dirZ=rayDirection.z>=0.?1u:0u;
+    uint dirX=direction.x>=0.?1u:0u;
+    uint dirY=direction.y>=0.?1u:0u;
+    uint dirZ=direction.z>=0.?1u:0u;
     
     order[0]=((0^dirX)<<2)|((0^dirY)<<1)|(0^dirZ);
     order[1]=((0^dirX)<<2)|((0^dirY)<<1)|(1^dirZ);
@@ -71,7 +71,7 @@ Hit raymarch(vec3 rayOrigin,vec3 rayDirection,float rayLength)
         vec3 childMin=entry.Min+offset*childSize;\
         vec3 childMax=childMin+childSize;\
         float tMin=0.;\
-        if(intersectAABB(rayOrigin,rayDirection,childMin,childMax,tMin)&&tMin<=rayLength){\
+        if(intersectAABB(origin,direction,childMin,childMax,tMin)&&tMin<=dist){\
           stack[stackPtr++]=StackEntry(tMin,voxel.ChildIndex+bitCount(voxel.Children&(childMask-1)),childMin);\
         }\
       }\

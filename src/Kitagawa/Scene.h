@@ -16,7 +16,7 @@ private:
     uint32_t height;
   };
 
-  struct RayVertex {
+  struct OverlayVertex {
     glm::vec3 Position;
     glm::vec3 Color;
   };
@@ -33,50 +33,38 @@ private:
   Kitagawa::Render::Buffer m_MaterialBuffer;
   Kitagawa::Render::Buffer m_MaterialLUTBuffer;
   Kitagawa::Render::Buffer m_VertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
-  Kitagawa::Render::Buffer m_DebugVertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+  Kitagawa::Render::Buffer m_OverlayVertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
 
   uint32_t m_VertexCount = 0;
 
   Akari::Render::RenderPass m_GBufferPass;
-  Akari::Render::Pipeline   m_LightingPipeline;
-  Akari::Render::Pipeline   m_ShadingPipeline;
-  Akari::Render::Pipeline   m_DebugPipeline;
   Akari::Render::Pipeline   m_GeometryPipeline;
 
-  VkBuffer      m_DepthBuffer;
-  VmaAllocation m_DepthBufferAllocation;
-  void*         m_DepthBufferPtr = nullptr;
+  Akari::Render::Pipeline m_LightingPipeline;
+  Akari::Render::Pipeline m_ShadingPipeline;
+
+  Akari::Render::RenderPass m_OverlayPass;
+  Akari::Render::Pipeline   m_OverlayPipeline;
 
   std::shared_ptr<Akari::Image> m_Depth =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
           .AspectMask = VK_IMAGE_ASPECT_DEPTH_BIT,
           .Format     = VK_FORMAT_D32_SFLOAT,
-          .Usage      = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT |
-                   VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+          .Usage      = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
           .ObjectName = "m_GBufferPass::m_Depth",
-      });
-
-  std::shared_ptr<Akari::Image> m_Debug =
-      std::make_shared<Akari::Image>(Akari::Image::Specification{
-          .Format = VK_FORMAT_R16G16B16A16_SFLOAT,
-          .Usage =
-              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
-          .ObjectName = "m_GBufferPass::m_Debug",
       });
 
   std::shared_ptr<Akari::Image> m_Normal =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
-          .Format = VK_FORMAT_R16G16B16A16_SFLOAT,
-          .Usage =
-              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          .Format     = VK_FORMAT_R16G16B16A16_SFLOAT,
+          .Usage      = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
           .ObjectName = "m_GBufferPass::m_Normal",
       });
 
   std::shared_ptr<Akari::Image> m_Material =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
-          .Format = VK_FORMAT_R8_UINT,
-          .Usage =
-              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          .Format     = VK_FORMAT_R8_UINT,
+          .Usage      = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
           .MagFilter  = VK_FILTER_NEAREST,
           .MinFilter  = VK_FILTER_NEAREST,
           .ObjectName = "m_GBufferPass::m_Material",
@@ -84,27 +72,29 @@ private:
 
   std::shared_ptr<Akari::Image> m_MotionVector =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
-          .Format = VK_FORMAT_R16G16_SFLOAT,
-          .Usage =
-              VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          .Format     = VK_FORMAT_R16G16_SFLOAT,
+          .Usage      = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
           .ObjectName = "m_GBufferPass::m_MotionVector",
       });
 
   std::shared_ptr<Akari::Image> m_DirectLight =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
-          .Format     = VK_FORMAT_R32G32B32A32_SFLOAT,
+          .Format     = VK_FORMAT_R16G16B16A16_SFLOAT,
           .Usage      = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
           .ObjectName = "m_LightingPipeline::m_DirectLight",
       });
 
   std::shared_ptr<Akari::Image> m_OutputImage =
       std::make_shared<Akari::Image>(Akari::Image::Specification{
-          .Format     = VK_FORMAT_R32G32B32A32_SFLOAT,
-          .Usage      = VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          .Format     = VK_FORMAT_R16G16B16A16_SFLOAT,
+          .Usage      = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
           .ObjectName = "m_ShadingPipeline::m_OutputImage",
       });
 
   std::vector<std::shared_ptr<Akari::Image>> m_DisplayImages = {};
+
+private:
+  std::array<OverlayVertex, 6> MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color);
 
 public:
   Scene();

@@ -212,7 +212,7 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
       .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
       .depthTestEnable       = info.depthTestEnable,
       .depthWriteEnable      = info.depthWriteEnable,
-      .depthCompareOp        = VK_COMPARE_OP_GREATER,
+      .depthCompareOp        = info.depthCompareOp,
       .depthBoundsTestEnable = VK_FALSE,
       .stencilTestEnable     = VK_FALSE,
   };

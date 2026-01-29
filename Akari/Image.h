@@ -64,7 +64,7 @@ public:
   void SetData(const void *data, uint32_t mipLevel = 0);
   void CopyToImage(VkCommandBuffer commandBuffer);
   void Clear(VkCommandBuffer commandBuffer, float r, float g, float b, float a);
-  void Transition(VkCommandBuffer commandBuffer, VkImageLayout newLayout,
+  void Transition(VkCommandBuffer commandBuffer,  VkImageLayout oldLayout, VkImageLayout newLayout,
                   VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask,
                   VkPipelineStageFlags2 srcStageMask,
                   VkPipelineStageFlags2 dstStageMask, uint32_t baseMipLevel = 0,
