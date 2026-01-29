@@ -402,17 +402,6 @@ void Scene::Render() {
       glm::vec3 rayOrigin    = m_Camera->Position;
       glm::vec3 rayDirection = glm::normalize(hitPoint - rayOrigin);
 
-      std::vector<OverlayVertex> line = {
-          // Triangle 1
-          {rayOrigin, {1, 0, 0}},
-          {rayOrigin, {1, 0, 0}},
-          {hitPoint, {1, 0, 0}},
-          // Triangle 2
-          {rayOrigin, {1, 0, 0}},
-          {hitPoint, {1, 0, 0}},
-          {hitPoint, {1, 0, 0}},
-      };
-
       SparseVoxelOctree::Hit hit = tree->Raymarch(rayOrigin, rayDirection);
 
       if (hit.IsValid) {
