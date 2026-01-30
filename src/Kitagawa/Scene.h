@@ -95,7 +95,7 @@ private:
   std::vector<std::shared_ptr<Akari::Image>> m_DisplayImages = {};
 
 private:
-  std::vector<OverlayVertex> MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color);
+  std::vector<OverlayVertex> MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color, float size = 1.0f);
 
 public:
   Scene();

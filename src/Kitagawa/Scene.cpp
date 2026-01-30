@@ -6,10 +6,10 @@
 
 using namespace Akari::Render;
 
-std::vector<OverlayVertex> Scene::MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color) {
+std::vector<OverlayVertex> Scene::MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color, float size) {
 
   glm::vec3 min = voxelMin;
-  glm::vec3 max = voxelMin + glm::vec3(1.0f);
+  glm::vec3 max = voxelMin + glm::vec3(size);
 
   glm::vec3 v0, v1, v2, v3;
 
@@ -392,7 +392,9 @@ void Scene::Render() {
 
       SparseVoxelOctree::Hit hit = tree->Raymarch(rayOrigin, rayDirection);
 
-      if (hit.IsValid) {
+      if (hit.Node) {
+
+        LOG_VEC3("hit.Position", hit.Position);
 
         auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f));
 
