@@ -719,7 +719,7 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
     return Hit{
         .Position = nodeMin,
         .Normal   = normal,
-        .Node     = node,
+        .Voxel    = node->Voxel,
         .Size     = size,
     };
 
@@ -756,7 +756,62 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
 
     Hit hit = Raymarch(child, origin, direction, childMin, half);
 
-    if (hit.Node)
+    if (hit.Voxel)
+      return hit;
+  }
+
+  return Hit();
+}
+
+SparseVoxelOctree::Hit SparseVoxelOctree::DeepRaymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, Voxel* voxel) {
+
+  float     tMin, tMax;
+  glm::vec3 normal;
+
+  if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
+    return Hit();
+
+  if (node && node->Voxel)
+    voxel = node->Voxel;
+
+  if (size <= 1) 
+    return Hit{
+        .Position = nodeMin,
+        .Normal   = normal,
+        .Voxel    = voxel,
+        .Size     = size,
+    };
+  
+
+  float half = size / 2.0f;
+
+  int dirX = direction.x >= 0.0f ? 0 : 1;
+  int dirY = direction.y >= 0.0f ? 0 : 1;
+  int dirZ = direction.z >= 0.0f ? 0 : 1;
+
+  int order[8];
+
+  order[0] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+  order[1] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+  order[2] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+  order[3] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+  order[4] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+  order[5] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+  order[6] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+  order[7] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+
+  for (int j = 0; j < 8; j++) {
+    int i = order[j];
+
+    Node* child = !node ? nullptr : node->Children[i];
+
+    glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, (i >> 0) & 1);
+
+    glm::vec3 childMin = nodeMin + offset * half;
+
+    Hit hit = DeepRaymarch(child, origin, direction, childMin, half, voxel);
+
+    if (hit.Voxel)
       return hit;
   }
 
@@ -765,4 +820,8 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
 
 SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(glm::vec3 origin, glm::vec3 direction) {
   return Raymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
+}
+
+SparseVoxelOctree::Hit SparseVoxelOctree::DeepRaymarch(glm::vec3 origin, glm::vec3 direction) {
+  return DeepRaymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
 }

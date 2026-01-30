@@ -34,9 +34,17 @@ Run the project
 ---
 
 ## TODO
+
 - [x] Greedy mesh on the GPU
 - [ ] All voxels that are disjointed need to be in a seperate SVO.
 - [x] Implement copy on write (cow) for the SVO
 - [ ] Add the ability to render rays (raymarching for debug and stuff)
-- [ ] Add the ability to create/update/delete voxels (sandbox tools) - to help improve debugging, etc
-- [ ] MAJOR: Rework how render pass & pipelines are created
+- [x] Add the ability to create/update/delete voxels (sandbox tools) - to help improve debugging, etc
+- [x] MAJOR: Rework how render pass & pipelines are created
+- [ ] Add a version 1 toolbox. GOAL: Create something pretty
+  - [ ] Add a transparent floating voxel where the cursor is placed.
+  - [ ] Add a way to change the size of the voxel block being created (increase/decrease size by scrolling)
+  - [ ] Add a way to drag to increate number of voxels that can be created in one shot
+  - [ ] Add a way to create prefabs
+  - [ ] Add a way to scale(x,y,z), rotate(x,y,z), translate(x,y,z) a prefab
+- [ ] MAJOR: Rework the archtecture of the code base in this scene. GOAL: Bring the design slightly closer to something more satisfactory.

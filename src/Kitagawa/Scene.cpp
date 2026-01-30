@@ -390,13 +390,17 @@ void Scene::Render() {
 
       glm::vec3 rayDirection = glm::normalize(glm::mat3(m_Camera->GetInverseViewMatrix()) * rayDirectionView);
 
-      SparseVoxelOctree::Hit hit = tree->Raymarch(rayOrigin, rayDirection);
+      SparseVoxelOctree::Hit hit = tree->DeepRaymarch(rayOrigin, rayDirection);
 
-      if (hit.Node) {
+      if (hit.Voxel) {
+        // TMP - SUCCESS!
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl) && ImGui::IsMouseDown(ImGuiMouseButton_Right))
+          tree->Clear(hit.Position, hit.Size, hit.Voxel);
 
-        LOG_VEC3("hit.Position", hit.Position);
+        if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl) && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+          tree->Set(hit.Position + hit.Normal, hit.Voxel, hit.Size);
 
-        auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f));
+        auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);
 
         m_OverlayVertexCount = vertices.size();
         if (m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(OverlayVertex), vertices.data()))

@@ -12,18 +12,18 @@
 
 class SparseVoxelOctree {
 
-  using VoxelNode = Node;
+  using TVoxel = Voxel;
 
 public:
   /**
    * The hit struct for raymarching
    */
   struct Hit {
-    float      TMin     = 0.0f;
-    glm::vec3  Position = glm::vec3(0.);
-    glm::vec3  Normal   = glm::vec3(0.);
-    VoxelNode* Node     = nullptr;
-    uint32_t   Size     = 0;
+    float     TMin     = 0.0f;
+    glm::vec3 Position = glm::vec3(0.);
+    glm::vec3 Normal   = glm::vec3(0.);
+    TVoxel*   Voxel    = nullptr;
+    uint32_t  Size     = 0;
   };
 
 private:
@@ -211,6 +211,11 @@ private:
    * Perform a recursive raymarch on the SVO
    */
   Hit Raymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size);
+
+  /**
+   * Perform a recursive raymarch on the SVO
+   */
+  Hit DeepRaymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, Voxel* voxel = nullptr);
 
 public:
   /**
@@ -547,6 +552,15 @@ public:
 
   /**
    * Perform a recursive raymarch from the root node of the SVO
+   * Exits early, as soon as a node with a voxel is found.
+   * @brief Quick raymarch
    */
   Hit Raymarch(glm::vec3 origin, glm::vec3 direction);
+
+  /**
+   * Perform a recursive raymarch from the root node of the SVO
+   * Does not stop until it reaches size = 1
+   * @brief Slower raymarch
+   */
+  Hit DeepRaymarch(glm::vec3 origin, glm::vec3 direction);
 };
