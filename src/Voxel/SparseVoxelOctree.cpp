@@ -715,14 +715,13 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
   if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
     return Hit();
 
-  if (node->Voxel) {
+  if (node->Voxel)
     return Hit{
         .Position = nodeMin,
         .Normal   = normal,
         .Node     = node,
         .Size     = size,
     };
-  }
 
   if (!node->Children)
     return Hit();
