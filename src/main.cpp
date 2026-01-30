@@ -9,7 +9,6 @@
 #include "Utility/Utility.h"
 
 #include "Kitagawa/Controller.h"
-#include "Kitagawa/Render/Renderer.h"
 #include "Kitagawa/World.h"
 
 #include "Input/Input.h"
@@ -25,8 +24,7 @@ private:
   PerspectiveCamera    m_Camera;
   Kitagawa::Controller m_Controller;
   Kitagawa::World      m_World{WORLD_SIZE};
-  // Kitagawa::Renderer m_Renderer;
-  Scene m_Scene;
+  Scene                m_Scene;
 
   uint32_t  m_ViewportWidth  = 1080;
   uint32_t  m_ViewportHeight = 720;
@@ -44,11 +42,6 @@ public:
     m_Camera.SetRotation(0.0f, 0.0f, 0.0f);
     m_Controller.SetMovementSpeed(150.0f);
 
-    // m_Renderer.SetCamera(&m_Camera);
-    // m_Renderer.SetWorld(&m_World);
-    // m_Renderer.Initialize();
-    // m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
-
     m_Scene.SetCamera(&m_Camera);
     m_Scene.SetWorld(&m_World);
     m_Scene.Initialize({
@@ -64,7 +57,6 @@ public:
 
     m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
 
-    // m_Renderer.OnResize(m_ViewportWidth, m_ViewportHeight);
     m_Scene.OnResize(m_ViewportWidth, m_ViewportHeight);
 
     m_Controller.Update(deltaTime, m_Camera);
@@ -92,7 +84,6 @@ public:
 
     m_Controller.RenderUI(m_Camera);
     m_World.RenderUI();
-    // m_Renderer.RenderUI();
     m_Scene.RenderUI();
 
     ImGui::End();
@@ -109,7 +100,6 @@ public:
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    // m_Renderer.Render();
     m_Scene.Render();
 
     auto                                     end      = std::chrono::high_resolution_clock::now();
@@ -124,8 +114,8 @@ public:
 Akari::Application* Akari::CreateApplication(int argc, char** argv) {
 
   const Akari::ApplicationSpecification applicationSpecification = {
-      .Width         = 1080,
-      .Height        = 720,
+      .Width         = 1440,
+      .Height        = 300,
       .EnableDocking = true,
       .Maximized     = true,
       .Centered      = true,

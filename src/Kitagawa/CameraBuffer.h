@@ -9,7 +9,6 @@
 #include "Camera/PerspectiveCamera.h"
 
 namespace Kitagawa {
-namespace Render {
 
 class CameraBuffer {
 public:
@@ -43,7 +42,5 @@ public:
 
   void Render(PerspectiveCamera* camera);
 };
-
-} // namespace Render
 
 } // namespace Kitagawa

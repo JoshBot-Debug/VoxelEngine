@@ -67,7 +67,7 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
       uint childMask=1u<<childOctant;\
       if((voxel.Children&childMask)!=0u){\
         vec3 offset=vec3((childOctant>>2)&1,(childOctant>>1)&1,(childOctant>>0)&1);\
-        uint childSize=size/2;\
+        float childSize=float(size/2);\
         vec3 childMin=entry.Min+offset*childSize;\
         vec3 childMax=childMin+childSize;\
         float tMin=0.;\

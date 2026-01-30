@@ -6,7 +6,8 @@
 
 namespace Kitagawa {
 
-World::World(uint32_t chunkSize) : m_ChunkSize(chunkSize) {
+World::World(uint32_t chunkSize)
+    : m_ChunkSize(chunkSize) {
   m_SVO = std::make_shared<SparseVoxelOctree>(m_ChunkSize);
 
   m_Palette.Create(Palette::Item{
@@ -74,8 +75,7 @@ const void World::GenerateCornellBox() {
   auto light =
       m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
 
-  std::thread([chunkSize = m_ChunkSize, svo = m_SVO, sphere, cube, wall,
-               leftWall, rightWall]() {
+  std::thread([chunkSize = m_ChunkSize, svo = m_SVO, sphere, cube, wall, leftWall, rightWall]() {
     for (int a = 0; a < chunkSize; a++) {
       for (int b = 0; b < chunkSize; b++) {
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -90,21 +90,19 @@ const void World::GenerateCornellBox() {
         // Back wall
         svo->Set(a, b, 0, wall.get());
         // Front wall
-        svo->Set(a, b, chunkSize - 1, wall.get());
+        // svo->Set(a, b, chunkSize - 1, wall.get());
       }
     }
-    const glm::vec2 blockDistanceFromWall =
-        glm::vec2({chunkSize / 4, chunkSize / 6});
-    const int blockSize   = chunkSize / 4;
-    const int blockHeight = chunkSize / 2;
+    const glm::ivec2 blockDistanceFromWall = {chunkSize / 4, chunkSize / 6};
+    const int        blockSize             = chunkSize / 4;
+    const int        blockHeight           = chunkSize / 2;
 
     // Add the rectangle
     for (int z = 0; z < blockSize; z++)
       for (int x = 0; x < blockSize; x++)
         for (int y = 0; y < blockHeight; y++) {
           std::this_thread::sleep_for(std::chrono::milliseconds(1));
-          svo->Set(x + blockDistanceFromWall.x, y + 1,
-                   z + blockDistanceFromWall.y, cube.get());
+          svo->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
         }
 
     // Add the sphere
@@ -131,7 +129,9 @@ const void World::GenerateCornellBox() {
   int lightSize = m_ChunkSize / 16;
   m_SVO->Set((m_ChunkSize / 2) - (lightSize / 2) - 1,
              m_ChunkSize - 1 - lightSize,
-             (m_ChunkSize / 2) - (lightSize / 2) - 1, light.get(), lightSize);
+             (m_ChunkSize / 2) - (lightSize / 2) - 1,
+             light.get(),
+             lightSize);
 }
 
 void World::Flush() {

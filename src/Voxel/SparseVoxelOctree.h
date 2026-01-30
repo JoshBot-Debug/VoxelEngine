@@ -20,9 +20,20 @@ public:
    */
   struct Hit {
     bool       IsValid  = false;
+    float      TMin     = 0.0f;
     glm::vec3  Position = glm::vec3(0.);
     glm::vec3  Normal   = glm::vec3(0.);
     VoxelNode* Node     = nullptr;
+  };
+
+  struct FlatHit {
+    bool      IsValid;
+    float     TMin;
+    glm::vec3 NodeMin;
+    uint      NodeSize;
+    uint      NodeIndex;
+    uint      Material;
+    glm::vec3 Normal = glm::vec3(0.);
   };
 
 private:
@@ -205,6 +216,8 @@ private:
    * Perform an AABB intersection test
    */
   bool intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const glm::vec3& min, const glm::vec3& max, float& tMin, float& tMax, glm::vec3& outNormal);
+
+  bool intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const glm::vec3& min, const glm::vec3& max, float& tMin, float& tMax);
 
   /**
    * Perform a recursive raymarch on the SVO
@@ -548,4 +561,6 @@ public:
    * Perform a recursive raymarch from the root node of the SVO
    */
   Hit Raymarch(glm::vec3 origin, glm::vec3 direction);
+
+  FlatHit Raymarch(glm::vec3 origin, glm::vec3 direction, float distance, std::vector<FlatVoxel>& voxels);
 };

@@ -194,12 +194,12 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
       .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
       .depthClampEnable        = VK_FALSE,
       .rasterizerDiscardEnable = VK_FALSE,
-      .polygonMode             = VK_POLYGON_MODE_FILL,
-      // .polygonMode = VK_POLYGON_MODE_LINE,
-      .cullMode        = VK_CULL_MODE_BACK_BIT,
-      .frontFace       = VK_FRONT_FACE_COUNTER_CLOCKWISE,
-      .depthBiasEnable = VK_FALSE,
-      .lineWidth       = 2.0f,
+      .polygonMode             = info.polygonMode,
+      .cullMode                = info.cullMode,
+      .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
+      .depthBiasEnable         = info.depthBias,
+      .depthBiasSlopeFactor    = info.depthBiasSlopeFactor,
+      .lineWidth               = 1.0f,
   };
 
   VkPipelineMultisampleStateCreateInfo multisampling{

@@ -33,7 +33,8 @@ public:
   };
 
   struct PipelineInfo {
-    VkPrimitiveTopology                              topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    VkPrimitiveTopology                              topology    = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    VkPolygonMode                                    polygonMode = VK_POLYGON_MODE_FILL;
     uint32_t                                         vertexStride;
     std::vector<VkVertexInputAttributeDescription>   attribs;
     VkRenderPass                                     renderPass;
@@ -42,7 +43,10 @@ public:
     std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
     VkBool32                                         depthTestEnable;
     VkBool32                                         depthWriteEnable;
-    VkCompareOp                                      depthCompareOp = VK_COMPARE_OP_GREATER;
+    VkCompareOp                                      depthCompareOp       = VK_COMPARE_OP_GREATER;
+    VkBool32                                         depthBias            = VK_FALSE;
+    float                                            depthBiasSlopeFactor = 0.0f;
+    VkCullModeFlags                                  cullMode             = VK_CULL_MODE_BACK_BIT;
   };
 
   struct ComputePipelineInfo {

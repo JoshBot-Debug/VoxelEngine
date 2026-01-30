@@ -3,7 +3,6 @@
 #include "Application.h"
 
 namespace Kitagawa {
-namespace Render {
 
 CameraBuffer::CameraBuffer() {
   VkDeviceSize bufferSize = sizeof(Camera);
@@ -73,5 +72,4 @@ void CameraBuffer::Render(PerspectiveCamera* camera) {
          sizeof(Camera));
 }
 
-} // namespace Render
 } // namespace Kitagawa

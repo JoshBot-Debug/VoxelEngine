@@ -677,7 +677,7 @@ bool SparseVoxelOctree::intersectAABB(const glm::vec3& origin, const glm::vec3& 
   tMax      = 1e30f;
   outNormal = glm::vec3(0.0f);
 
-  for (int i = 0; i < 3; i++) {
+  for (int i = 0; i < 3; i++)
     if (direction[i] != 0.0f) {
       float invD = 1.0f / direction[i];
       float t1   = (min[i] - origin[i]) * invD;
@@ -692,7 +692,6 @@ bool SparseVoxelOctree::intersectAABB(const glm::vec3& origin, const glm::vec3& 
         std::swap(n1, n2);
       }
 
-      // IMPORTANT PART
       if (t1 > tMin) {
         tMin      = t1;
         outNormal = n1;
@@ -702,10 +701,31 @@ bool SparseVoxelOctree::intersectAABB(const glm::vec3& origin, const glm::vec3& 
 
       if (tMin > tMax)
         return false;
-    } else if (origin[i] < min[i] || origin[i] > max[i]) {
+    } else if (origin[i] < min[i] || origin[i] > max[i])
       return false;
-    }
-  }
+
+  return true;
+}
+
+bool SparseVoxelOctree::intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const glm::vec3& min, const glm::vec3& max, float& tMin, float& tMax) {
+  tMin = 0.0f;
+  tMax = 1e30f;
+
+  for (int i = 0; i < 3; i++)
+    if (direction[i] != 0.0f) {
+      float t1 = (min[i] - origin[i]) / direction[i];
+      float t2 = (max[i] - origin[i]) / direction[i];
+
+      if (t1 > t2)
+        std::swap(t1, t2);
+
+      tMin = std::max(tMin, t1);
+      tMax = std::min(tMax, t2);
+
+      if (tMin > tMax)
+        return false;
+    } else if (origin[i] < min[i] || origin[i] > max[i])
+      return false;
 
   return true;
 }
@@ -718,7 +738,7 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
   if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
     return Hit();
 
-  if (node->Voxel)
+  if (node->Voxel && size == 1)
     return Hit{
         .IsValid  = true,
         .Position = nodeMin,
@@ -731,17 +751,20 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
 
   float half = size / 2.0f;
 
-  int dirX = direction.x >= 0 ? 0 : 1;
-  int dirY = direction.y >= 0 ? 0 : 1;
-  int dirZ = direction.z >= 0 ? 0 : 1;
+  int dirX = direction.x >= 0.0f ? 0 : 1;
+  int dirY = direction.y >= 0.0f ? 0 : 1;
+  int dirZ = direction.z >= 0.0f ? 0 : 1;
 
   int order[8];
-  int index = 0;
 
-  for (int dx = 0; dx <= 1; dx++)
-    for (int dy = 0; dy <= 1; dy++)
-      for (int dz = 0; dz <= 1; dz++)
-        order[index++] = ((dx ^ dirX) << 2) | ((dy ^ dirY) << 1) | (dz ^ dirZ);
+  order[0] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+  order[1] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+  order[2] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+  order[3] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+  order[4] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+  order[5] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+  order[6] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+  order[7] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
 
   for (int j = 0; j < 8; j++) {
     int i = order[j];
@@ -750,11 +773,9 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
     if (!child)
       continue;
 
-    int x = (i & 4) ? 1 : 0;
-    int y = (i & 2) ? 1 : 0;
-    int z = (i & 1) ? 1 : 0;
+    glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, (i >> 0) & 1);
 
-    glm::vec3 childMin = nodeMin + glm::vec3(x, y, z) * half;
+    glm::vec3 childMin = nodeMin + offset * half;
 
     Hit hit = Raymarch(child, origin, direction, childMin, half);
 
@@ -767,4 +788,85 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
 
 SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(glm::vec3 origin, glm::vec3 direction) {
   return Raymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
+}
+
+SparseVoxelOctree::FlatHit SparseVoxelOctree::Raymarch(glm::vec3 origin, glm::vec3 direction, float distance, std::vector<FlatVoxel>& voxels) {
+
+  struct StackEntry {
+    float     TMin   = 0.0f;
+    uint32_t  Index  = 0;
+    glm::vec3 Min    = glm::vec3(0.0f);
+    glm::vec3 Normal = glm::vec3(0.0f);
+  };
+
+  FlatHit payload;
+
+  StackEntry stack[m_Size];
+
+  uint32_t stackPtr = 0;
+  stack[stackPtr++] = StackEntry();
+
+  uint32_t order[8];
+
+  while (stackPtr > 0) {
+
+    StackEntry& entry = stack[--stackPtr];
+
+    FlatVoxel& voxel = voxels[entry.Index];
+
+    uint32_t size = (1U << voxel.Depth);
+
+    if (voxel.Children == 0U) {
+      payload.IsValid   = true;
+      payload.TMin      = entry.TMin;
+      payload.NodeMin   = entry.Min;
+      payload.NodeSize  = size;
+      payload.NodeIndex = entry.Index;
+      payload.Material  = voxel.Material;
+      payload.Normal    = entry.Normal;
+      return payload;
+    }
+
+    uint32_t dirX = direction.x >= 0.0f ? 1 : 0;
+    uint32_t dirY = direction.y >= 0.0f ? 1 : 0;
+    uint32_t dirZ = direction.z >= 0.0f ? 1 : 0;
+
+    order[0] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+    order[1] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+    order[2] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+    order[3] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+    order[4] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+    order[5] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+    order[6] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+    order[7] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+
+#define VISIT_CHILD(i)                                                                                                                   \
+  {                                                                                                                                      \
+    uint32_t childOctant = order[i];                                                                                                     \
+    uint32_t childMask   = 1U << childOctant;                                                                                            \
+    if ((voxel.Children & childMask) != 0U) {                                                                                            \
+      glm::vec3 offset    = glm::vec3((childOctant >> 2) & 1, (childOctant >> 1) & 1, (childOctant >> 0) & 1);                           \
+      float     childSize = float(size / 2);                                                                                             \
+      glm::vec3 childMin  = entry.Min + offset * childSize;                                                                              \
+      glm::vec3 childMax  = childMin + childSize;                                                                                        \
+      float     tMin      = 0.0f;                                                                                                        \
+      float     tMax      = 0.0f;                                                                                                        \
+      glm::vec3 normal    = glm::vec3(0.0f);                                                                                             \
+      if (intersectAABB(origin, direction, childMin, childMax, tMin, tMax, normal) && tMin <= distance) {                                \
+        stack[stackPtr++] = StackEntry(tMin, voxel.ChildIndex + __builtin_popcount(voxel.Children & (childMask - 1)), childMin, normal); \
+      }                                                                                                                                  \
+    }                                                                                                                                    \
+  }
+
+    VISIT_CHILD(0);
+    VISIT_CHILD(1);
+    VISIT_CHILD(2);
+    VISIT_CHILD(3);
+    VISIT_CHILD(4);
+    VISIT_CHILD(5);
+    VISIT_CHILD(6);
+    VISIT_CHILD(7);
+  }
+
+  return payload;
 }

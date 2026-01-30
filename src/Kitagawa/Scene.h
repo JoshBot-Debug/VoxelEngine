@@ -2,13 +2,18 @@
 
 #include "Binding.h"
 #include "Image.h"
-#include "Kitagawa/Render/CameraBuffer.h"
+#include "Kitagawa/CameraBuffer.h"
 #include "Kitagawa/World.h"
 
 #include "Render/Buffer.h"
 #include "Render/Pipeline.h"
 #include "Render/RenderPass.h"
 
+struct OverlayVertex {
+  glm::vec3 Position;
+  glm::vec3 Color;
+};
+  
 class Scene {
 private:
   struct InitializeInfo {
@@ -16,26 +21,22 @@ private:
     uint32_t height;
   };
 
-  struct OverlayVertex {
-    glm::vec3 Position;
-    glm::vec3 Color;
-  };
-
 private:
   PerspectiveCamera*             m_Camera = nullptr;
   Kitagawa::World*               m_World  = nullptr;
-  Kitagawa::Render::CameraBuffer m_CameraBuffer;
+  Kitagawa::CameraBuffer m_CameraBuffer;
 
   VkDescriptorPool m_DescriptorPool;
 
-  Kitagawa::Render::Buffer m_SVOBuffer;
-  Kitagawa::Render::Buffer m_LightBuffer;
-  Kitagawa::Render::Buffer m_MaterialBuffer;
-  Kitagawa::Render::Buffer m_MaterialLUTBuffer;
-  Kitagawa::Render::Buffer m_VertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
-  Kitagawa::Render::Buffer m_OverlayVertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+  Akari::Render::Buffer m_SVOBuffer;
+  Akari::Render::Buffer m_LightBuffer;
+  Akari::Render::Buffer m_MaterialBuffer;
+  Akari::Render::Buffer m_MaterialLUTBuffer;
+  Akari::Render::Buffer m_VertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+  Akari::Render::Buffer m_OverlayVertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
 
   uint32_t m_VertexCount = 0;
+  uint32_t m_OverlayVertexCount = 0;
 
   Akari::Render::RenderPass m_GBufferPass;
   Akari::Render::Pipeline   m_GeometryPipeline;
@@ -94,7 +95,7 @@ private:
   std::vector<std::shared_ptr<Akari::Image>> m_DisplayImages = {};
 
 private:
-  std::array<OverlayVertex, 6> MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color);
+  std::vector<OverlayVertex> MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color);
 
 public:
   Scene();

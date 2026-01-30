@@ -6,7 +6,7 @@
 
 using namespace Akari::Render;
 
-std::array<Scene::OverlayVertex, 6> Scene::MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color) {
+std::vector<OverlayVertex> Scene::MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color) {
 
   glm::vec3 min = voxelMin;
   glm::vec3 max = voxelMin + glm::vec3(1.0f);
@@ -236,6 +236,13 @@ void Scene::Initialize(const InitializeInfo& init) {
               .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
               .finalLayout   = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
           },
+          {
+              .format        = m_Depth->GetSpecification().Format,
+              .loadOp        = VK_ATTACHMENT_LOAD_OP_LOAD,
+              .initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+              .finalLayout   = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+              .depth         = true,
+          },
       },
   });
 
@@ -252,19 +259,6 @@ void Scene::Initialize(const InitializeInfo& init) {
       },
   });
 
-  m_OverlayPipeline.CreateDescriptorSetLayout({
-      .index          = 1,
-      .layoutBindings = {
-          // m_Depth
-          VkDescriptorSetLayoutBinding{
-              .binding         = Kitagawa::Binding::T_DEPTH,
-              .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-              .descriptorCount = 1,
-              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
-          },
-      },
-  });
-
   OnResize(init.width, init.height);
 
   m_GeometryPipeline.CreatePipeline({
@@ -275,8 +269,8 @@ void Scene::Initialize(const InitializeInfo& init) {
           {2, 0, VK_FORMAT_R8_UINT, offsetof(Vertex, Material)},
       },
       .renderPass            = m_GBufferPass.GetRenderPass(),
-      .vertexShaderFile      = GetExecutableDir() + "/../src/Shaders/Pipeline2/gBuffer.vert.spv",
-      .fragmentShaderFile    = GetExecutableDir() + "/../src/Shaders/Pipeline2/gBuffer.frag.spv",
+      .vertexShaderFile      = GetExecutableDir() + "/../src/Shaders/Pipeline/gBuffer.vert.spv",
+      .fragmentShaderFile    = GetExecutableDir() + "/../src/Shaders/Pipeline/gBuffer.frag.spv",
       .colorBlendAttachments = {
           {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
           {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
@@ -287,11 +281,11 @@ void Scene::Initialize(const InitializeInfo& init) {
   });
 
   m_LightingPipeline.CreateComputePipeline({
-      .computeShaderFile = GetExecutableDir() + "/../src/Shaders/Pipeline2/lighting.comp.spv",
+      .computeShaderFile = GetExecutableDir() + "/../src/Shaders/Pipeline/lighting.comp.spv",
   });
 
   m_ShadingPipeline.CreateComputePipeline({
-      .computeShaderFile = GetExecutableDir() + "/../src/Shaders/Pipeline2/shading.comp.spv",
+      .computeShaderFile = GetExecutableDir() + "/../src/Shaders/Pipeline/shading.comp.spv",
   });
 
   m_OverlayPipeline.CreatePipeline({
@@ -301,14 +295,17 @@ void Scene::Initialize(const InitializeInfo& init) {
           {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(OverlayVertex, Color)},
       },
       .renderPass            = m_OverlayPass.GetRenderPass(),
-      .vertexShaderFile      = GetExecutableDir() + "/../src/Shaders/Pipeline2/overlay.vert.spv",
-      .fragmentShaderFile    = GetExecutableDir() + "/../src/Shaders/Pipeline2/overlay.frag.spv",
+      .vertexShaderFile      = GetExecutableDir() + "/../src/Shaders/Pipeline/overlay.vert.spv",
+      .fragmentShaderFile    = GetExecutableDir() + "/../src/Shaders/Pipeline/overlay.frag.spv",
       .colorBlendAttachments = {
           {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
       },
-      .depthTestEnable  = VK_TRUE,
-      .depthWriteEnable = VK_FALSE,
-      .depthCompareOp = VK_COMPARE_OP_ALWAYS
+      .depthTestEnable      = VK_TRUE,
+      .depthWriteEnable     = VK_FALSE,
+      .depthCompareOp       = VK_COMPARE_OP_GREATER_OR_EQUAL,
+      .depthBias            = VK_TRUE,
+      .depthBiasSlopeFactor = 2.0f,
+      .cullMode             = VK_CULL_MODE_NONE,
   });
 
   m_World->GetPalette().OnFlush([this]() { m_World->GetSVO()->Flush(); });
@@ -334,13 +331,13 @@ void Scene::Render() {
 
     std::vector<VkBufferMemoryBarrier2> bufferBarriers = {};
 
+    // Build the Material Index lookup table & Material buffer
     if (palette.IsDirty()) {
       std::vector<Material> materials = palette.GetMaterials();
 
       if (m_MaterialBuffer.Upload(commandBuffer, materials))
         resized = true;
 
-      // Build the Material Index lookup table
       {
         uint32_t maxMaterialId = 0;
         for (auto& mat : materials)
@@ -359,25 +356,23 @@ void Scene::Render() {
       bufferBarriers.emplace_back(m_MaterialLUTBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
     }
 
+    // Build the SVO & light nodes
     if (tree->IsDirty()) {
-      std::vector<FlatVoxel> treeNodes = tree->Flatten();
-
-      if (m_SVOBuffer.Upload(commandBuffer, treeNodes))
-        resized = true;
-
-      std::vector<DenseVoxel> lightNodes = tree->Filter([&palette](Node* node) {
+      auto filterLights = [&palette](Node* node) {
         auto material = palette.GetMaterial(node->Voxel->Material);
         return material && material->Emissive.a > 0.0f;
-      });
+      };
 
-      if (m_LightBuffer.Upload(commandBuffer, lightNodes))
+      if (m_LightBuffer.Upload(commandBuffer, tree->Filter(filterLights)))
+        resized = true;
+
+      if (m_SVOBuffer.Upload(commandBuffer, tree->Flatten()))
         resized = true;
 
       std::vector<Vertex> vertices = tree->GreedyMesh(palette.GetMaterials());
 
-      m_VertexCount       = vertices.size();
-      size_t verticesSize = vertices.size() * sizeof(Vertex);
-      if (m_VertexBuffer.Upload(commandBuffer, verticesSize, vertices.data()))
+      m_VertexCount = vertices.size();
+      if (m_VertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Vertex), vertices.data()))
         resized = true;
 
       bufferBarriers.emplace_back(m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
@@ -385,39 +380,36 @@ void Scene::Render() {
       bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
     }
 
-    // Write the overlay buffer
     {
+      glm::vec3 rayOrigin = m_Camera->Position;
+
       float ndcX = (2.0f * mouse.x) / viewport.x - 1.0f;
       float ndcY = (2.0f * mouse.y) / viewport.y - 1.0f;
-      float ndcZ = 1.0f;
 
-      glm::vec4 clip(ndcX, ndcY, ndcZ, 1.0f);
+      glm::vec3 rayDirectionView = glm::normalize(glm::inverse(m_Camera->GetProjectionMatrix()) * glm::vec4(ndcX, ndcY, -1.0f, 1.0f));
 
-      glm::vec4 view = m_Camera->GetInverseProjectionMatrix() * clip;
-      view /= view.w;
-
-      glm::vec4 world = m_Camera->GetInverseViewMatrix() * view;
-
-      glm::vec3 hitPoint     = glm::vec3(world);
-      glm::vec3 rayOrigin    = m_Camera->Position;
-      glm::vec3 rayDirection = glm::normalize(hitPoint - rayOrigin);
+      glm::vec3 rayDirection = glm::normalize(glm::mat3(m_Camera->GetInverseViewMatrix()) * rayDirectionView);
 
       SparseVoxelOctree::Hit hit = tree->Raymarch(rayOrigin, rayDirection);
 
       if (hit.IsValid) {
-        auto quad = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1., 0., 0.));
 
-        m_OverlayVertexBuffer.Upload(commandBuffer, quad.size() * sizeof(OverlayVertex), quad.data());
+        auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f));
+
+        m_OverlayVertexCount = vertices.size();
+        if (m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(OverlayVertex), vertices.data()))
+          resized = true;
+
         bufferBarriers.emplace_back(m_OverlayVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
       }
     }
 
+    // Wait for barriers
     if (bufferBarriers.size() > 0) {
       VkDependencyInfo depInfo{
-          .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-          .bufferMemoryBarrierCount =
-              static_cast<uint32_t>(bufferBarriers.size()),
-          .pBufferMemoryBarriers = bufferBarriers.data(),
+          .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+          .bufferMemoryBarrierCount = static_cast<uint32_t>(bufferBarriers.size()),
+          .pBufferMemoryBarriers    = bufferBarriers.data(),
       };
 
       vkCmdPipelineBarrier2(commandBuffer, &depInfo);
@@ -427,6 +419,7 @@ void Scene::Render() {
       CreateDescriptorSets();
   }
 
+  // GBuffer pass
   {
     m_GBufferPass.BeginRenderPass({
         .commandBuffer = commandBuffer,
@@ -500,6 +493,7 @@ void Scene::Render() {
   // Overlay pass
   {
     m_OutputImage->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+    m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
 
     m_OverlayPass.BeginRenderPass({.commandBuffer = commandBuffer});
 
@@ -509,9 +503,8 @@ void Scene::Render() {
         .offsets        = {0},
         .descriptorSets = {
             m_OverlayPipeline.GetDescriptorSet(0, Akari::Application::GetCurrentFrameIndex()),
-            m_OverlayPipeline.GetDescriptorSet(1, 0),
         },
-        .vertexCount = 6,
+        .vertexCount = m_OverlayVertexCount,
     });
 
     vkCmdEndRenderPass(commandBuffer);
@@ -559,7 +552,7 @@ void Scene::CreateDescriptorSets() {
         .buffer  = VkDescriptorBufferInfo{
              .buffer = m_CameraBuffer.GetBuffer(i),
              .offset = 0,
-             .range  = sizeof(Kitagawa::Render::CameraBuffer::Camera),
+             .range  = sizeof(Kitagawa::CameraBuffer::Camera),
         },
     };
 
@@ -712,25 +705,6 @@ void Scene::CreateDescriptorSets() {
       .descriptorSetCount = framesInFlight,
       .writes             = cameraWrites,
   });
-
-  m_OverlayPipeline.CreateDescriptorSet({
-      .id                 = 1,
-      .layoutIndex        = 1,
-      .descriptorPool     = m_DescriptorPool,
-      .descriptorSetCount = 1,
-      .writes             = {
-          // m_Depth
-          Pipeline::DescriptorWriteInfo{
-                          .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-                          .binding = Kitagawa::Binding::T_DEPTH,
-                          .image   = VkDescriptorImageInfo{
-                                .sampler     = m_Depth->m_Sampler,
-                                .imageView   = m_Depth->m_ImageView,
-                                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-              },
-          },
-      },
-  });
 }
 
 void Scene::OnResize(uint32_t width, uint32_t height) {
@@ -772,15 +746,16 @@ void Scene::OnResize(uint32_t width, uint32_t height) {
   }
 
   {
-    VkImageView pAttachments[1] = {
+    VkImageView pAttachments[2] = {
         m_OutputImage->m_ImageView,
+        m_Depth->m_ImageView,
     };
 
     m_OverlayPass.CreateFramebuffer({
         .width           = width,
         .height          = height,
         .pAttachments    = pAttachments,
-        .attachmentCount = 1,
+        .attachmentCount = 2,
     });
   }
 
