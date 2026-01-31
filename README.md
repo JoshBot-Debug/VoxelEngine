@@ -51,3 +51,4 @@ Run the project
 - [ ] Add chunking again
 - [ ] Add LOD
 - [x] Add a skybox
+- [ ] Make the SVO a sparse octree, the datatype associated with it should be templated.

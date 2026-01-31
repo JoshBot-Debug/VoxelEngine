@@ -68,8 +68,8 @@ World::World(uint32_t chunkSize)
              light.get(),
              lightSize);
 
-  // GenerateCornellBox();
-  GenerateHeightMapChunk({0, 0, 0}, 1.0f);
+  GenerateCornellBox();
+  // GenerateHeightMapChunk({0, 0, 0}, 1.0f);
 }
 
 void World::RenderUI() { m_Palette.RenderUI(); }
