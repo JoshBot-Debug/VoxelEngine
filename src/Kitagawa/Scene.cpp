@@ -4,6 +4,9 @@
 #include "Binding.h"
 #include "Utility/Utility.h"
 
+#include "stb/stb.h"
+#include "stb/stb_image.h"
+
 using namespace Akari::Render;
 
 std::vector<OverlayVertex> Scene::MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color, float size) {
@@ -175,6 +178,13 @@ void Scene::Initialize(const InitializeInfo& init) {
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
+          // m_Skybox
+          VkDescriptorSetLayoutBinding{
+              .binding         = Kitagawa::Binding::T_SKYBOX,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
+          },
 
           // m_MaterialBuffer
           VkDescriptorSetLayoutBinding{
@@ -309,7 +319,26 @@ void Scene::Initialize(const InitializeInfo& init) {
       .cullMode             = VK_CULL_MODE_NONE,
   });
 
-  m_World->GetPalette().OnFlush([this]() { m_World->GetSVO()->Flush(); });
+  {
+    int      width, height, channels;
+    stbi_uc* bottom = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/bottom.jpg").c_str(), &width, &height, &channels, STBI_rgb);
+    stbi_uc* others = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/left-right-front-back.jpg").c_str(), &width, &height, &channels, STBI_rgb);
+    stbi_uc* top    = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/top.jpg").c_str(), &width, &height, &channels, STBI_rgb);
+
+    m_Skybox->SetData(others, 0, 0);
+    m_Skybox->SetData(others, 0, 1);
+    m_Skybox->SetData(top, 0, 2);
+    m_Skybox->SetData(bottom, 0, 3);
+    m_Skybox->SetData(others, 0, 4);
+    m_Skybox->SetData(others, 0, 5);
+
+    VkCommandBuffer commandBuffer = Akari::Application::GetCommandBuffer({.Begin = true});
+    m_Skybox->CopyToImage(commandBuffer);
+    Akari::Application::FlushCommandBuffer(commandBuffer);
+  }
+
+  m_World->GetPalette()
+      .OnFlush([this]() { m_World->GetSVO()->Flush(); });
 }
 
 void Scene::Render() {
@@ -474,6 +503,7 @@ void Scene::Render() {
     m_Material->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     m_MotionVector->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
+    m_Skybox->Transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
     m_LightingPipeline.DispatchCompute({
         .commandBuffer  = commandBuffer,
@@ -648,6 +678,16 @@ void Scene::CreateDescriptorSets() {
                           .image   = VkDescriptorImageInfo{
                                 .sampler     = m_Material->m_Sampler,
                                 .imageView   = m_Material->m_ImageView,
+                                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+              },
+          },
+          // m_Skybox
+          Pipeline::DescriptorWriteInfo{
+                          .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                          .binding = Kitagawa::Binding::T_SKYBOX,
+                          .image   = VkDescriptorImageInfo{
+                                .sampler     = m_Skybox->m_Sampler,
+                                .imageView   = m_Skybox->m_ImageView,
                                 .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
               },
           },

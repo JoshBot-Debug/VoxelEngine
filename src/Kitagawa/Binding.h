@@ -11,11 +11,12 @@ enum Binding {
   T_SHADOW                = 106,
   T_AMBIENT_OCCLUSION     = 107,
   T_SSAO_NOISE            = 108,
-  T_SSAO_SAMPLE_COUNT     = 110,
   T_SHADING               = 109,
+  T_SSAO_SAMPLE_COUNT     = 110,
   T_BILATERAL_BLUR_INPUT  = 111,
   T_BILATERAL_BLUR_OUTPUT = 112,
   T_REFLECTION            = 113,
+  T_SKYBOX                = 114,
 
   S_SVO           = 50,
   S_MATERIALS     = 51,

@@ -83,6 +83,7 @@ target_link_libraries(Kitagawa PRIVATE
 target_include_directories(Kitagawa PRIVATE 
   ${CMAKE_SOURCE_DIR}/src
   ${CMAKE_SOURCE_DIR}/Akari
+  ${CMAKE_SOURCE_DIR}/external/stb
   ${CMAKE_SOURCE_DIR}/vendor/imgui
   ${CMAKE_SOURCE_DIR}/vendor/imgui/backends
   ${CMAKE_SOURCE_DIR}/vendor/VulkanMemoryAllocator/include

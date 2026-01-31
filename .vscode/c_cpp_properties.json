@@ -5,6 +5,7 @@
       "includePath": [
         "${workspaceFolder}/src/**",
         "${workspaceFolder}/Akari/**",
+        "${workspaceFolder}/external/**",
         "${workspaceFolder}/vendor/imgui",
         "${workspaceFolder}/vendor/imgui/backends",
         "${workspaceFolder}/vendor/VulkanMemoryAllocator/include"

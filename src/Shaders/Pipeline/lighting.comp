@@ -8,6 +8,7 @@ layout(set=1,binding=101)uniform sampler2D depthTexture;
 layout(set=1,binding=102)uniform sampler2D normalTexture;
 layout(set=1,binding=103)uniform usampler2D materialTexture;
 layout(set=1,binding=105,rgba16f)uniform image2D directLightTexture;
+layout(set=1,binding=114)uniform samplerCube skyboxTexture;
 
 layout(std430,set=1,binding=53)readonly buffer Lights{
   uint count;
@@ -36,10 +37,20 @@ void main(){
     return;
   }
   
+  float depth=texture(depthTexture,uv).r;
+  
+  // Hit position reconstructed world-space position from depth
+  vec3 P=depthToWorldSpace(uv,depth);
+  
+  if(depth<=.000001){
+    vec3 rayWorld=normalize(P-camera.position);
+    vec3 sky=texture(skyboxTexture,rayWorld).rgb;
+    imageStore(directLightTexture,pixel,vec4(sky,1.));
+    return;
+  }
+  
   // Normal in view space
   vec3 NV=normalize(texture(normalTexture,uv).xyz*2.-1.);
-  // Hit position reconstructed world-space position from depth
-  vec3 P=depthToWorldSpace(uv,texture(depthTexture,uv).r);
   // Normal in world space
   vec3 N=normalize((camera.inverseView*vec4(NV,0.)).xyz);
   // Direction towards the camera from the hit position
@@ -62,7 +73,7 @@ void main(){
     Hit hit=raymarch(P+N*.01,L,Ld);
     
     float shadow=hit.Material!=light.Material?hit.TMin/Ld:1.;
-
+    
     Material lightMaterial=getMaterial(light.Material);
     
     vec3 brdf=BRDF(N,V,L,material.Albedo.rgb,material.Metallic,material.Roughness);

@@ -13,7 +13,7 @@ struct OverlayVertex {
   glm::vec3 Position;
   glm::vec3 Color;
 };
-  
+
 class Scene {
 private:
   struct InitializeInfo {
@@ -22,8 +22,8 @@ private:
   };
 
 private:
-  PerspectiveCamera*             m_Camera = nullptr;
-  Kitagawa::World*               m_World  = nullptr;
+  PerspectiveCamera*     m_Camera = nullptr;
+  Kitagawa::World*       m_World  = nullptr;
   Kitagawa::CameraBuffer m_CameraBuffer;
 
   VkDescriptorPool m_DescriptorPool;
@@ -35,7 +35,7 @@ private:
   Akari::Render::Buffer m_VertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
   Akari::Render::Buffer m_OverlayVertexBuffer{{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
 
-  uint32_t m_VertexCount = 0;
+  uint32_t m_VertexCount        = 0;
   uint32_t m_OverlayVertexCount = 0;
 
   Akari::Render::RenderPass m_GBufferPass;
@@ -46,6 +46,18 @@ private:
 
   Akari::Render::RenderPass m_OverlayPass;
   Akari::Render::Pipeline   m_OverlayPipeline;
+
+  std::shared_ptr<Akari::Image> m_Skybox =
+      std::make_shared<Akari::Image>(Akari::Image::Specification{
+          .Width       = 1024,
+          .Height      = 1024,
+          .ViewType    = VK_IMAGE_VIEW_TYPE_CUBE,
+          .Format      = VK_FORMAT_R8G8B8_SRGB,
+          .Usage       = VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+          .Flags       = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT,
+          .ArrayLayers = 6,
+          .ObjectName  = "m_ShadingPass::m_Skybox",
+      });
 
   std::shared_ptr<Akari::Image> m_Depth =
       std::make_shared<Akari::Image>(Akari::Image::Specification{

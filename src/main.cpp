@@ -16,6 +16,9 @@
 #include "Camera/PerspectiveCamera.h"
 #include "Kitagawa/Scene.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+
 const int WORLD_SIZE = 64;
 
 class ViewportLayer : public Akari::Layer {
