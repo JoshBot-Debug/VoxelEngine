@@ -30,12 +30,10 @@ struct alignas(16) Material {
 };
 
 struct alignas(16) Vertex {
+  uint32_t  Id;
   glm::vec3 Position;
-  uint32_t  PadP;
   glm::vec3 Normal;
   uint32_t  PadN;
-  uint32_t  Id;
-  uint32_t  Padding[3] = {};
 
   Vertex() = default;
 

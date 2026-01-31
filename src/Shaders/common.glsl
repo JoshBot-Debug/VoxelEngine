@@ -2,12 +2,10 @@ const float FMAX=1e9;
 const float PI=3.1415926535897932;
 
 struct Vertex{
+  uint Id;
   vec3 Position;
-  uint PadP;
   vec3 Normal;
   uint PadN;
-  uint Id;
-  uint Padding[3];
 };
 
 struct DenseVoxel{

@@ -2,12 +2,12 @@
 
 #include "common.glsl"
 
-layout(location=0)in vec3 inPosition;
-layout(location=1)in vec3 inNormal;
-layout(location=2)in uint inMaterial;
+layout(location=0)in uint inId;
+layout(location=1)in vec3 inPosition;
+layout(location=2)in vec3 inNormal;
 
-layout(location=0)out vec3 vNormal;
-layout(location=1)out uint vMaterial;
+layout(location=0)out uint vId;
+layout(location=1)out vec3 vNormal;
 layout(location=2)out vec2 vMotionVector;
 layout(location=3)out vec3 vWorldPosition;
 layout(location=4)out vec3 vWorldNormal;
@@ -25,7 +25,7 @@ void main(){
   vWorldNormal = normalize(inNormal);
 
   vNormal=normalize((mat3(camera.view)*inNormal))*.5+.5;
-  vMaterial=inMaterial;
+  vId=inId;
   vMotionVector=currentNDC-previousNDC;
 
   gl_Position=currentClip;

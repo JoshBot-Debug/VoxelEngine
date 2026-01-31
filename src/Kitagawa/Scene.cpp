@@ -275,9 +275,9 @@ void Scene::Initialize(const InitializeInfo& init) {
       .polygonMode  = VK_POLYGON_MODE_FILL,
       .vertexStride = sizeof(Vertex),
       .attribs      = {
-          {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Position)},
-          {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Normal)},
-          {2, 0, VK_FORMAT_R8_UINT, offsetof(Vertex, Id)},
+          {0, 0, VK_FORMAT_R8_UINT, offsetof(Vertex, Id)},
+          {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Position)},
+          {2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Normal)},
       },
       .renderPass            = m_GBufferPass.GetRenderPass(),
       .vertexShaderFile      = GetExecutableDir() + "/../src/Shaders/Pipeline/gBuffer.vert.spv",
