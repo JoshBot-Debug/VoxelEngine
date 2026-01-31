@@ -9,7 +9,7 @@ namespace Kitagawa {
 
 World::World(uint32_t chunkSize)
     : m_ChunkSize(chunkSize) {
-  m_SVO = std::make_shared<SparseVoxelOctree>(m_ChunkSize);
+  m_SVO = std::make_shared<SparseOctree<Voxel>>(m_ChunkSize);
 
   m_HeightMap.Initialize(chunkSize, chunkSize);
 

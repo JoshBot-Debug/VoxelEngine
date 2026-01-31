@@ -1,9 +1,9 @@
 #pragma once
 
 #include <atomic>
+#include <execution>
 #include <glm/glm.hpp>
 #include <vector>
-#include <execution>
 
 #include "Utility/Debug.h"
 #include "Voxel/GreedyMesh64.h"
@@ -225,11 +225,11 @@ private:
    * @param node    Current node in the octree.
    * @param x,y,z   Local voxel-space coordinates at this level.
    * @param size    The size of the region represented by this node.
-   * @param filter  Optional filter; only returns nodes matching this datatype.
+   * @param nodeId  Optional filter; only returns nodes matching this id.
    * @return        Pointer to the node at the target position, or nullptr if
    * not found or filtered out.
    */
-  Node* Get(Node* node, int x, int y, int z, int size) {
+  Node* Get(Node* node, int x, int y, int z, int size, uint32_t nodeId = 0) {
     /// TODO: This "fix" works because I removed neighbour chunks. In reality
     /// I need to check if the x,y,z is somewhere outside of the world, if it is,
     /// I need to return a "void" node because GreedyMesher needs to know if it
@@ -248,8 +248,11 @@ private:
     if (!node)
       return nullptr;
 
-    if (node->Data)
+    if (node->Data) {
+      if (nodeId && nodeId != node->Data->Id)
+        return nullptr;
       return node;
+    }
 
     if (size == 1)
       return nullptr;
@@ -258,7 +261,7 @@ private:
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
 
-    return Get(node->Children[index], x % half, y % half, z % half, half);
+    return Get(node->Children[index], x % half, y % half, z % half, half, nodeId);
   };
 
   /**
@@ -287,7 +290,7 @@ private:
     if (size < leafSize)
       return node;
 
-    if (node->Voxel) {
+    if (node->Data) {
       if (size != m_Size) {
         /// TODO: Must defer this deletion
         // delete node;
@@ -676,23 +679,23 @@ public:
    * Retrieves the node at the given 3D world position.
    *
    * @param position  The world-space position to query.
-   * @param filter    Optional filter; if provided, only matching voxels are returned.
+   * @param nodeId    Optional filter; if provided, only matching voxels are returned.
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
-  Node* Get(glm::vec3 position) {
-    return Get(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z));
+  Node* Get(glm::vec3 position, uint32_t nodeId = 0) {
+    return Get(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), nodeId);
   };
 
   /**
    * Retrieves the node at the given 3D world position.
    *
    * @param x, y, z   The world-space position to query.
-   * @param filter    Optional filter; if provided, only matching voxels are returned.
+   * @param nodeId    Optional filter; if provided, only matching voxels are returned.
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
-  Node* Get(int x, int y, int z) {
+  Node* Get(int x, int y, int z, uint32_t nodeId = 0) {
     Node* root = m_Root.load(std::memory_order::relaxed);
-    return Get(root, x, y, z, m_Size);
+    return Get(root, x, y, z, m_Size, nodeId);
   };
 
   /**
@@ -846,28 +849,29 @@ public:
    * |  10   |   0   | FF228B22 |     0     | #FF228B22| Sum    (6,0,0)
    * +-------+-------+----------+-----------+----------+
    */
-  std::vector<FlatNode>& Flatten() {
-    std::vector<FlatNode> result{};
-    Node*                 root = m_Root.load(std::memory_order::relaxed);
-    m_Dirty                    = false;
+  void Flatten(std::vector<FlatNode>& out) {
+    Node* root = m_Root.load(std::memory_order::relaxed);
 
-    if (root) {
-      uint32_t index = static_cast<uint32_t>(result.size());
+    if (!root)
+      return;
 
-      result.emplace_back(
-          FlatNode{.Depth = root->Depth, .Children = 0, .ChildIndex = 1});
+    out.clear();
 
-      if (root->Data)
-        result[index].Id = root->Data->Id;
+    m_Dirty = false;
 
-      for (size_t i = 0; i < 8; i++)
-        if (root->Children[i])
-          result[index].Children |= (1 << i);
+    uint32_t index = static_cast<uint32_t>(out.size());
 
-      Flatten(root, result);
-    }
+    out.emplace_back(
+        FlatNode{.Depth = root->Depth, .Children = 0, .ChildIndex = 1});
 
-    return result;
+    if (root->Data)
+      out[index].Id = root->Data->Id;
+
+    for (size_t i = 0; i < 8; i++)
+      if (root->Children[i])
+        out[index].Children |= (1 << i);
+
+    Flatten(root, out);
   };
 
   /**
@@ -901,27 +905,22 @@ public:
   std::vector<Vertex> GreedyMesh(std::vector<Material> materials) {
     std::vector<std::vector<Vertex>> results(materials.size());
 
-    std::vector<size_t> ids(materials.size());
-    std::iota(ids.begin(), ids.end(), 0);
+    auto exists = [this](float x, float y, float z, uint32_t id = 0) -> bool {
+      return this->Get(x, y, z, id);
+    };
 
-    std::for_each(
-        std::execution::par_unseq,
-        ids.begin(),
-        ids.end(),
-        [this, &results, &materials](size_t i) {
-          const Material&     material = materials[i];
-          std::vector<Vertex> vertices;
+    std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [this, &results, &materials, &exists](Material& material) {
+      std::vector<Vertex> vertices;
 
-          const int chunksPerAxis =
-              std::max(1, static_cast<int>(m_Size / GreedyMesh64::CHUNK_SIZE));
+      const int chunksPerAxis = std::max(1, static_cast<int>(m_Size / GreedyMesh64::CHUNK_SIZE));
 
-          for (int cz = 0; cz < chunksPerAxis; ++cz)
-            for (int cy = 0; cy < chunksPerAxis; ++cy)
-              for (int cx = 0; cx < chunksPerAxis; ++cx)
-                GreedyMesh64::Octree(this, vertices, cx, cy, cz, material.Id);
+      for (int cz = 0; cz < chunksPerAxis; ++cz)
+        for (int cy = 0; cy < chunksPerAxis; ++cy)
+          for (int cx = 0; cx < chunksPerAxis; ++cx)
+            GreedyMesh64::Generate(exists, vertices, cx, cy, cz, material.Id);
 
-          results[i] = std::move(vertices);
-        });
+      results[material.Id - 1] = std::move(vertices);
+    });
 
     std::vector<Vertex> result = {};
 

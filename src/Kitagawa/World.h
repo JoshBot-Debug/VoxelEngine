@@ -9,7 +9,6 @@
 #include "Voxel/HeightMap.h"
 #include "Voxel/Palette.h"
 #include "Voxel/SparseOctree.h"
-#include "Voxel/SparseVoxelOctree.h"
 
 namespace Kitagawa {
 
@@ -20,9 +19,8 @@ private:
   Palette   m_Palette;
   HeightMap m_HeightMap;
 
-  std::vector<std::shared_ptr<Voxel>>   m_Voxels;
-  std::shared_ptr<SparseVoxelOctree>    m_SVO  = nullptr;
-  std::shared_ptr<SparseOctree<Voxel2>> m_SVO2 = nullptr;
+  std::vector<std::shared_ptr<Voxel>>  m_Voxels;
+  std::shared_ptr<SparseOctree<Voxel>> m_SVO = nullptr;
 
 private:
   const void GenerateCornellBox();
@@ -35,7 +33,7 @@ public:
 
   void RenderUI();
 
-  const std::shared_ptr<SparseVoxelOctree>& GetSVO() { return m_SVO; };
+  const std::shared_ptr<SparseOctree<Voxel>>& GetSVO() { return m_SVO; };
 
   Palette& GetPalette() { return m_Palette; };
 

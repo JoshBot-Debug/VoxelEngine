@@ -585,7 +585,7 @@ SparseVoxelOctree::GreedyMesh(std::vector<Material> materials) {
         for (int cz = 0; cz < chunksPerAxis; ++cz)
           for (int cy = 0; cy < chunksPerAxis; ++cy)
             for (int cx = 0; cx < chunksPerAxis; ++cx)
-              GreedyMesh64::Octree(this, vertices, cx, cy, cz, material.Id);
+              GreedyMesh64::Generate(this, vertices, cx, cy, cz, material.Id);
 
         results[i] = std::move(vertices);
       });

@@ -9,14 +9,14 @@ struct alignas(16) FlatVoxel {
   uint32_t Depth      = 0;
   uint32_t Children   = 0;
   uint32_t ChildIndex = 0;
-  uint32_t Material   = 0;
+  uint32_t id         = 0;
 };
 
 struct alignas(16) DenseVoxel {
   glm::vec3 Position;
   uint32_t  PadP;
   uint32_t  Depth      = 0;
-  uint32_t  Material   = 0;
+  uint32_t  id         = 0;
   uint32_t  Padding[3] = {};
 };
 
@@ -34,7 +34,7 @@ struct alignas(16) Vertex {
   uint32_t  PadP;
   glm::vec3 Normal;
   uint32_t  PadN;
-  uint32_t  Material;
+  uint32_t  Id;
   uint32_t  Padding[3] = {};
 
   Vertex() = default;
@@ -48,9 +48,8 @@ struct alignas(16) Vertex {
     Normal.z   = nz;
   }
 
-  Vertex(float x, float y, float z, float nx, float ny, float nz,
-         uint32_t material)
-      : Material(material) {
+  Vertex(float x, float y, float z, float nx, float ny, float nz, uint32_t id)
+      : Id(id) {
     Position.x = x;
     Position.y = y;
     Position.z = z;
@@ -77,7 +76,8 @@ struct Plane {
 
   Plane() = default;
   Plane(const glm::vec3& n, float distance)
-      : Normal(glm::normalize(n)), Distance(distance) {}
+      : Normal(glm::normalize(n))
+      , Distance(distance) {}
 
   float distance(const glm::vec3& point) const {
     return glm::dot(Normal, point) + Distance;
@@ -107,14 +107,10 @@ struct Frustum {
       return Plane(n / len, v.w / len);
     };
 
-    glm::vec4 rowX(viewProjection[0][0], viewProjection[1][0],
-                   viewProjection[2][0], viewProjection[3][0]);
-    glm::vec4 rowY(viewProjection[0][1], viewProjection[1][1],
-                   viewProjection[2][1], viewProjection[3][1]);
-    glm::vec4 rowZ(viewProjection[0][2], viewProjection[1][2],
-                   viewProjection[2][2], viewProjection[3][2]);
-    glm::vec4 rowW(viewProjection[0][3], viewProjection[1][3],
-                   viewProjection[2][3], viewProjection[3][3]);
+    glm::vec4 rowX(viewProjection[0][0], viewProjection[1][0], viewProjection[2][0], viewProjection[3][0]);
+    glm::vec4 rowY(viewProjection[0][1], viewProjection[1][1], viewProjection[2][1], viewProjection[3][1]);
+    glm::vec4 rowZ(viewProjection[0][2], viewProjection[1][2], viewProjection[2][2], viewProjection[3][2]);
+    glm::vec4 rowW(viewProjection[0][3], viewProjection[1][3], viewProjection[2][3], viewProjection[3][3]);
 
     f.Planes[LEFT]   = makePlane(rowW + rowX);
     f.Planes[RIGHT]  = makePlane(rowW - rowX);

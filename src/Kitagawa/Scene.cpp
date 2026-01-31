@@ -277,7 +277,7 @@ void Scene::Initialize(const InitializeInfo& init) {
       .attribs      = {
           {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Position)},
           {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Normal)},
-          {2, 0, VK_FORMAT_R8_UINT, offsetof(Vertex, Material)},
+          {2, 0, VK_FORMAT_R8_UINT, offsetof(Vertex, Id)},
       },
       .renderPass            = m_GBufferPass.GetRenderPass(),
       .vertexShaderFile      = GetExecutableDir() + "/../src/Shaders/Pipeline/gBuffer.vert.spv",
@@ -352,7 +352,7 @@ void Scene::Render() {
 
   m_CameraBuffer.Render(m_Camera);
 
-  std::shared_ptr<SparseVoxelOctree> tree = m_World->GetSVO();
+  std::shared_ptr<SparseOctree<Voxel>> tree = m_World->GetSVO();
 
   {
     Palette& palette = m_World->GetPalette();
@@ -388,15 +388,17 @@ void Scene::Render() {
 
     // Build the SVO & light nodes
     if (tree->IsDirty()) {
-      auto filterLights = [&palette](Node* node) {
-        auto material = palette.GetMaterial(node->Voxel->Material);
+      auto filterLights = [&palette](SparseOctree<Voxel>::Node* node) {
+        auto material = palette.GetMaterial(node->Data->Id);
         return material && material->Emissive.a > 0.0f;
       };
 
       if (m_LightBuffer.Upload(commandBuffer, tree->Filter(filterLights)))
         resized = true;
 
-      if (m_SVOBuffer.Upload(commandBuffer, tree->Flatten()))
+      std::vector<SparseOctree<Voxel>::FlatNode> flattened;
+      tree->Flatten(flattened);
+      if (m_SVOBuffer.Upload(commandBuffer, flattened))
         resized = true;
 
       std::vector<Vertex> vertices = tree->GreedyMesh(palette.GetMaterials());
@@ -422,17 +424,17 @@ void Scene::Render() {
 
       using clock = std::chrono::steady_clock;
 
-      SparseVoxelOctree::Hit hit = tree->DeepRaymarch(rayOrigin, rayDirection);
+      SparseOctree<Voxel>::Hit hit = tree->DeepRaymarch(rayOrigin, rayDirection);
 
-      if (hit.Voxel) {
+      if (hit.Data) {
         // TMP - SUCCESS!
         bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
 
         if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Right))
-          tree->Clear(hit.Position, hit.Size, hit.Voxel);
+          tree->Clear(hit.Position, hit.Size);
 
         if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Left))
-          tree->Set(hit.Position + hit.Normal, hit.Voxel, hit.Size);
+          tree->Set(hit.Position + hit.Normal, hit.Data, hit.Size);
 
         auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);
 

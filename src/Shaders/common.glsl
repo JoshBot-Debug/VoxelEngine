@@ -6,16 +6,14 @@ struct Vertex{
   uint PadP;
   vec3 Normal;
   uint PadN;
-  uint Material;
+  uint Id;
   uint Padding[3];
 };
 
 struct DenseVoxel{
-  vec3 Position;
-  uint PadP;
-  uint Depth;
   uint Material;
-  uint Padding[3];
+  uint Depth;
+  vec3 Position;
 };
 
 struct Hit{

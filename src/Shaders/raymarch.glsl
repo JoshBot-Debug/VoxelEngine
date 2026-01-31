@@ -1,8 +1,8 @@
 struct FlatVoxel{
+  uint Material;
   uint Depth;
   uint Children;
   uint ChildIndex;
-  uint Material;
 };
 
 layout(std430,set=1,binding=50)readonly buffer SparseVoxelOctree{
