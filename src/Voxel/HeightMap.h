@@ -31,6 +31,5 @@ public:
 
   void Initialize(int width, int height);
 
-  utils::NoiseMap Build(double lowerXBound, double upperXBound,
-                        double lowerZBound, double upperZBound);
+  utils::NoiseMap Build(double lowerXBound, double upperXBound, double lowerZBound, double upperZBound);
 };
