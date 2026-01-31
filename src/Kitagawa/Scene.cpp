@@ -394,10 +394,12 @@ void Scene::Render() {
 
       if (hit.Voxel) {
         // TMP - SUCCESS!
-        if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl) && ImGui::IsMouseDown(ImGuiMouseButton_Right))
+        bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
+
+        if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Right))
           tree->Clear(hit.Position, hit.Size, hit.Voxel);
 
-        if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl) && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+        if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Left))
           tree->Set(hit.Position + hit.Normal, hit.Voxel, hit.Size);
 
         auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);
