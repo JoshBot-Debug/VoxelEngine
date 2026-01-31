@@ -51,4 +51,5 @@ Run the project
 - [ ] Add chunking again
 - [ ] Add LOD
 - [x] Add a skybox
-- [ ] Make the SVO a sparse octree, the datatype associated with it should be templated.
+- [x] Make the SVO a sparse octree, the datatype associated with it should be templated.
+- [ ] Add a garbage collector for SVO deleted nodes
