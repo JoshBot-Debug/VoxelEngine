@@ -16,13 +16,16 @@ class World {
 private:
   uint32_t m_ChunkSize = 0;
 
-  Palette m_Palette;
+  Palette   m_Palette;
+  HeightMap m_HeightMap;
 
   std::vector<std::shared_ptr<Voxel>> m_Voxels;
   std::shared_ptr<SparseVoxelOctree>  m_SVO = nullptr;
 
 private:
   const void GenerateCornellBox();
+
+  const void GenerateHeightMapChunk(const glm::ivec3& origin, float step);
 
 public:
   World(uint32_t chunkSize);

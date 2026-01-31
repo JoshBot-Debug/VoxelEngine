@@ -391,6 +391,8 @@ void Scene::Render() {
 
       glm::vec3 rayDirection = glm::normalize(glm::mat3(m_Camera->GetInverseViewMatrix()) * rayDirectionView);
 
+      using clock = std::chrono::steady_clock;
+
       SparseVoxelOctree::Hit hit = tree->DeepRaymarch(rayOrigin, rayDirection);
 
       if (hit.Voxel) {

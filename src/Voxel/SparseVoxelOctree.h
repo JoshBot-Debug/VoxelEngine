@@ -91,7 +91,7 @@ private:
    * @param voxel  The voxel type to set at the marked positions.
    * @param size   The current size of the region being processed.
    */
-  void Set(const std::vector<uint64_t>& mask, int x, int y, int z, Voxel* voxel, int size);
+  void Set(uint64_t (&mask)[], int x, int y, int z, Voxel* voxel, int size);
 
   /**
    * Internal recursive setter that traverses and builds the tree as needed.
@@ -291,7 +291,7 @@ public:
    * @param mask   A bitmask indicating which voxels to set (1 = set, 0 = skip).
    * @param voxel  Pointer to the voxel type to set at the marked positions.
    */
-  void Set(const std::vector<uint64_t>& mask, Voxel* voxel);
+  void Set(uint64_t (&mask)[], Voxel* voxel);
 
   /**
    * Sets a voxel at the given 3D world position.

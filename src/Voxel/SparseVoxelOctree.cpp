@@ -32,14 +32,14 @@ Node* SparseVoxelOctree::GetRoot() {
   return m_Root.load(std::memory_order::relaxed);
 }
 
-void SparseVoxelOctree::Set(const std::vector<uint64_t>& mask, Voxel* voxel) {
+void SparseVoxelOctree::Set(uint64_t (&mask)[], Voxel* voxel) {
   for (int z = 0; z < m_Size; z += 64)
     for (int x = 0; x < m_Size; x += 64)
       for (int y = 0; y < m_Size; y += 64)
         Set(mask, x, y, z, voxel, 64);
 }
 
-void SparseVoxelOctree::Set(const std::vector<uint64_t>& mask, int x, int y, int z, Voxel* voxel, int size) {
+void SparseVoxelOctree::Set(uint64_t (&mask)[], int x, int y, int z, Voxel* voxel, int size) {
   bool isFullBlock = true;
 
   for (int dz = 0; dz < size && isFullBlock; ++dz)
@@ -748,6 +748,7 @@ SparseVoxelOctree::Hit SparseVoxelOctree::Raymarch(Node* node, const glm::vec3& 
     int i = order[j];
 
     Node* child = node->Children[i];
+
     if (!child)
       continue;
 
@@ -772,10 +773,9 @@ SparseVoxelOctree::Hit SparseVoxelOctree::DeepRaymarch(Node* node, const glm::ve
   if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
     return Hit();
 
-  if (node && node->Voxel)
-    voxel = node->Voxel;
+  voxel = (node && node->Voxel) ? node->Voxel : voxel;
 
-  if (size <= 1)
+  if (size == 1)
     return Hit{
         .Position = nodeMin,
         .Normal   = normal,
@@ -803,7 +803,7 @@ SparseVoxelOctree::Hit SparseVoxelOctree::DeepRaymarch(Node* node, const glm::ve
   for (int j = 0; j < 8; j++) {
     int i = order[j];
 
-    Node* child = !node ? nullptr : node->Children[i];
+    Node* child = node ? node->Children[i] : nullptr;
 
     glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, (i >> 0) & 1);
 
