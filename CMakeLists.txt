@@ -6,7 +6,7 @@ option(ENABLE_AVX256 "Enable AVX-256 instructions" OFF)
 option(ENABLE_OPEN_MP "Enable multithreaded with OpenMP" OFF)
 option(ENABLE_STL_DEBUG "Enable STL debug mode and DEBUG macro." OFF)
 option(ENABLE_THREAD_SANITIZER "Enable ThreadSanitizer (disables AddressSanitizer)" OFF)
-option(ENABLE_VULKAN_VALIDATION "Enable vulkan validation & debug extension" ON)
+option(ENABLE_VULKAN_VALIDATION "Enable vulkan validation & debug extension" OFF)
 option(ENABLE_VMA_STATS_LOG "Log out vulkan memory allocator stats when the application exits" OFF)
 
 # === Compiler Flags ===

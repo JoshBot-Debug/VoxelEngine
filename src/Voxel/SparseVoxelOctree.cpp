@@ -228,6 +228,7 @@ Node* SparseVoxelOctree::Clear(Node*& node, int x, int y, int z, int leafSize, i
     if (node->Children[i])
       return node;
 
+  /// TODO: Must defer this deletion
   delete node;
   node = nullptr;
 

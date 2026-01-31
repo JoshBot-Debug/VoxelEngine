@@ -67,7 +67,7 @@ const void World::GenerateCornellBox() {
   std::thread([chunkSize = m_ChunkSize, svo = m_SVO, sphere, cube, wall, leftWall, rightWall]() {
     for (int a = 0; a < chunkSize; a++) {
       for (int b = 0; b < chunkSize; b++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
         // Top wall
         svo->Set(a, chunkSize - 1, b, wall.get());
         // Bottom wall
@@ -90,7 +90,7 @@ const void World::GenerateCornellBox() {
     for (int z = 0; z < blockSize; z++)
       for (int x = 0; x < blockSize; x++)
         for (int y = 0; y < blockHeight; y++) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          // std::this_thread::sleep_for(std::chrono::milliseconds(1));
           svo->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
         }
 
@@ -107,13 +107,13 @@ const void World::GenerateCornellBox() {
           float dy = y - cy;
           float dz = z - cz;
           if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
             svo->Set(x, y + 1, z, sphere.get());
           }
         }
       }
     }
-  }).detach();
+  }).join();
 
   int lightSize = m_ChunkSize / 16;
   m_SVO->Set((m_ChunkSize / 2) - (lightSize / 2) - 1,
