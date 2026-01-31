@@ -12,7 +12,7 @@
 class Palette {
 public:
   struct Item {
-    uint32_t                  Id;
+    uint32_t                  Id = 0;
     std::string               Name;
     std::shared_ptr<Material> Mat;
   };

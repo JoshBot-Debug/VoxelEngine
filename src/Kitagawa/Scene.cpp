@@ -262,6 +262,7 @@ void Scene::Initialize(const InitializeInfo& init) {
   OnResize(init.width, init.height);
 
   m_GeometryPipeline.CreatePipeline({
+      .polygonMode  = VK_POLYGON_MODE_FILL,
       .vertexStride = sizeof(Vertex),
       .attribs      = {
           {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, Position)},

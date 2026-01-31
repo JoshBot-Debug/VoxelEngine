@@ -11,44 +11,33 @@ World::World(uint32_t chunkSize)
   m_SVO = std::make_shared<SparseVoxelOctree>(m_ChunkSize);
 
   m_Palette.Create(Palette::Item{
-      .Id   = 0,
       .Name = "Left Wall",
-      .Mat  = std::make_shared<Material>(
-          Material{.Albedo = glm::vec4{0.63f, 0.067f, 0.051f, 1.0f}}),
+      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4{0.63f, 0.067f, 0.051f, 1.0f}}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id   = 0,
       .Name = "Right Wall",
-      .Mat  = std::make_shared<Material>(
-          Material{.Albedo = glm::vec4{0.14f, 0.45f, 0.090f, 1.0f}}),
+      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4{0.14f, 0.45f, 0.090f, 1.0f}}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id   = 0,
       .Name = "Wall",
-      .Mat  = std::make_shared<Material>(
-          Material{.Albedo = glm::vec4{0.73f, 0.73f, 0.73f, 1.0f}}),
+      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4{0.73f, 0.73f, 0.73f, 1.0f}}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id   = 0,
       .Name = "Cube",
       .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f)}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id   = 0,
       .Name = "Sphere",
       .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f)}),
   });
 
   m_Palette.Create(Palette::Item{
-      .Id   = 0,
       .Name = "Light",
-      .Mat  = std::make_shared<Material>(
-          Material{.Albedo   = glm::vec4(1.0f),
-                    .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
+      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f), .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
   });
 
   GenerateCornellBox();
