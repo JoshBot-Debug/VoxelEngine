@@ -50,4 +50,4 @@ Run the project
 - [ ] MAJOR: Rework the archtecture of the code base in this scene. GOAL: Bring the design slightly closer to something more satisfactory.
 - [ ] Add chunking again
 - [ ] Add LOD
-- [ ] Add a skybox
+- [x] Add a skybox
