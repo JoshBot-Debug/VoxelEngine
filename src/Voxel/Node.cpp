@@ -2,7 +2,9 @@
 
 Node::Node() {}
 
-Node::Node(uint8_t depth, VoxelType* voxel) : Depth(depth), Voxel(voxel) {}
+Node::Node(uint8_t depth, VoxelType* voxel)
+    : Depth(depth)
+    , Voxel(voxel) {}
 
 Node::~Node() { Clear(); }
 

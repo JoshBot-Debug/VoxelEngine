@@ -1,8 +1,7 @@
 #include "HeightMap.h"
 #include <chrono>
 
-HeightMap::HeightMap(int width, int height,
-                     const TerrainSpecification& specification)
+HeightMap::HeightMap(int width, int height, const TerrainSpecification& specification)
     : Terrain(specification) {
   Initialize(width, height);
 }
@@ -24,16 +23,14 @@ void HeightMap::Initialize(int width, int height) {
   m_ScaleBias.SetBias(Terrain.Bias);
 }
 
-utils::NoiseMap HeightMap::Build(double lowerXBound, double upperXBound,
-                                 double lowerZBound, double upperZBound) {
+utils::NoiseMap HeightMap::Build(double lowerXBound, double upperXBound, double lowerZBound, double upperZBound) {
   utils::NoiseMap             heightMap;
   utils::NoiseMapBuilderPlane heightMapBuilder;
 
   heightMapBuilder.SetSourceModule(m_ScaleBias);
   heightMapBuilder.SetDestNoiseMap(heightMap);
   heightMapBuilder.SetDestSize(m_Width, m_Height);
-  heightMapBuilder.SetBounds(lowerXBound, upperXBound, lowerZBound,
-                             upperZBound);
+  heightMapBuilder.SetBounds(lowerXBound, upperXBound, lowerZBound, upperZBound);
   heightMapBuilder.Build();
 
   return heightMap;

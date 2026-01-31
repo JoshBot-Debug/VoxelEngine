@@ -28,9 +28,7 @@ void Palette::RenderPalette() {
     ImGui::BeginGroup(); // <--- group keeps cell + label together
 
     // --- Cell ---
-    if (ImGui::Selectable("##cell", m_SelectedItem == item.Id,
-                          ImGuiSelectableFlags_None,
-                          ImVec2(CELL_SIZE, CELL_SIZE))) {
+    if (ImGui::Selectable("##cell", m_SelectedItem == item.Id, ImGuiSelectableFlags_None, ImVec2(CELL_SIZE, CELL_SIZE))) {
       m_SelectedItem = item.Id;
     }
 
@@ -38,8 +36,7 @@ void Palette::RenderPalette() {
     ImVec2 pMin = ImGui::GetItemRectMin();
     ImVec2 pMax = ImGui::GetItemRectMax();
     ImU32  col =
-        ImGui::GetColorU32(ImVec4{item.Mat->Albedo.r, item.Mat->Albedo.g,
-                                  item.Mat->Albedo.b, item.Mat->Albedo.a});
+        ImGui::GetColorU32(ImVec4{item.Mat->Albedo.r, item.Mat->Albedo.g, item.Mat->Albedo.b, item.Mat->Albedo.a});
     ImGui::GetWindowDrawList()->AddRectFilled(pMin, pMax, col);
 
     // Outline if selected
@@ -47,8 +44,11 @@ void Palette::RenderPalette() {
       const float MARGIN = 3.0f;
       ImGui::GetWindowDrawList()->AddRect(
           ImVec2(pMin.x - MARGIN, pMin.y - MARGIN),
-          ImVec2(pMax.x + MARGIN, pMax.y + MARGIN), IM_COL32(255, 255, 0, 255),
-          0, 0, 3.0f);
+          ImVec2(pMax.x + MARGIN, pMax.y + MARGIN),
+          IM_COL32(255, 255, 0, 255),
+          0,
+          0,
+          3.0f);
     }
 
     // --- Label (below cell) ---
@@ -57,7 +57,8 @@ void Palette::RenderPalette() {
     float       textX    = pMin.x + (CELL_SIZE - textSize.x) * 0.5f;
     float       textY    = pMax.y + 4.0f; // gap below square
     ImGui::GetWindowDrawList()->AddText(ImVec2(textX, textY),
-                                        IM_COL32(255, 255, 255, 255), text);
+                                        IM_COL32(255, 255, 255, 255),
+                                        text);
 
     // Reserve layout space for label height
     ImGui::Dummy(ImVec2(CELL_SIZE, LABEL_HEIGHT + CELL_PADDING));
@@ -83,10 +84,9 @@ void Palette::RenderEditor() {
   const int LABEL_WIDTH     = 100;
   int       MAX_INPUT_WIDTH = std::min(500, static_cast<int>(width) - LABEL_WIDTH);
 
-  auto item = std::find_if(m_Items.begin(), m_Items.end(),
-                           [SelectedItem = m_SelectedItem](const Item& item) {
-                             return item.Id == SelectedItem;
-                           });
+  auto item = std::find_if(m_Items.begin(), m_Items.end(), [SelectedItem = m_SelectedItem](const Item& item) {
+    return item.Id == SelectedItem;
+  });
 
   auto Label = [MAX_INPUT_WIDTH](const std::string& label) {
     ImGui::AlignTextToFramePadding();
@@ -99,9 +99,7 @@ void Palette::RenderEditor() {
   {
     Label("Voxel");
     ImGui::SetNextItemWidth(MAX_INPUT_WIDTH - 80);
-    if (ImGui::BeginCombo("##Voxel", item == m_Items.end()
-                                         ? "None selected"
-                                         : item->Name.c_str())) {
+    if (ImGui::BeginCombo("##Voxel", item == m_Items.end() ? "None selected" : item->Name.c_str())) {
       for (int i = 0; i < m_Items.size(); i++) {
         const bool isSelected = (m_Items[i].Id == m_SelectedItem);
 
@@ -138,29 +136,25 @@ void Palette::RenderEditor() {
   // Albedo
   {
     Label("Albedo");
-    ImGui::ColorEdit4("##Albedo", glm::value_ptr(item->Mat->Albedo),
-                      ImGuiColorEditFlags_Float);
+    ImGui::ColorEdit4("##Albedo", glm::value_ptr(item->Mat->Albedo), ImGuiColorEditFlags_Float);
   }
 
   // Emissive
   {
     Label("Emissive");
-    ImGui::ColorEdit4("##Emissive", glm::value_ptr(item->Mat->Emissive),
-                      ImGuiColorEditFlags_Float);
+    ImGui::ColorEdit4("##Emissive", glm::value_ptr(item->Mat->Emissive), ImGuiColorEditFlags_Float);
   }
 
   // Metallic
   {
     Label("Metallic");
-    ImGui::DragFloat("##Metallic", &item->Mat->Metallic, 0.001f, 0.0f, 1.0f,
-                     nullptr, ImGuiSliderFlags_AlwaysClamp);
+    ImGui::DragFloat("##Metallic", &item->Mat->Metallic, 0.001f, 0.0f, 1.0f, nullptr, ImGuiSliderFlags_AlwaysClamp);
   }
 
   // Roughness
   {
     Label("Roughness");
-    ImGui::DragFloat("##Roughness", &item->Mat->Roughness, 0.001f, 0.0f, 1.0f,
-                     nullptr, ImGuiSliderFlags_AlwaysClamp);
+    ImGui::DragFloat("##Roughness", &item->Mat->Roughness, 0.001f, 0.0f, 1.0f, nullptr, ImGuiSliderFlags_AlwaysClamp);
   }
 
   ImGui::End();
@@ -208,8 +202,7 @@ void Palette::Create(Item item) {
 
 std::shared_ptr<Material> Palette::Find(const std::string& name) {
   auto item =
-      std::find_if(m_Items.begin(), m_Items.end(),
-                   [name](const Item& item) { return item.Name == name; });
+      std::find_if(m_Items.begin(), m_Items.end(), [name](const Item& item) { return item.Name == name; });
 
   if (item == m_Items.end())
     return nullptr;

@@ -774,14 +774,13 @@ SparseVoxelOctree::Hit SparseVoxelOctree::DeepRaymarch(Node* node, const glm::ve
   if (node && node->Voxel)
     voxel = node->Voxel;
 
-  if (size <= 1) 
+  if (size <= 1)
     return Hit{
         .Position = nodeMin,
         .Normal   = normal,
         .Voxel    = voxel,
         .Size     = size,
     };
-  
 
   float half = size / 2.0f;
 
