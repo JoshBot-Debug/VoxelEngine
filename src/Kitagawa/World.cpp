@@ -4,6 +4,7 @@
 
 #include "Application.h"
 #include "Utility/Utility.h"
+#include "Voxel/GreedyMesh64.h"
 
 namespace Kitagawa {
 
@@ -80,8 +81,8 @@ World::World(uint32_t chunkSize)
   int center    = (m_ChunkSize / 2) - (lightSize / 2) - 1;
   m_SVO->Set(center, m_ChunkSize - 1 - lightSize, center, light.get(), lightSize);
 
-  GenerateCornellBox();
-  // GenerateHeightMapChunk({0, 0, 0}, 1.0f);
+  // GenerateCornellBox();
+  GenerateHeightMapChunk({0, 0, 0}, 1.0f);
 }
 
 World::~World() {
@@ -111,13 +112,51 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (m_SVO->IsDirty()) {
+
     m_SVO->Flatten(m_FlatSVO);
-    auto filterLights = [this](const SparseOctree<Voxel>::Node* node) {
+
+    m_SVO->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
       auto material = m_Palette.GetMaterial(node->Data->Id);
       return material && material->Emissive.a > 0.0f;
-    };
-    m_SVO->Filter(filterLights, m_Lights);
-    m_Vertices = m_SVO->GreedyMesh(m_Palette.GetMaterials());
+    });
+
+    // Greedy meshing
+    {
+      auto materials = m_Palette.GetMaterials();
+
+      std::vector<std::vector<Vertex>> results(materials.size());
+
+      const int chunksPerAxis = std::max(1, static_cast<int>(m_SVO->GetSize() / GreedyMesh64::CHUNK_SIZE));
+
+      auto exists = [this](float x, float y, float z, uint32_t id = 0) -> bool {
+        return m_SVO->Get(x, y, z, id);
+      };
+
+      std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&materials, &results, chunksPerAxis, &exists](Material& material) {
+        std::vector<Vertex> buffer;
+
+        for (int cz = 0; cz < chunksPerAxis; ++cz)
+          for (int cy = 0; cy < chunksPerAxis; ++cy)
+            for (int cx = 0; cx < chunksPerAxis; ++cx)
+              GreedyMesh64::Generate(exists, buffer, {cx, cy, cz}, material.Id);
+
+        results[material.Id - 1] = std::move(buffer);
+      });
+
+      static_assert(std::is_trivially_copyable_v<Vertex>);
+
+      size_t total = 0;
+      for (const auto& v : results)
+        total += v.size();
+
+      m_Vertices.clear();
+      m_Vertices.reserve(total);
+
+      for (auto& v : results)
+        m_Vertices.insert(m_Vertices.end(), v.begin(), v.end());
+
+      results.clear();
+    }
   }
 }
 

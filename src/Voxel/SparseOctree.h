@@ -1,12 +1,8 @@
 #pragma once
 
 #include <atomic>
-#include <execution>
 #include <glm/glm.hpp>
 #include <vector>
-
-#include "Utility/Debug.h"
-#include "Voxel/GreedyMesh64.h"
 
 template <typename T>
 concept Data = requires(T t) {
@@ -395,8 +391,9 @@ private:
    * @param size Size of the node
    * @param node Pointer to the node from which to start a recursive search
    */
-  template <typename F> requires FilterCallback<Node, F>
-  void Filter(F&& filter, std::vector<FilterNode>& out, glm::vec3 position, int size, Node* node) {
+  template <typename F>
+    requires FilterCallback<Node, F>
+  void Filter(std::vector<FilterNode>& out, F&& filter, glm::vec3 position, int size, Node* node) {
     if (!node)
       return;
 
@@ -419,7 +416,7 @@ private:
 
       glm::vec3 childMin = position + offset * static_cast<float>(half);
 
-      Filter(filter, out, childMin, half, node->Children[i]);
+      Filter(out, filter, childMin, half, node->Children[i]);
     }
   };
 
@@ -880,10 +877,11 @@ public:
    *
    * @param filter Filter callback
    */
-  template <typename F> requires FilterCallback<Node, F>
-  void Filter(F&& filter, std::vector<FilterNode>& out) {
+  template <typename F>
+    requires FilterCallback<Node, F>
+  void Filter(std::vector<FilterNode>& out, F&& filter) {
     Node* root = m_Root.load(std::memory_order::relaxed);
-    Filter(filter, out, {0, 0, 0}, m_Size, root);
+    Filter(out, filter, {0, 0, 0}, m_Size, root);
   };
 
   /**
@@ -909,37 +907,6 @@ public:
    * On flush callback
    */
   void OnFlush(std::function<void()> callback) { m_Flush = callback; };
-
-  /**
-   * Greedy meshes the SVO grouped by material
-   */
-  std::vector<Vertex> GreedyMesh(std::vector<Material> materials) {
-    std::vector<std::vector<Vertex>> results(materials.size());
-
-    auto exists = [this](float x, float y, float z, uint32_t id = 0) -> bool {
-      return this->Get(x, y, z, id);
-    };
-
-    std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [this, &results, &materials, &exists](Material& material) {
-      std::vector<Vertex> vertices;
-
-      const int chunksPerAxis = std::max(1, static_cast<int>(m_Size / GreedyMesh64::CHUNK_SIZE));
-
-      for (int cz = 0; cz < chunksPerAxis; ++cz)
-        for (int cy = 0; cy < chunksPerAxis; ++cy)
-          for (int cx = 0; cx < chunksPerAxis; ++cx)
-            GreedyMesh64::Generate(exists, vertices, {cx, cy, cz}, material.Id);
-
-      results[material.Id - 1] = std::move(vertices);
-    });
-
-    std::vector<Vertex> result = {};
-
-    for (auto& v : results)
-      result.insert(result.end(), std::make_move_iterator(v.begin()), std::make_move_iterator(v.end()));
-
-    return result;
-  };
 
   /**
    * Perform a recursive raymarch from the root node of the SVO
