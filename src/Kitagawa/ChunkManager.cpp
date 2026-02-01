@@ -10,6 +10,9 @@ ChunkManager::~ChunkManager() {
     delete m_Chunks[i];
 }
 
+void ChunkManager::Set(uint64_t (&mask)[], Voxel* data) {
+}
+
 void ChunkManager::Set(int x, int y, int z, Voxel* data, int leafSize) {
 }
 

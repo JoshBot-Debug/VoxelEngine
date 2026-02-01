@@ -180,30 +180,30 @@ void World::Clean() {
 
 const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
 
-  // auto gLush   = m_Palette.Find("Grass Lush");
-  // auto gDry    = m_Palette.Find("Grass Dry");
-  // auto gForest = m_Palette.Find("Grass Forest");
+  auto gLush   = m_Palette.Find("Grass Lush");
+  auto gDry    = m_Palette.Find("Grass Dry");
+  auto gForest = m_Palette.Find("Grass Forest");
 
-  // auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
-  // auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
-  // auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
+  auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
+  auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
+  auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
 
-  // auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
+  auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
 
-  // uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
+  uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
 
-  // for (int z = 0; z < m_ChunkSize; z++)
-  //   for (int x = 0; x < m_ChunkSize; x++) {
-  //     float n      = noise.GetValue(x, z);
-  //     int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
-  //     for (int y = 0; y < height; y++) {
-  //       int index = x + m_ChunkSize * (z + m_ChunkSize * y);
-  //       mask[index / 64] |= 1ULL << (index % 64);
-  //     }
-  //   }
+  for (int z = 0; z < m_ChunkSize; z++)
+    for (int x = 0; x < m_ChunkSize; x++) {
+      float n      = noise.GetValue(x, z);
+      int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
+      for (int y = 0; y < height; y++) {
+        int index = x + m_ChunkSize * (z + m_ChunkSize * y);
+        mask[index / 64] |= 1ULL << (index % 64);
+      }
+    }
 
-  // m_SVO->Set(mask, lush.get());
-  // m_SVO->Flush();
+  m_ChunkManager->Set(mask, lush.get());
+  m_ChunkManager->Flush();
 }
 
 const void World::GenerateCornellBox() {
