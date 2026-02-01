@@ -13,16 +13,6 @@ World::World(uint32_t chunkSize)
 
   m_HeightMap.Initialize(chunkSize, chunkSize);
 
-  m_SVO->OnFlush([this]() {
-    m_SVO->Flatten(m_FlatSVO);
-    auto filterLights = [this](SparseOctree<Voxel>::Node* node) {
-      auto material = m_Palette.GetMaterial(node->Data->Id);
-      return material && material->Emissive.a > 0.0f;
-    };
-    m_SVO->Filter(filterLights, m_Lights);
-    m_Vertices = m_SVO->GreedyMesh(m_Palette.GetMaterials());
-  });
-
   m_Palette.OnFlush([this]() {
     m_Materials            = m_Palette.GetMaterials();
     uint32_t maxMaterialId = 0;
@@ -88,10 +78,10 @@ World::World(uint32_t chunkSize)
 
   int lightSize = m_ChunkSize / 16;
   int center    = (m_ChunkSize / 2) - (lightSize / 2) - 1;
-  m_SVO->Set(center, m_ChunkSize - 1, center, light.get(), lightSize);
+  m_SVO->Set(center, m_ChunkSize - 1 - lightSize, center, light.get(), lightSize);
 
-  // GenerateCornellBox();
-  GenerateHeightMapChunk({0, 0, 0}, 1.0f);
+  GenerateCornellBox();
+  // GenerateHeightMapChunk({0, 0, 0}, 1.0f);
 }
 
 World::~World() {
@@ -101,7 +91,7 @@ World::~World() {
 void World::RenderUI() { m_Palette.RenderUI(); }
 
 void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport) {
-  glm::vec3 rayOrigin = m_Camera->Position;
+  glm::vec3 rayOrigin    = m_Camera->Position;
   glm::vec3 rayDirection = m_Camera->GetRayDirection(mouse.x, mouse.y);
 
   bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
@@ -119,6 +109,16 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     if (m_SVO->IsDirty())
       m_SVO->Flush();
   }
+
+  if (m_SVO->IsDirty()) {
+    m_SVO->Flatten(m_FlatSVO);
+    auto filterLights = [this](SparseOctree<Voxel>::Node* node) {
+      auto material = m_Palette.GetMaterial(node->Data->Id);
+      return material && material->Emissive.a > 0.0f;
+    };
+    m_SVO->Filter(filterLights, m_Lights);
+    m_Vertices = m_SVO->GreedyMesh(m_Palette.GetMaterials());
+  }
 }
 
 bool World::IsDirty() {
@@ -133,6 +133,34 @@ void World::Clean() {
   m_Materials.clear();
   m_Vertices.clear();
   m_Lights.clear();
+}
+
+const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
+
+  auto gLush   = m_Palette.Find("Grass Lush");
+  auto gDry    = m_Palette.Find("Grass Dry");
+  auto gForest = m_Palette.Find("Grass Forest");
+
+  auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
+  auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
+  auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
+
+  auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
+
+  uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
+
+  for (int z = 0; z < m_ChunkSize; z++)
+    for (int x = 0; x < m_ChunkSize; x++) {
+      float n      = noise.GetValue(x, z);
+      int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
+      for (int y = 0; y < height; y++) {
+        int index = x + m_ChunkSize * (z + m_ChunkSize * y);
+        mask[index / 64] |= 1ULL << (index % 64);
+      }
+    }
+
+  m_SVO->Set(mask, lush.get());
+  m_SVO->Flush();
 }
 
 const void World::GenerateCornellBox() {
@@ -197,87 +225,7 @@ const void World::GenerateCornellBox() {
         }
       }
     }
-
-    // Delete
-    // {
-    //   for (int a = 0; a < chunkSize; a++) {
-    //     for (int b = 0; b < chunkSize; b++) {
-    //       std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    //       // Top wall
-    //       svo->Clear(a, chunkSize - 1, b);
-    //       // Bottom wall
-    //       svo->Clear(a, 0, b);
-    //       // Left wall
-    //       svo->Clear(0, a, b);
-    //       // Right wall
-    //       svo->Clear(chunkSize - 1, a, b);
-    //       // Back wall
-    //       svo->Clear(a, b, 0);
-    //       // Front wall
-    //       svo->Clear(a, b, chunkSize - 1);
-    //     }
-    //   }
-    //   const glm::ivec2 blockDistanceFromWall = {chunkSize / 4, chunkSize / 6};
-    //   const int        blockSize             = chunkSize / 4;
-    //   const int        blockHeight           = chunkSize / 2;
-
-    //   // Add the rectangle
-    //   for (int z = 0; z < blockSize; z++)
-    //     for (int x = 0; x < blockSize; x++)
-    //       for (int y = 0; y < blockHeight; y++) {
-    //         std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    //         svo->Clear(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y);
-    //       }
-
-    //   // Add the sphere
-    //   int radius = chunkSize / 8;
-    //   int cx     = blockDistanceFromWall.x + (chunkSize / 2);
-    //   int cy     = radius;
-    //   int cz     = blockDistanceFromWall.y + (chunkSize / 2);
-
-    //   for (int z = 0; z < chunkSize; ++z) {
-    //     for (int y = 0; y < chunkSize; ++y) {
-    //       for (int x = 0; x < chunkSize; ++x) {
-    //         float dx = x - cx;
-    //         float dy = y - cy;
-    //         float dz = z - cz;
-    //         if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-    //           std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    //           svo->Clear(x, y + 1, z);
-    //         }
-    //       }
-    //     }
-    //   }
-    // }
   }).detach();
-}
-
-const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
-
-  auto gLush   = m_Palette.Find("Grass Lush");
-  auto gDry    = m_Palette.Find("Grass Dry");
-  auto gForest = m_Palette.Find("Grass Forest");
-
-  auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
-  auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
-  auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
-
-  auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
-
-  uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
-
-  for (int z = 0; z < m_ChunkSize; z++)
-    for (int x = 0; x < m_ChunkSize; x++) {
-      float n      = noise.GetValue(x, z);
-      int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
-      for (int y = 0; y < height; y++) {
-        int index = x + m_ChunkSize * (z + m_ChunkSize * y);
-        mask[index / 64] |= 1ULL << (index % 64);
-      }
-    }
-
-  m_SVO->Set(mask, lush.get());
-  m_SVO->Flush();
 }
 
 } // namespace Kitagawa
