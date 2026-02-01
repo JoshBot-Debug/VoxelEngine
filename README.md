@@ -50,6 +50,7 @@ Run the project
 - [ ] MAJOR: Rework the archtecture of the code base in this scene. GOAL: Bring the design slightly closer to something more satisfactory.
 - [ ] Add chunking again
 - [ ] Add LOD
+- [ ] Add trees
 - [x] Add a skybox
 - [x] Make the SVO a sparse octree, the datatype associated with it should be templated.
 - [x] Fix memory leaks - NOTE: Fixed it be removing COW, no segment faults during testing
