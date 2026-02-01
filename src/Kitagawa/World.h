@@ -10,6 +10,8 @@
 #include "Voxel/Palette.h"
 #include "Voxel/SparseOctree.h"
 
+#include "ChunkManager.h"
+
 namespace Kitagawa {
 
 class World {
@@ -22,7 +24,7 @@ private:
   PerspectiveCamera* m_Camera = nullptr;
 
   std::vector<std::shared_ptr<Voxel>> m_Voxels;
-  SparseOctree<Voxel>*                m_SVO = nullptr;
+  ChunkManager*                       m_ChunkManager = nullptr;
 
   std::vector<Material>                        m_Materials    = {};
   std::vector<uint32_t>                        m_MaterialsLUT = {};
@@ -51,7 +53,7 @@ public:
   const std::vector<Vertex>&                          GetVertices() { return m_Vertices; };
   const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
 
-  SparseOctree<Voxel>* GetTree() { return m_SVO; };
+  ChunkManager* GetChunkManager() { return m_ChunkManager; };
 
   bool IsDirty();
 

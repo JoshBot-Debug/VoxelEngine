@@ -3,6 +3,7 @@
 #include <atomic>
 #include <glm/glm.hpp>
 #include <vector>
+#include <functional>
 
 template <typename T>
 concept Data = requires(T t) {
@@ -393,7 +394,7 @@ private:
    */
   template <typename F>
     requires FilterCallback<Node, F>
-  void Filter(std::vector<FilterNode>& out, F&& filter, glm::vec3 position, int size, Node* node) {
+  void Filter(std::vector<FilterNode>& out, F&& filter, const glm::vec3 &position, int size, Node* node) {
     if (!node)
       return;
 
@@ -657,7 +658,7 @@ public:
    * @param data      The data to insert.
    * @param leafSize  The smallest voxel size (default is 1 unit).
    */
-  Node* Set(glm::vec3 position, T* data, int leafSize = 1) {
+  Node* Set(const glm::vec3 &position, T* data, int leafSize = 1) {
     return Set(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), data, leafSize);
   };
 
@@ -682,7 +683,7 @@ public:
    * @param nodeId    Optional filter; if provided, only matching voxels are returned.
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
-  Node* Get(glm::vec3 position, uint32_t nodeId = 0) {
+  Node* Get(const glm::vec3 &position, uint32_t nodeId = 0) {
     return Get(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), nodeId);
   };
 
@@ -725,7 +726,7 @@ public:
    * @param position  Voxel-space coordinates to clear (x, y, z).
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    */
-  void Clear(glm::ivec3 position, int leafSize = 1) {
+  void Clear(const glm::ivec3 &position, int leafSize = 1) {
     Clear(position.x, position.y, position.z, leafSize);
   };
 

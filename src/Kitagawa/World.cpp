@@ -10,7 +10,7 @@ namespace Kitagawa {
 
 World::World(uint32_t chunkSize)
     : m_ChunkSize(chunkSize) {
-  m_SVO = new SparseOctree<Voxel>(m_ChunkSize);
+  m_ChunkManager = new ChunkManager(chunkSize);
 
   m_HeightMap.Initialize(chunkSize, chunkSize);
 
@@ -79,14 +79,14 @@ World::World(uint32_t chunkSize)
 
   int lightSize = m_ChunkSize / 16;
   int center    = (m_ChunkSize / 2) - (lightSize / 2) - 1;
-  m_SVO->Set(center, m_ChunkSize - 1 - lightSize, center, light.get(), lightSize);
+  m_ChunkManager->Set(center, m_ChunkSize - 1 - lightSize, center, light.get(), lightSize);
 
   // GenerateCornellBox();
   GenerateHeightMapChunk({0, 0, 0}, 1.0f);
 }
 
 World::~World() {
-  delete m_SVO;
+  delete m_ChunkManager;
 }
 
 void World::RenderUI() { m_Palette.RenderUI(); }
@@ -99,74 +99,78 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   bool isActing      = ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Left);
 
   if (isCtrlPressed && isActing) {
-    SparseOctree<Voxel>::Hit hit = m_SVO->DeepRaymarch(rayOrigin, rayDirection);
+    SparseOctree<Voxel>::Hit hit = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right))
-      m_SVO->Clear(hit.Position, hit.Size);
+      m_ChunkManager->Clear(hit.Position, hit.Size);
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
-      m_SVO->Set(hit.Position + hit.Normal, hit.Data, hit.Size);
+      m_ChunkManager->Set(hit.Position + hit.Normal, hit.Data, hit.Size);
 
-    if (m_SVO->IsDirty())
-      m_SVO->Flush();
+    if (m_ChunkManager->IsDirty())
+      m_ChunkManager->Flush();
   }
 
-  if (m_SVO->IsDirty()) {
+  if (m_ChunkManager->IsDirty()) {
 
-    m_SVO->Flatten(m_FlatSVO);
+    m_ChunkManager->Flatten(m_FlatSVO);
 
-    m_SVO->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
+    m_ChunkManager->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
       auto material = m_Palette.GetMaterial(node->Data->Id);
       return material && material->Emissive.a > 0.0f;
     });
 
+    m_ChunkManager->GreedyMesh(m_Palette.GetMaterials(), m_Vertices);
+
+    m_ChunkManager->Update(rayOrigin, rayDirection);
+
     // Greedy meshing
-    {
-      auto materials = m_Palette.GetMaterials();
+    // {
+    //   auto materials = m_Palette.GetMaterials();
 
-      std::vector<std::vector<Vertex>> results(materials.size());
+    //   std::vector<std::vector<Vertex>> results(materials.size());
 
-      const int chunksPerAxis = std::max(1, static_cast<int>(m_SVO->GetSize() / GreedyMesh64::CHUNK_SIZE));
+    //   const int chunksPerAxis = std::max(1, static_cast<int>(m_SVO->GetSize() / GreedyMesh64::CHUNK_SIZE));
 
-      auto exists = [this](float x, float y, float z, uint32_t id = 0) -> bool {
-        return m_SVO->Get(x, y, z, id);
-      };
+    //   auto exists = [this](float x, float y, float z, uint32_t id = 0) -> bool {
+    //     return m_SVO->Get(x, y, z, id);
+    //   };
 
-      std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&materials, &results, chunksPerAxis, &exists](Material& material) {
-        std::vector<Vertex> buffer;
+    //   std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&materials, &results, chunksPerAxis, &exists](Material& material) {
+    //     std::vector<Vertex> buffer;
 
-        for (int cz = 0; cz < chunksPerAxis; ++cz)
-          for (int cy = 0; cy < chunksPerAxis; ++cy)
-            for (int cx = 0; cx < chunksPerAxis; ++cx)
-              GreedyMesh64::Generate(exists, buffer, {cx, cy, cz}, material.Id);
+    //     for (int cz = 0; cz < chunksPerAxis; ++cz)
+    //       for (int cy = 0; cy < chunksPerAxis; ++cy)
+    //         for (int cx = 0; cx < chunksPerAxis; ++cx)
+    //           GreedyMesh64::Generate(exists, buffer, {cx, cy, cz}, material.Id);
 
-        results[material.Id - 1] = std::move(buffer);
-      });
+    //     results[material.Id - 1] = std::move(buffer);
+    //   });
 
-      static_assert(std::is_trivially_copyable_v<Vertex>);
+    //   static_assert(std::is_trivially_copyable_v<Vertex>);
 
-      size_t total = 0;
-      for (const auto& v : results)
-        total += v.size();
+    //   size_t total = 0;
+    //   for (const auto& v : results)
+    //     total += v.size();
 
-      m_Vertices.clear();
-      m_Vertices.reserve(total);
+    //   m_Vertices.clear();
+    //   m_Vertices.reserve(total);
 
-      for (auto& v : results)
-        m_Vertices.insert(m_Vertices.end(), v.begin(), v.end());
+    //   for (auto& v : results)
+    //     m_Vertices.insert(m_Vertices.end(), v.begin(), v.end());
 
-      results.clear();
-    }
+    //   results.clear();
+    // }
   }
 }
 
 bool World::IsDirty() {
-  return m_Palette.IsDirty() || m_SVO->IsDirty();
+  return m_Palette.IsDirty() || m_ChunkManager->IsDirty();
 }
 
 void World::Clean() {
   m_Palette.Clean();
-  m_SVO->Clean();
+  m_ChunkManager->Clean();
 
   m_FlatSVO.clear();
   m_Materials.clear();
@@ -176,30 +180,30 @@ void World::Clean() {
 
 const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
 
-  auto gLush   = m_Palette.Find("Grass Lush");
-  auto gDry    = m_Palette.Find("Grass Dry");
-  auto gForest = m_Palette.Find("Grass Forest");
+  // auto gLush   = m_Palette.Find("Grass Lush");
+  // auto gDry    = m_Palette.Find("Grass Dry");
+  // auto gForest = m_Palette.Find("Grass Forest");
 
-  auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
-  auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
-  auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
+  // auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
+  // auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
+  // auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
 
-  auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
+  // auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
 
-  uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
+  // uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
 
-  for (int z = 0; z < m_ChunkSize; z++)
-    for (int x = 0; x < m_ChunkSize; x++) {
-      float n      = noise.GetValue(x, z);
-      int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
-      for (int y = 0; y < height; y++) {
-        int index = x + m_ChunkSize * (z + m_ChunkSize * y);
-        mask[index / 64] |= 1ULL << (index % 64);
-      }
-    }
+  // for (int z = 0; z < m_ChunkSize; z++)
+  //   for (int x = 0; x < m_ChunkSize; x++) {
+  //     float n      = noise.GetValue(x, z);
+  //     int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
+  //     for (int y = 0; y < height; y++) {
+  //       int index = x + m_ChunkSize * (z + m_ChunkSize * y);
+  //       mask[index / 64] |= 1ULL << (index % 64);
+  //     }
+  //   }
 
-  m_SVO->Set(mask, lush.get());
-  m_SVO->Flush();
+  // m_SVO->Set(mask, lush.get());
+  // m_SVO->Flush();
 }
 
 const void World::GenerateCornellBox() {
@@ -215,7 +219,7 @@ const void World::GenerateCornellBox() {
   auto cube      = m_Voxels.emplace_back(std::make_shared<Voxel>(cubeMaterial->Id));
   auto sphere    = m_Voxels.emplace_back(std::make_shared<Voxel>(sphereMaterial->Id));
 
-  std::thread([chunkSize = m_ChunkSize, svo = m_SVO, sphere, cube, wall, leftWall, rightWall]() {
+  std::thread([chunkSize = m_ChunkSize, svo = m_ChunkManager, sphere, cube, wall, leftWall, rightWall]() {
     for (int a = 0; a < chunkSize; a++) {
       for (int b = 0; b < chunkSize; b++) {
         // std::this_thread::sleep_for(std::chrono::milliseconds(1));
