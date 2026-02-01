@@ -19,8 +19,8 @@ private:
   Palette   m_Palette;
   HeightMap m_HeightMap;
 
-  std::vector<std::shared_ptr<Voxel>>  m_Voxels;
-  std::shared_ptr<SparseOctree<Voxel>> m_SVO = nullptr;
+  std::vector<std::shared_ptr<Voxel>> m_Voxels;
+  SparseOctree<Voxel>*                m_SVO = nullptr;
 
 private:
   const void GenerateCornellBox();
@@ -29,11 +29,11 @@ private:
 
 public:
   World(uint32_t chunkSize);
-  ~World() = default;
+  ~World();
 
   void RenderUI();
 
-  const std::shared_ptr<SparseOctree<Voxel>>& GetSVO() { return m_SVO; };
+  SparseOctree<Voxel>* GetSVO() { return m_SVO; };
 
   Palette& GetPalette() { return m_Palette; };
 

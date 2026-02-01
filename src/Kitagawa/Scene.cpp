@@ -335,6 +335,10 @@ void Scene::Initialize(const InitializeInfo& init) {
     VkCommandBuffer commandBuffer = Akari::Application::GetCommandBuffer({.Begin = true});
     m_Skybox->CopyToImage(commandBuffer);
     Akari::Application::FlushCommandBuffer(commandBuffer);
+
+    stbi_image_free(bottom);
+    stbi_image_free(others);
+    stbi_image_free(top);
   }
 
   m_World->GetPalette()
@@ -352,7 +356,7 @@ void Scene::Render() {
 
   m_CameraBuffer.Render(m_Camera);
 
-  std::shared_ptr<SparseOctree<Voxel>> tree = m_World->GetSVO();
+  SparseOctree<Voxel>* tree = m_World->GetSVO();
 
   {
     Palette& palette = m_World->GetPalette();

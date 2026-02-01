@@ -52,4 +52,5 @@ Run the project
 - [ ] Add LOD
 - [x] Add a skybox
 - [x] Make the SVO a sparse octree, the datatype associated with it should be templated.
-- [ ] Add a garbage collector for SVO deleted nodes
+- [x] Fix memory leaks - NOTE: Fixed it be removing COW, no segment faults during testing
+- [ ] Move greedy meshing out of SparseOctree because it depends on material

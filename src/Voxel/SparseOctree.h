@@ -103,7 +103,9 @@ private:
    * VoidNode
    * i.e, the nodes outside of the world, if there is no neighbouring chunk
    */
-  Node m_Void;
+  Node m_Void = Node();
+
+  std::vector<Node*> m_Release = {};
 
 private:
   /**
@@ -163,7 +165,7 @@ private:
    * @param size      The size of the region represented by this node.
    */
   Node* Set(Node* node, int x, int y, int z, T* data, int leafSize, int size) {
-    node = new Node(*node);
+    // node = new Node(*node);
 
     if (size == leafSize) {
       node->Data = data;
@@ -173,7 +175,7 @@ private:
        */
       for (int i = 0; i < 8; i++) {
         /// TODO: Must defer the deletion of nodes
-        // delete node->Children[i];
+        delete node->Children[i];
         node->Children[i] = nullptr;
       }
 
@@ -208,7 +210,7 @@ private:
 
     for (int i = 0; i < 8; i++) {
       /// TODO: Must defer the deletion of nodes
-      // delete node->Children[i];
+      delete node->Children[i];
       node->Children[i] = nullptr;
     }
 
@@ -279,21 +281,15 @@ private:
    * @param size      The size of the region represented by this node.
    */
   Node* Clear(Node*& node, int x, int y, int z, int leafSize, int size) {
-    /// TODO: After implementing copy on read, this clear is mostly wrong. Need to
-    /// investigate
-
     if (!node)
       return node;
-
-    node = new Node(*node);
 
     if (size < leafSize)
       return node;
 
     if (node->Data) {
       if (size != m_Size) {
-        /// TODO: Must defer this deletion
-        // delete node;
+        delete node;
         node = nullptr;
       } else
         node->Clear();
@@ -315,8 +311,7 @@ private:
       if (node->Children[i])
         return node;
 
-    /// TODO: Must defer this deletion
-    // delete node;
+    delete node;
     node = nullptr;
 
     return node;
@@ -600,7 +595,6 @@ public:
     Clear();
     Node* root = m_Root.load(std::memory_order::acquire);
     delete root;
-    root = nullptr;
   };
 
   /**

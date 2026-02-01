@@ -1,7 +1,6 @@
 #include "World.h"
 
 #include <execution>
-#include <memory>
 
 #include "Application.h"
 
@@ -9,7 +8,7 @@ namespace Kitagawa {
 
 World::World(uint32_t chunkSize)
     : m_ChunkSize(chunkSize) {
-  m_SVO = std::make_shared<SparseOctree<Voxel>>(m_ChunkSize);
+  m_SVO = new SparseOctree<Voxel>(m_ChunkSize);
 
   m_HeightMap.Initialize(chunkSize, chunkSize);
 
@@ -72,6 +71,10 @@ World::World(uint32_t chunkSize)
   // GenerateHeightMapChunk({0, 0, 0}, 1.0f);
 }
 
+World::~World() {
+  delete m_SVO;
+}
+
 void World::RenderUI() { m_Palette.RenderUI(); }
 
 const void World::GenerateCornellBox() {
@@ -90,7 +93,7 @@ const void World::GenerateCornellBox() {
   std::thread([chunkSize = m_ChunkSize, svo = m_SVO, sphere, cube, wall, leftWall, rightWall]() {
     for (int a = 0; a < chunkSize; a++) {
       for (int b = 0; b < chunkSize; b++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
         // Top wall
         svo->Set(a, chunkSize - 1, b, wall.get());
         // Bottom wall
@@ -113,7 +116,7 @@ const void World::GenerateCornellBox() {
     for (int z = 0; z < blockSize; z++)
       for (int x = 0; x < blockSize; x++)
         for (int y = 0; y < blockHeight; y++) {
-          std::this_thread::sleep_for(std::chrono::milliseconds(1));
+          // std::this_thread::sleep_for(std::chrono::milliseconds(1));
           svo->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
         }
 
@@ -130,12 +133,64 @@ const void World::GenerateCornellBox() {
           float dy = y - cy;
           float dz = z - cz;
           if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
             svo->Set(x, y + 1, z, sphere.get());
           }
         }
       }
     }
+
+    // Delete
+    // {
+    //   for (int a = 0; a < chunkSize; a++) {
+    //     for (int b = 0; b < chunkSize; b++) {
+    //       std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    //       // Top wall
+    //       svo->Clear(a, chunkSize - 1, b);
+    //       // Bottom wall
+    //       svo->Clear(a, 0, b);
+    //       // Left wall
+    //       svo->Clear(0, a, b);
+    //       // Right wall
+    //       svo->Clear(chunkSize - 1, a, b);
+    //       // Back wall
+    //       svo->Clear(a, b, 0);
+    //       // Front wall
+    //       svo->Clear(a, b, chunkSize - 1);
+    //     }
+    //   }
+    //   const glm::ivec2 blockDistanceFromWall = {chunkSize / 4, chunkSize / 6};
+    //   const int        blockSize             = chunkSize / 4;
+    //   const int        blockHeight           = chunkSize / 2;
+
+    //   // Add the rectangle
+    //   for (int z = 0; z < blockSize; z++)
+    //     for (int x = 0; x < blockSize; x++)
+    //       for (int y = 0; y < blockHeight; y++) {
+    //         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    //         svo->Clear(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y);
+    //       }
+
+    //   // Add the sphere
+    //   int radius = chunkSize / 8;
+    //   int cx     = blockDistanceFromWall.x + (chunkSize / 2);
+    //   int cy     = radius;
+    //   int cz     = blockDistanceFromWall.y + (chunkSize / 2);
+
+    //   for (int z = 0; z < chunkSize; ++z) {
+    //     for (int y = 0; y < chunkSize; ++y) {
+    //       for (int x = 0; x < chunkSize; ++x) {
+    //         float dx = x - cx;
+    //         float dy = y - cy;
+    //         float dz = z - cz;
+    //         if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+    //           std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    //           svo->Clear(x, y + 1, z);
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
   }).detach();
 }
 
