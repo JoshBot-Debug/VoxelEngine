@@ -55,4 +55,4 @@ Run the project
 - [x] Make the SVO a sparse octree, the datatype associated with it should be templated.
 - [x] Fix memory leaks - NOTE: Fixed it be removing COW, no segment faults during testing
 - [x] Move greedy meshing out of SparseOctree because it depends on material
-- [ ] Added basic reflections via raymarching
+- [x] Added basic reflections via raymarching
