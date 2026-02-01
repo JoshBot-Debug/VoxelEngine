@@ -112,7 +112,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
   if (m_SVO->IsDirty()) {
     m_SVO->Flatten(m_FlatSVO);
-    auto filterLights = [this](SparseOctree<Voxel>::Node* node) {
+    auto filterLights = [this](const SparseOctree<Voxel>::Node* node) {
       auto material = m_Palette.GetMaterial(node->Data->Id);
       return material && material->Emissive.a > 0.0f;
     };

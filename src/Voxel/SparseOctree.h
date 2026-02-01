@@ -14,7 +14,7 @@ concept Data = requires(T t) {
 };
 
 template <typename N, typename F>
-concept FilterCallback = requires(F f, N* node) {
+concept FilterCallback = requires(F f, const N* node) {
   { f(node) } -> std::same_as<bool>;
 };
 
