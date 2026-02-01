@@ -37,6 +37,7 @@ void main(){
     return;
   }
   
+  float EPS=.01;
   float depth=texture(depthTexture,uv).r;
   
   // Hit position reconstructed world-space position from depth
@@ -70,7 +71,7 @@ void main(){
     // Distance to light
     float Ld=length(D);
     
-    Hit hit=raymarch(P+N*.01,L,Ld);
+    Hit hit=raymarch(P+N*EPS,L,Ld);
     
     float shadow=hit.Material!=light.Material?hit.TMin/Ld:1.;
     
@@ -81,7 +82,29 @@ void main(){
     Lo+=brdf*(lightMaterial.Emissive.rgb*lightMaterial.Emissive.a)*shadow;
   }
   
-  Lo/=lights.count;
+  vec3 reflected=vec3(0);
+  float metallic=material.Metallic;
+  float roughness=max(material.Roughness,.07);
+  
+  vec3 F0=mix(vec3(.04),material.Albedo.rgb,metallic);
+  vec3 F=fresnelSchlick(max(dot(N,V),0.),F0);
+  
+  if(metallic>.01||roughness<.7)
+  {
+    vec3 R=reflect(-V,N);
+    Hit hit=raymarch(P+N*EPS,R,FMAX);
+    if(hit.IsValid)
+    {
+      Material mat=getMaterial(hit.Material);
+      reflected=mat.Emissive.a>0.?mat.Emissive.rgb*mat.Emissive.a:mat.Albedo.rgb;
+    }
+    else
+    reflected=texture(skyboxTexture,R).rgb;
+  }
+  
+  float specularWeight=1.-roughness;
+  
+  Lo+=reflected*F*specularWeight;
   
   imageStore(directLightTexture,pixel,vec4(Lo,1.));
 }

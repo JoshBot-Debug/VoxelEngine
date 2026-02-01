@@ -47,7 +47,7 @@ Run the project
   - [ ] Add a way to drag to increate number of voxels that can be created in one shot
   - [ ] Add a way to create prefabs
   - [ ] Add a way to scale(x,y,z), rotate(x,y,z), translate(x,y,z) a prefab
-- [ ] MAJOR: Rework the archtecture of the code base in this scene. GOAL: Bring the design slightly closer to something more satisfactory.
+- [x] MAJOR: Rework the archtecture of the code base in this scene. GOAL: Bring the design slightly closer to something more satisfactory.
 - [ ] Add chunking again
 - [ ] Add LOD
 - [ ] Add trees

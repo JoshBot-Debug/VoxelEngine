@@ -289,6 +289,8 @@ vec3 evaluatePBR(vec3 N,vec3 V,vec3 L,vec3 albedo,float metallic,float roughness
 }
 
 vec3 BRDF(vec3 N,vec3 V,vec3 L,vec3 albedo,float metallic,float roughness){
+  
+  float R=max(roughness,.07);
   vec3 H=normalize(V+L);
   
   float NdotL=max(dot(N,L),0.);
@@ -301,8 +303,8 @@ vec3 BRDF(vec3 N,vec3 V,vec3 L,vec3 albedo,float metallic,float roughness){
   vec3 F=fresnelSchlick(VdotH,F0);
   
   // Microfacet
-  float D=DistributionGGX(N,H,roughness);
-  float G=GeometrySmith(N,H,L,roughness);
+  float D=DistributionGGX(N,H,R);
+  float G=GeometrySmith(N,V,L,R);
   
   vec3 specular=(F*D*G)/max(4.*NdotV*NdotL,1e-4);
   
