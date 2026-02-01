@@ -25,7 +25,7 @@ World::World(uint32_t chunkSize)
   m_Palette.OnFlush([this]() {
     m_Materials            = m_Palette.GetMaterials();
     uint32_t maxMaterialId = 0;
-    
+
     for (auto& mat : m_Materials)
       maxMaterialId = mat.Id > maxMaterialId ? mat.Id : maxMaterialId;
 
@@ -86,11 +86,8 @@ World::World(uint32_t chunkSize)
   auto light         = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
 
   int lightSize = m_ChunkSize / 16;
-  m_SVO->Set((m_ChunkSize / 2) - (lightSize / 2) - 1,
-             m_ChunkSize - 1 - lightSize,
-             (m_ChunkSize / 2) - (lightSize / 2) - 1,
-             light.get(),
-             lightSize);
+  int center    = (m_ChunkSize / 2) - (lightSize / 2) - 1;
+  m_SVO->Set(center, m_ChunkSize - 1, center, light.get(), lightSize);
 
   // GenerateCornellBox();
   GenerateHeightMapChunk({0, 0, 0}, 1.0f);
