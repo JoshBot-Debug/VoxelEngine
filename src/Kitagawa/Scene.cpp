@@ -302,6 +302,7 @@ void Scene::Render() {
   m_CameraBuffer.Render(m_Camera);
 
   std::vector<VkBufferMemoryBarrier2> bufferBarriers = {};
+  bool                                bufferResized  = false;
 
   if (m_World->IsDirty()) {
     const std::vector<Material>&                        materials   = m_World->GetMaterials();
@@ -310,19 +311,28 @@ void Scene::Render() {
     const std::vector<Vertex>&                          vertices    = m_World->GetVertices();
     const std::vector<SparseOctree<Voxel>::FilterNode>& lights      = m_World->GetLights();
 
-    if (m_MaterialBuffer.Upload(commandBuffer, materials) || materials.size())
+    if (bool resized = m_MaterialBuffer.Upload(commandBuffer, materials) || materials.size()) {
+      bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_MaterialBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+    }
 
-    if (m_MaterialLUTBuffer.Upload(commandBuffer, materialLUT) || materialLUT.size())
+    if (bool resized = m_MaterialLUTBuffer.Upload(commandBuffer, materialLUT) || materialLUT.size()) {
+      bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_MaterialLUTBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+    }
 
-    if (m_LightBuffer.Upload(commandBuffer, lights) || lights.size())
+    if (bool resized = m_LightBuffer.Upload(commandBuffer, lights) || lights.size()) {
+      bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_LightBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+    }
 
-    if (m_SVOBuffer.Upload(commandBuffer, svo) || svo.size())
+    if (bool resized = m_SVOBuffer.Upload(commandBuffer, svo) || svo.size()) {
+      bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+    }
 
-    if (m_VertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Vertex), vertices.data()) || vertices.size()) {
+    if (bool resized = m_VertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Vertex), vertices.data()) || vertices.size()) {
+      bufferResized = bufferResized || resized;
       m_VertexCount = vertices.size();
       bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
     }
@@ -334,8 +344,10 @@ void Scene::Render() {
     auto vertices = m_UI->GetHighlightVertices();
 
     m_OverlayVertexCount = vertices.size();
-    if (m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Kitagawa::HighlightVertex), vertices.data()) || m_OverlayVertexCount)
+    if (bool resized = m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Kitagawa::HighlightVertex), vertices.data()) || m_OverlayVertexCount) {
+      bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_OverlayVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
+    }
   }
 
   // Wait for buffer barriers
@@ -349,8 +361,7 @@ void Scene::Render() {
     vkCmdPipelineBarrier2(commandBuffer, &depInfo);
   }
 
-  /// TODO: This actually need to be recreated only when a buffer resizes
-  if (bufferBarriers.size())
+  if (bufferResized)
     CreateDescriptorSets();
 
   // GBuffer pass
