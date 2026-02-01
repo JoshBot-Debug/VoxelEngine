@@ -3,6 +3,7 @@
 #include <execution>
 
 #include "Application.h"
+#include "Utility/Utility.h"
 
 namespace Kitagawa {
 
@@ -98,6 +99,27 @@ World::~World() {
 }
 
 void World::RenderUI() { m_Palette.RenderUI(); }
+
+void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport) {
+  glm::vec3 rayOrigin = m_Camera->Position;
+  glm::vec3 rayDirection = m_Camera->GetRayDirection(mouse.x, mouse.y);
+
+  bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
+  bool isActing      = ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Left);
+
+  if (isCtrlPressed && isActing) {
+    SparseOctree<Voxel>::Hit hit = m_SVO->DeepRaymarch(rayOrigin, rayDirection);
+
+    if (ImGui::IsMouseDown(ImGuiMouseButton_Right))
+      m_SVO->Clear(hit.Position, hit.Size);
+
+    if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+      m_SVO->Set(hit.Position + hit.Normal, hit.Data, hit.Size);
+
+    if (m_SVO->IsDirty())
+      m_SVO->Flush();
+  }
+}
 
 bool World::IsDirty() {
   return m_Palette.IsDirty() || m_SVO->IsDirty();

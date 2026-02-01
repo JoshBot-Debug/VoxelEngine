@@ -41,6 +41,8 @@ public:
 
   void RenderUI();
 
+  void Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport);
+
   void SetCamera(PerspectiveCamera* camera) { m_Camera = camera; };
 
   const std::vector<Material>&                        GetMaterials() { return m_Materials; };
@@ -49,7 +51,7 @@ public:
   const std::vector<Vertex>&                          GetVertices() { return m_Vertices; };
   const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
 
-  Palette& GetPalette() { return m_Palette; };
+  SparseOctree<Voxel>* GetTree() { return m_SVO; };
 
   bool IsDirty();
 

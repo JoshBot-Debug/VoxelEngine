@@ -9,55 +9,6 @@
 
 using namespace Akari::Render;
 
-std::vector<OverlayVertex> Scene::MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color, float size) {
-
-  glm::vec3 min = voxelMin;
-  glm::vec3 max = voxelMin + glm::vec3(size);
-
-  glm::vec3 v0, v1, v2, v3;
-
-  // Determine face from normal
-  if (hitNormal.x > 0.5f) { // +X
-    v0 = {max.x, min.y, min.z};
-    v1 = {max.x, max.y, min.z};
-    v2 = {max.x, max.y, max.z};
-    v3 = {max.x, min.y, max.z};
-  } else if (hitNormal.x < -0.5f) { // -X
-    v0 = {min.x, min.y, max.z};
-    v1 = {min.x, max.y, max.z};
-    v2 = {min.x, max.y, min.z};
-    v3 = {min.x, min.y, min.z};
-  } else if (hitNormal.y > 0.5f) { // +Y
-    v0 = {min.x, max.y, min.z};
-    v1 = {max.x, max.y, min.z};
-    v2 = {max.x, max.y, max.z};
-    v3 = {min.x, max.y, max.z};
-  } else if (hitNormal.y < -0.5f) { // -Y
-    v0 = {min.x, min.y, max.z};
-    v1 = {max.x, min.y, max.z};
-    v2 = {max.x, min.y, min.z};
-    v3 = {min.x, min.y, min.z};
-  } else if (hitNormal.z > 0.5f) { // +Z
-    v0 = {min.x, min.y, max.z};
-    v1 = {max.x, min.y, max.z};
-    v2 = {max.x, max.y, max.z};
-    v3 = {min.x, max.y, max.z};
-  } else { // -Z
-    v0 = {min.x, max.y, min.z};
-    v1 = {max.x, max.y, min.z};
-    v2 = {max.x, min.y, min.z};
-    v3 = {min.x, min.y, min.z};
-  }
-
-  return {{{v0, color},
-           {v1, color},
-           {v2, color},
-
-           {v0, color},
-           {v2, color},
-           {v3, color}}};
-}
-
 Scene::Scene() {
   m_DisplayImages = {
       m_Normal,
@@ -300,10 +251,10 @@ void Scene::Initialize(const InitializeInfo& init) {
   });
 
   m_OverlayPipeline.CreatePipeline({
-      .vertexStride = sizeof(OverlayVertex),
+      .vertexStride = sizeof(Kitagawa::HighlightVertex),
       .attribs      = {
-          {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(OverlayVertex, Position)},
-          {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(OverlayVertex, Color)},
+          {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Kitagawa::HighlightVertex, Position)},
+          {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Kitagawa::HighlightVertex, Color)},
       },
       .renderPass            = m_OverlayPass.GetRenderPass(),
       .vertexShaderFile      = GetExecutableDir() + "/../src/Shaders/Pipeline/overlay.vert.spv",
@@ -348,21 +299,16 @@ void Scene::Render() {
   uint32_t        framesInFlight = Akari::Application::GetMaxFramesInFlight();
   VkCommandBuffer commandBuffer  = Akari::Application::GetCommandBuffer({.Begin = true});
 
-  glm::vec2 mouse{0};
-  glm::vec2 viewport{0};
-  GetViewportInfo(mouse.x, mouse.y, viewport.x, viewport.y);
-
   m_CameraBuffer.Render(m_Camera);
 
-  if (m_World->IsDirty()) {
+  std::vector<VkBufferMemoryBarrier2> bufferBarriers = {};
 
+  if (m_World->IsDirty()) {
     const std::vector<Material>&                        materials   = m_World->GetMaterials();
     const std::vector<uint32_t>&                        materialLUT = m_World->GetMaterialsLUT();
     const std::vector<SparseOctree<Voxel>::FlatNode>&   svo         = m_World->GetSVO();
     const std::vector<Vertex>&                          vertices    = m_World->GetVertices();
     const std::vector<SparseOctree<Voxel>::FilterNode>& lights      = m_World->GetLights();
-
-    std::vector<VkBufferMemoryBarrier2> bufferBarriers = {};
 
     if (m_MaterialBuffer.Upload(commandBuffer, materials) || materials.size())
       bufferBarriers.emplace_back(m_MaterialBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
@@ -381,56 +327,31 @@ void Scene::Render() {
       bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
     }
 
-    // {
-    //   glm::vec3 rayOrigin = m_Camera->Position;
-
-    //   float ndcX = (2.0f * mouse.x) / viewport.x - 1.0f;
-    //   float ndcY = (2.0f * mouse.y) / viewport.y - 1.0f;
-
-    //   glm::vec3 rayDirectionView = glm::normalize(glm::inverse(m_Camera->GetProjectionMatrix()) * glm::vec4(ndcX, ndcY, -1.0f, 1.0f));
-
-    //   glm::vec3 rayDirection = glm::normalize(glm::mat3(m_Camera->GetInverseViewMatrix()) * rayDirectionView);
-
-    //   using clock = std::chrono::steady_clock;
-
-    //   SparseOctree<Voxel>::Hit hit = tree->DeepRaymarch(rayOrigin, rayDirection);
-
-    //   if (hit.Data) {
-    //     /// TODO: TMP - SUCCESS!
-    //     bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
-
-    //     if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Right))
-    //       tree->Clear(hit.Position, hit.Size);
-
-    //     if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Left))
-    //       tree->Set(hit.Position + hit.Normal, hit.Data, hit.Size);
-
-    //     auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);
-
-    //     m_OverlayVertexCount = vertices.size();
-    //     if (m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(OverlayVertex), vertices.data()))
-    //       bufferResized = true;
-
-    //     bufferBarriers.emplace_back(m_OverlayVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
-    //   }
-    // }
-
-    // Wait for barriers
-    if (bufferBarriers.size()) {
-      VkDependencyInfo depInfo{
-          .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-          .bufferMemoryBarrierCount = static_cast<uint32_t>(bufferBarriers.size()),
-          .pBufferMemoryBarriers    = bufferBarriers.data(),
-      };
-
-      vkCmdPipelineBarrier2(commandBuffer, &depInfo);
-    }
-
-    if (bufferBarriers.size())
-      CreateDescriptorSets();
-
     m_World->Clean();
   }
+
+  {
+    auto vertices = m_UI->GetHighlightVertices();
+
+    m_OverlayVertexCount = vertices.size();
+    if (m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Kitagawa::HighlightVertex), vertices.data()) || m_OverlayVertexCount)
+      bufferBarriers.emplace_back(m_OverlayVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
+  }
+
+  // Wait for buffer barriers
+  if (bufferBarriers.size()) {
+    VkDependencyInfo depInfo{
+        .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .bufferMemoryBarrierCount = static_cast<uint32_t>(bufferBarriers.size()),
+        .pBufferMemoryBarriers    = bufferBarriers.data(),
+    };
+
+    vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+  }
+
+  /// TODO: This actually need to be recreated only when a buffer resizes
+  if (bufferBarriers.size())
+    CreateDescriptorSets();
 
   // GBuffer pass
   {

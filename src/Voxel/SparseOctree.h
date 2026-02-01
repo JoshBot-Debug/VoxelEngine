@@ -939,7 +939,7 @@ public:
    * Exits early, as soon as a node with a voxel is found.
    * @brief Quick raymarch
    */
-  Hit Raymarch(glm::vec3 origin, glm::vec3 direction) {
+  Hit Raymarch(const glm::vec3 &origin, const glm::vec3 &direction) {
     return Raymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
   };
 
@@ -948,7 +948,7 @@ public:
    * Does not stop until it reaches size = 1
    * @brief Slower raymarch
    */
-  Hit DeepRaymarch(glm::vec3 origin, glm::vec3 direction) {
+  Hit DeepRaymarch(const glm::vec3 &origin, const glm::vec3 &direction) {
     return DeepRaymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
   };
 };

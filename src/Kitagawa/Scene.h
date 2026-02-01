@@ -3,16 +3,12 @@
 #include "Binding.h"
 #include "Image.h"
 #include "Kitagawa/CameraBuffer.h"
+#include "Kitagawa/UI.h"
 #include "Kitagawa/World.h"
 
 #include "Render/Buffer.h"
 #include "Render/Pipeline.h"
 #include "Render/RenderPass.h"
-
-struct OverlayVertex {
-  glm::vec3 Position;
-  glm::vec3 Color;
-};
 
 class Scene {
 private:
@@ -24,6 +20,7 @@ private:
 private:
   PerspectiveCamera*     m_Camera = nullptr;
   Kitagawa::World*       m_World  = nullptr;
+  Kitagawa::UI*          m_UI     = nullptr;
   Kitagawa::CameraBuffer m_CameraBuffer;
 
   VkDescriptorPool m_DescriptorPool;
@@ -106,9 +103,6 @@ private:
 
   std::vector<std::shared_ptr<Akari::Image>> m_DisplayImages = {};
 
-private:
-  std::vector<OverlayVertex> MakeVoxelQuad(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color, float size = 1.0f);
-
 public:
   Scene();
   ~Scene();
@@ -126,4 +120,6 @@ public:
   void SetCamera(PerspectiveCamera* camera) { m_Camera = camera; };
 
   void SetWorld(Kitagawa::World* world) { m_World = world; };
+
+  void SetUI(Kitagawa::UI* ui) { m_UI = ui; };
 };

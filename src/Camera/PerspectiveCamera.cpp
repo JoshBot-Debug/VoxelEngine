@@ -49,9 +49,9 @@ void PerspectiveCamera::Update() {
 
   glm::mat4 inverseViewProjection = glm::inverse(m_ViewProjection);
 
-  m_IsDirty = inverseViewProjection != m_InverseViewProjection;
+  m_Dirty = inverseViewProjection != m_InverseViewProjection;
 
-  if (m_IsDirty) {
+  if (m_Dirty) {
     m_pView                  = pView;
     m_pProjection            = pProjection;
     m_pViewProjection        = pViewProjection;
@@ -169,13 +169,11 @@ const glm::vec3 PerspectiveCamera::GetRayDirection(int pixelX, int pixelY) {
   // 2. Clip space position
   glm::vec4 clipCoords(ndcX, ndcY, -1.0f, 1.0f); // -1 for near plane
 
-  // 3. Unproject to world space
-  glm::vec4 worldCoords = m_InverseViewProjection * clipCoords;
-  worldCoords /= worldCoords.w;
+  // 3. View direction
+  glm::vec4 viewDirection = m_InverseProjection * clipCoords;
 
-  // Don't normalize to speed up perf. (since we're on the cpu)
-  // 4. Ray direction = from camera position to world point
-  return glm::vec3(worldCoords) - Position;
+  // 4. World direction
+  return glm::mat3(m_InverseView) * glm::vec3(viewDirection);
 }
 
-bool PerspectiveCamera::IsDirty() { return m_IsDirty; }
+bool PerspectiveCamera::IsDirty() { return m_Dirty; }

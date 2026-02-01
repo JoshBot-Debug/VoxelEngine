@@ -26,7 +26,7 @@ private:
   glm::vec3 m_Up    = glm::vec3(0.0f);
   glm::mat4 m_Roll  = glm::mat4(0.0f);
 
-  bool m_IsDirty = true;
+  bool m_Dirty = true;
 
 public:
   uint32_t ViewportWidth  = 0;
@@ -56,7 +56,7 @@ public:
   const glm::mat4& GetRoll();
 
   const glm::vec3& GetForward();
-  
+
   const glm::vec3& GetUp();
 
   const glm::vec3& GetRight();

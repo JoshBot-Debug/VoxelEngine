@@ -9,6 +9,7 @@
 #include "Utility/Utility.h"
 
 #include "Kitagawa/Controller.h"
+#include "Kitagawa/UI.h"
 #include "Kitagawa/World.h"
 
 #include "Input/Input.h"
@@ -27,10 +28,10 @@ private:
   PerspectiveCamera    m_Camera;
   Kitagawa::Controller m_Controller;
   Kitagawa::World      m_World{WORLD_SIZE};
+  Kitagawa::UI         m_UI;
   Scene                m_Scene;
 
-  uint32_t  m_ViewportWidth  = 1080;
-  uint32_t  m_ViewportHeight = 720;
+  glm::vec2 m_ViewportSize{1080.0f, 720.0f};
   glm::vec2 m_ViewportMouse{0.0f};
 
   float m_RenderTime = 0.0f;
@@ -45,11 +46,15 @@ public:
     m_Camera.SetRotation(0.0f, 0.0f, 0.0f);
     m_Controller.SetMovementSpeed(150.0f);
 
-    m_Scene.SetCamera(&m_Camera);
+    m_UI.SetWorld(&m_World);
+    m_UI.SetCamera(&m_Camera);
+
+    m_Scene.SetUI(&m_UI);
     m_Scene.SetWorld(&m_World);
+    m_Scene.SetCamera(&m_Camera);
     m_Scene.Initialize({
-        .width  = m_ViewportWidth,
-        .height = m_ViewportHeight,
+        .width  = static_cast<uint32_t>(m_ViewportSize.x),
+        .height = static_cast<uint32_t>(m_ViewportSize.y),
     });
 
     m_World.SetCamera(&m_Camera);
@@ -58,11 +63,14 @@ public:
   virtual void OnUpdate(float deltaTime) override {
     auto start = std::chrono::high_resolution_clock::now();
 
-    m_Camera.OnResize(m_ViewportWidth, m_ViewportHeight);
+    m_Camera.OnResize(m_ViewportSize.x, m_ViewportSize.y);
 
-    m_Scene.OnResize(m_ViewportWidth, m_ViewportHeight);
+    m_Scene.OnResize(m_ViewportSize.x, m_ViewportSize.y);
 
     m_Controller.Update(deltaTime, m_Camera);
+
+    m_UI.Update(deltaTime, m_ViewportMouse, m_ViewportSize);
+    m_World.Update(deltaTime, m_ViewportMouse, m_ViewportSize);
 
     auto                                     end      = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float, std::milli> duration = end - start;
@@ -94,10 +102,7 @@ public:
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0.0f, 0.0f});
     ImGui::Begin("Viewport", nullptr, ViewportLock ? (ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse) : ImGuiWindowFlags_None);
 
-    m_ViewportWidth  = ImGui::GetContentRegionAvail().x;
-    m_ViewportHeight = ImGui::GetContentRegionAvail().y;
-
-    GetViewportMouse(m_ViewportMouse.x, m_ViewportMouse.y);
+    GetViewportInfo(m_ViewportMouse.x, m_ViewportMouse.y, m_ViewportSize.x, m_ViewportSize.y);
 
     m_Controller.SetFocus(ImGui::IsWindowFocused());
 
