@@ -71,36 +71,26 @@ public:
 
   void CreateBuffer(VkDeviceSize size);
 
+  /**
+   * Uploads a vector of structs, with size as the first arg
+   * For vectors & storage buffers only
+   *
+   * @returns True if the buffer resized, False otherwise
+   */
   template <typename T>
   bool Upload(VkCommandBuffer commandBuffer, const std::vector<T>& vector) {
-
-    std::vector<uint8_t> buffer = BuildVector(vector);
-
-    size_t size = buffer.size();
-
-    if (m_Size >= size) {
-      CopyToGPU(commandBuffer, size, buffer.data());
+    if (!vector.size())
       return false;
-    }
-
-    VkBuffer      oBuffer                  = m_Buffer;
-    VkBuffer      oStagingBuffer           = m_StagingBuffer;
-    VmaAllocation oBufferAllocation        = m_BufferAllocation;
-    VmaAllocation oStagingBufferAllocation = m_StagingBufferAllocation;
-
-    CreateBuffer(size);
-
-    CopyToGPU(commandBuffer, size, buffer.data());
-
-    vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), oBuffer,
-                     oBufferAllocation);
-    vmaDestroyBuffer(Akari::Application::GetVmaAllocator(), oStagingBuffer,
-                     oStagingBufferAllocation);
-
-    return true;
+    std::vector<uint8_t> buffer = BuildVector(vector);
+    return Upload(commandBuffer, buffer.size(), buffer.data());
   }
 
-  bool Upload(VkCommandBuffer commandBuffer, size_t size, void* data);
+  /**
+   * Uploads a any data to a buffer that's visible on the GPU
+   *
+   * @returns True if the buffer resized, False otherwise
+   */
+  bool Upload(VkCommandBuffer commandBuffer, size_t size, const void* data);
 
   VkBuffer GetBuffer() const { return m_Buffer; }
 

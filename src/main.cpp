@@ -52,7 +52,7 @@ public:
         .height = m_ViewportHeight,
     });
 
-    m_World.Flush();
+    m_World.SetCamera(&m_Camera);
   }
 
   virtual void OnUpdate(float deltaTime) override {

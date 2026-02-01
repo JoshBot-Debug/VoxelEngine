@@ -294,6 +294,8 @@ void Pipeline::DispatchCompute(const DispatchComputeInfo& info) {
 }
 
 void Pipeline::Draw(const DrawInfo& info) {
+  if (!info.vertexCount)
+    return;
   vkCmdBindPipeline(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
   vkCmdBindVertexBuffers(info.commandBuffer, 0, 1, &info.vertexBuffer, info.offsets.data());
   vkCmdBindDescriptorSets(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, static_cast<uint32_t>(info.descriptorSets.size()), info.descriptorSets.data(), 0, nullptr);

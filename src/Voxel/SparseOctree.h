@@ -105,7 +105,10 @@ private:
    */
   Node m_Void = Node();
 
-  std::vector<Node*> m_Release = {};
+  /**
+   * On Flush callback
+   */
+  std::function<void()> m_Flush;
 
 private:
   /**
@@ -851,8 +854,6 @@ public:
 
     out.clear();
 
-    m_Dirty = false;
-
     uint32_t index = static_cast<uint32_t>(out.size());
 
     out.emplace_back(
@@ -869,29 +870,38 @@ public:
   };
 
   /**
-   * Returns true if the tree has changed since .Flatten() was last called
-   */
-  bool IsDirty() { return m_Dirty; };
-
-  /**
    * Filter the tree for selected nodes
    *
    * @param filter Filter callback
    */
-  std::vector<FilterNode> Filter(const std::function<bool(Node* node)>& filter) {
-    std::vector<FilterNode> results = {};
-
+  void Filter(const std::function<bool(Node* node)>& filter, std::vector<FilterNode> &out) {
     Node* root = m_Root.load(std::memory_order::relaxed);
-
-    Filter(filter, results, {0, 0, 0}, m_Size, root);
-
-    return results;
+    Filter(filter, out, {0, 0, 0}, m_Size, root);
   };
 
   /**
    * Sets dirty to true
    */
-  void Flush() { m_Dirty = true; }
+  void Flush() {
+    m_Dirty = true;
+    if (m_Flush)
+      m_Flush();
+  }
+
+  /**
+   * Sets dirty to false
+   */
+  void Clean() { m_Dirty = false; }
+
+  /**
+   * Returns true if the tree is dirty
+   */
+  bool IsDirty() { return m_Dirty; };
+
+  /**
+   * On flush callback
+   */
+  void OnFlush(std::function<void()> callback) { m_Flush = callback; };
 
   /**
    * Greedy meshes the SVO grouped by material
@@ -911,7 +921,7 @@ public:
       for (int cz = 0; cz < chunksPerAxis; ++cz)
         for (int cy = 0; cy < chunksPerAxis; ++cy)
           for (int cx = 0; cx < chunksPerAxis; ++cx)
-            GreedyMesh64::Generate(exists, vertices, cx, cy, cz, material.Id);
+            GreedyMesh64::Generate(exists, vertices, {cx, cy, cz}, material.Id);
 
       results[material.Id - 1] = std::move(vertices);
     });

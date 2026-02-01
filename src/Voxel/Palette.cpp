@@ -216,9 +216,11 @@ void Palette::Flush() {
     m_Flush();
 }
 
-std::vector<Material> Palette::GetMaterials() {
+void Palette::Clean() {
   m_Dirty = false;
+}
 
+std::vector<Material> Palette::GetMaterials() {
   std::vector<Material> materials(m_Items.size());
 
   for (size_t i = 0; i < m_Items.size(); i++)

@@ -44,8 +44,7 @@ private:
 
 public:
   template <ExistsCallback F>
-  static void Generate(F&& exists, std::vector<Vertex>& vertices, int originX, int originY, int originZ, uint32_t id) {
-    const glm::vec3 coord = {originX, originY, originZ};
+  static void Generate(F&& exists, std::vector<Vertex>& vertices, const glm::vec3& coord, uint32_t id) {
 
     const glm::vec3 origin = {
         coord.x * CHUNK_SIZE,

@@ -44,6 +44,8 @@ public:
 
   void Flush();
 
+  void Clean();
+
   bool IsDirty() { return m_Dirty; };
 
   std::vector<Material> GetMaterials();

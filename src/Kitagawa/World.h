@@ -14,13 +14,21 @@ namespace Kitagawa {
 
 class World {
 private:
+private:
   uint32_t m_ChunkSize = 0;
 
-  Palette   m_Palette;
-  HeightMap m_HeightMap;
+  Palette            m_Palette;
+  HeightMap          m_HeightMap;
+  PerspectiveCamera* m_Camera = nullptr;
 
   std::vector<std::shared_ptr<Voxel>> m_Voxels;
   SparseOctree<Voxel>*                m_SVO = nullptr;
+
+  std::vector<Material>                        m_Materials    = {};
+  std::vector<uint32_t>                        m_MaterialsLUT = {};
+  std::vector<SparseOctree<Voxel>::FlatNode>   m_FlatSVO      = {};
+  std::vector<Vertex>                          m_Vertices     = {};
+  std::vector<SparseOctree<Voxel>::FilterNode> m_Lights       = {};
 
 private:
   const void GenerateCornellBox();
@@ -33,13 +41,19 @@ public:
 
   void RenderUI();
 
-  SparseOctree<Voxel>* GetSVO() { return m_SVO; };
+  void SetCamera(PerspectiveCamera* camera) { m_Camera = camera; };
+
+  const std::vector<Material>&                        GetMaterials() { return m_Materials; };
+  const std::vector<uint32_t>&                        GetMaterialsLUT() { return m_MaterialsLUT; };
+  const std::vector<SparseOctree<Voxel>::FlatNode>&   GetSVO() { return m_FlatSVO; };
+  const std::vector<Vertex>&                          GetVertices() { return m_Vertices; };
+  const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
 
   Palette& GetPalette() { return m_Palette; };
 
-  uint32_t GetChunkSize() { return m_ChunkSize; }
+  bool IsDirty();
 
-  void Flush();
+  void Clean();
 };
 
 } // namespace Kitagawa

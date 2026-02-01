@@ -334,15 +334,13 @@ void Scene::Initialize(const InitializeInfo& init) {
 
     VkCommandBuffer commandBuffer = Akari::Application::GetCommandBuffer({.Begin = true});
     m_Skybox->CopyToImage(commandBuffer);
+    m_Skybox->Transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, 0, 1, 0, 6);
     Akari::Application::FlushCommandBuffer(commandBuffer);
 
     stbi_image_free(bottom);
     stbi_image_free(others);
     stbi_image_free(top);
   }
-
-  m_World->GetPalette()
-      .OnFlush([this]() { m_World->GetSVO()->Flush(); });
 }
 
 void Scene::Render() {
@@ -356,102 +354,69 @@ void Scene::Render() {
 
   m_CameraBuffer.Render(m_Camera);
 
-  SparseOctree<Voxel>* tree = m_World->GetSVO();
+  if (m_World->IsDirty()) {
 
-  {
-    Palette& palette = m_World->GetPalette();
-
-    bool resized = false;
+    const std::vector<Material>&                        materials   = m_World->GetMaterials();
+    const std::vector<uint32_t>&                        materialLUT = m_World->GetMaterialsLUT();
+    const std::vector<SparseOctree<Voxel>::FlatNode>&   svo         = m_World->GetSVO();
+    const std::vector<Vertex>&                          vertices    = m_World->GetVertices();
+    const std::vector<SparseOctree<Voxel>::FilterNode>& lights      = m_World->GetLights();
 
     std::vector<VkBufferMemoryBarrier2> bufferBarriers = {};
 
-    // Build the Material Index lookup table & Material buffer
-    if (palette.IsDirty()) {
-      std::vector<Material> materials = palette.GetMaterials();
-
-      if (m_MaterialBuffer.Upload(commandBuffer, materials))
-        resized = true;
-
-      {
-        uint32_t maxMaterialId = 0;
-        for (auto& mat : materials)
-          maxMaterialId = mat.Id > maxMaterialId ? mat.Id : maxMaterialId;
-
-        std::vector<uint32_t> materialLUT(maxMaterialId + 1, 0);
-
-        for (size_t i = 0; i < materials.size(); i++)
-          materialLUT[materials[i].Id] = i + 1;
-
-        if (m_MaterialLUTBuffer.Upload(commandBuffer, materialLUT))
-          resized = true;
-      }
-
+    if (m_MaterialBuffer.Upload(commandBuffer, materials) || materials.size())
       bufferBarriers.emplace_back(m_MaterialBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+
+    if (m_MaterialLUTBuffer.Upload(commandBuffer, materialLUT) || materialLUT.size())
       bufferBarriers.emplace_back(m_MaterialLUTBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
-    }
 
-    // Build the SVO & light nodes
-    if (tree->IsDirty()) {
-      auto filterLights = [&palette](SparseOctree<Voxel>::Node* node) {
-        auto material = palette.GetMaterial(node->Data->Id);
-        return material && material->Emissive.a > 0.0f;
-      };
-
-      if (m_LightBuffer.Upload(commandBuffer, tree->Filter(filterLights)))
-        resized = true;
-
-      std::vector<SparseOctree<Voxel>::FlatNode> flattened;
-      tree->Flatten(flattened);
-      if (m_SVOBuffer.Upload(commandBuffer, flattened))
-        resized = true;
-
-      std::vector<Vertex> vertices = tree->GreedyMesh(palette.GetMaterials());
-
-      m_VertexCount = vertices.size();
-      if (m_VertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Vertex), vertices.data()))
-        resized = true;
-
-      bufferBarriers.emplace_back(m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+    if (m_LightBuffer.Upload(commandBuffer, lights) || lights.size())
       bufferBarriers.emplace_back(m_LightBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+
+    if (m_SVOBuffer.Upload(commandBuffer, svo) || svo.size())
+      bufferBarriers.emplace_back(m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+
+    if (m_VertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Vertex), vertices.data()) || vertices.size()) {
+      m_VertexCount = vertices.size();
       bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
     }
 
-    {
-      glm::vec3 rayOrigin = m_Camera->Position;
+    // {
+    //   glm::vec3 rayOrigin = m_Camera->Position;
 
-      float ndcX = (2.0f * mouse.x) / viewport.x - 1.0f;
-      float ndcY = (2.0f * mouse.y) / viewport.y - 1.0f;
+    //   float ndcX = (2.0f * mouse.x) / viewport.x - 1.0f;
+    //   float ndcY = (2.0f * mouse.y) / viewport.y - 1.0f;
 
-      glm::vec3 rayDirectionView = glm::normalize(glm::inverse(m_Camera->GetProjectionMatrix()) * glm::vec4(ndcX, ndcY, -1.0f, 1.0f));
+    //   glm::vec3 rayDirectionView = glm::normalize(glm::inverse(m_Camera->GetProjectionMatrix()) * glm::vec4(ndcX, ndcY, -1.0f, 1.0f));
 
-      glm::vec3 rayDirection = glm::normalize(glm::mat3(m_Camera->GetInverseViewMatrix()) * rayDirectionView);
+    //   glm::vec3 rayDirection = glm::normalize(glm::mat3(m_Camera->GetInverseViewMatrix()) * rayDirectionView);
 
-      using clock = std::chrono::steady_clock;
+    //   using clock = std::chrono::steady_clock;
 
-      SparseOctree<Voxel>::Hit hit = tree->DeepRaymarch(rayOrigin, rayDirection);
+    //   SparseOctree<Voxel>::Hit hit = tree->DeepRaymarch(rayOrigin, rayDirection);
 
-      if (hit.Data) {
-        /// TODO: TMP - SUCCESS!
-        bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
+    //   if (hit.Data) {
+    //     /// TODO: TMP - SUCCESS!
+    //     bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
 
-        if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Right))
-          tree->Clear(hit.Position, hit.Size);
+    //     if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Right))
+    //       tree->Clear(hit.Position, hit.Size);
 
-        if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Left))
-          tree->Set(hit.Position + hit.Normal, hit.Data, hit.Size);
+    //     if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Left))
+    //       tree->Set(hit.Position + hit.Normal, hit.Data, hit.Size);
 
-        auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);
+    //     auto vertices = MakeVoxelQuad(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);
 
-        m_OverlayVertexCount = vertices.size();
-        if (m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(OverlayVertex), vertices.data()))
-          resized = true;
+    //     m_OverlayVertexCount = vertices.size();
+    //     if (m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(OverlayVertex), vertices.data()))
+    //       bufferResized = true;
 
-        bufferBarriers.emplace_back(m_OverlayVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
-      }
-    }
+    //     bufferBarriers.emplace_back(m_OverlayVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
+    //   }
+    // }
 
     // Wait for barriers
-    if (bufferBarriers.size() > 0) {
+    if (bufferBarriers.size()) {
       VkDependencyInfo depInfo{
           .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
           .bufferMemoryBarrierCount = static_cast<uint32_t>(bufferBarriers.size()),
@@ -461,8 +426,10 @@ void Scene::Render() {
       vkCmdPipelineBarrier2(commandBuffer, &depInfo);
     }
 
-    if (resized)
+    if (bufferBarriers.size())
       CreateDescriptorSets();
+
+    m_World->Clean();
   }
 
   // GBuffer pass
@@ -509,7 +476,6 @@ void Scene::Render() {
     m_Material->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     m_MotionVector->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
     m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
-    m_Skybox->Transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_SHADER_SAMPLED_READ_BIT, VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT);
 
     m_LightingPipeline.DispatchCompute({
         .commandBuffer  = commandBuffer,
