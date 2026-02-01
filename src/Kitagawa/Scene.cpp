@@ -431,7 +431,7 @@ void Scene::Render() {
       SparseOctree<Voxel>::Hit hit = tree->DeepRaymarch(rayOrigin, rayDirection);
 
       if (hit.Data) {
-        // TMP - SUCCESS!
+        /// TODO: TMP - SUCCESS!
         bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
 
         if (isCtrlPressed && ImGui::IsMouseDown(ImGuiMouseButton_Right))
