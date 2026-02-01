@@ -13,6 +13,11 @@ concept Data = requires(T t) {
   requires std::same_as<decltype(t.Id), uint32_t>;
 };
 
+template <typename N, typename F>
+concept FilterCallback = requires(F f, N* node) {
+  { f(node) } -> std::same_as<bool>;
+};
+
 /**
  * @tparam T The datatype of the pointer stored
  */
@@ -390,7 +395,8 @@ private:
    * @param size Size of the node
    * @param node Pointer to the node from which to start a recursive search
    */
-  void Filter(const std::function<bool(Node* node)>& filter, std::vector<FilterNode>& out, glm::vec3 position, int size, Node* node) {
+  template <typename F> requires FilterCallback<Node, F>
+  void Filter(F&& filter, std::vector<FilterNode>& out, glm::vec3 position, int size, Node* node) {
     if (!node)
       return;
 
@@ -874,7 +880,8 @@ public:
    *
    * @param filter Filter callback
    */
-  void Filter(const std::function<bool(Node* node)>& filter, std::vector<FilterNode> &out) {
+  template <typename F> requires FilterCallback<Node, F>
+  void Filter(F&& filter, std::vector<FilterNode>& out) {
     Node* root = m_Root.load(std::memory_order::relaxed);
     Filter(filter, out, {0, 0, 0}, m_Size, root);
   };
@@ -939,7 +946,7 @@ public:
    * Exits early, as soon as a node with a voxel is found.
    * @brief Quick raymarch
    */
-  Hit Raymarch(const glm::vec3 &origin, const glm::vec3 &direction) {
+  Hit Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
     return Raymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
   };
 
@@ -948,7 +955,7 @@ public:
    * Does not stop until it reaches size = 1
    * @brief Slower raymarch
    */
-  Hit DeepRaymarch(const glm::vec3 &origin, const glm::vec3 &direction) {
+  Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
     return DeepRaymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
   };
 };
