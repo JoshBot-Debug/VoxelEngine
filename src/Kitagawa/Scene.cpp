@@ -272,9 +272,9 @@ void Scene::Initialize(const InitializeInfo& init) {
 
   {
     int      width, height, channels;
-    stbi_uc* bottom = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/bottom.jpg").c_str(), &width, &height, &channels, STBI_rgb);
-    stbi_uc* others = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/left-right-front-back.jpg").c_str(), &width, &height, &channels, STBI_rgb);
-    stbi_uc* top    = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/top.jpg").c_str(), &width, &height, &channels, STBI_rgb);
+    stbi_uc* bottom = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/bottom.jpg").c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    stbi_uc* others = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/left-right-front-back.jpg").c_str(), &width, &height, &channels, STBI_rgb_alpha);
+    stbi_uc* top    = stbi_load((GetExecutableDir() + "/../src/Assets/Skybox/top.jpg").c_str(), &width, &height, &channels, STBI_rgb_alpha);
 
     m_Skybox->SetData(others, 0, 0);
     m_Skybox->SetData(others, 0, 1);

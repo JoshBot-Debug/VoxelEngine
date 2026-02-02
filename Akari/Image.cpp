@@ -140,7 +140,7 @@ void Image::SetData(const void* data, uint32_t mipLevel, uint32_t currentLayer) 
   uint32_t mipHeight = std::max(1u, m_Specification.Height >> mipLevel);
   uint32_t mipDepth  = std::max(1u, m_Specification.Depth >> mipLevel);
 
-  size_t mipSize = mipWidth * mipHeight * mipDepth * BytesPerPixel(m_Specification.Format);
+  size_t mipSize = ImageSizeBytes(mipWidth, mipHeight, mipDepth, m_Specification.Format);
 
   // Create the Staging Buffer
   if (!m_StagingBuffer) {
@@ -151,7 +151,7 @@ void Image::SetData(const void* data, uint32_t mipLevel, uint32_t currentLayer) 
         uint32_t w = std::max(1u, m_Specification.Width >> i);
         uint32_t h = std::max(1u, m_Specification.Height >> i);
         uint32_t d = std::max(1u, m_Specification.Depth >> i);
-        totalSize += w * h * d * BytesPerPixel(m_Specification.Format);
+        totalSize += ImageSizeBytes(w, h, d, m_Specification.Format);
       }
 
     VkBufferCreateInfo bufferInfo{
@@ -176,7 +176,7 @@ void Image::SetData(const void* data, uint32_t mipLevel, uint32_t currentLayer) 
     for (uint32_t m = 0; m < m_Specification.MipLevels; ++m) {
       uint32_t w = std::max(1u, m_Specification.Width >> m);
       uint32_t h = std::max(1u, m_Specification.Height >> m);
-      offset += w * h * BytesPerPixel(m_Specification.Format);
+      offset += ImageSizeBytes(w, h, 1, m_Specification.Format);
     }
   }
 
@@ -184,14 +184,14 @@ void Image::SetData(const void* data, uint32_t mipLevel, uint32_t currentLayer) 
   for (uint32_t m = 0; m < mipLevel; ++m) {
     uint32_t w = std::max(1u, m_Specification.Width >> m);
     uint32_t h = std::max(1u, m_Specification.Height >> m);
-    offset += w * h * BytesPerPixel(m_Specification.Format);
+    offset += ImageSizeBytes(w, h, 1, m_Specification.Format);
   }
 
   for (uint32_t i = 0; i < mipLevel; ++i) {
     uint32_t w = std::max(1u, m_Specification.Width >> i);
     uint32_t h = std::max(1u, m_Specification.Height >> i);
     uint32_t d = std::max(1u, m_Specification.Depth >> i);
-    offset += w * h * d * BytesPerPixel(m_Specification.Format);
+    offset += ImageSizeBytes(w, h, d, m_Specification.Format);
   }
 
   CheckVkResult(vmaCopyMemoryToAllocation(
@@ -235,7 +235,7 @@ void Image::CopyToImage(VkCommandBuffer commandBuffer) {
               },
       });
 
-      offset += mipWidth * mipHeight * mipDepth * BytesPerPixel(m_Specification.Format);
+      offset += ImageSizeBytes(mipWidth, mipHeight, mipDepth, m_Specification.Format);
     }
   }
 
@@ -464,6 +464,47 @@ uint32_t Image::BytesPerPixel(VkFormat format) {
   default:
     throw std::runtime_error("Unsupported format");
   }
+}
+
+bool Image::IsBlockCompressed(VkFormat format) {
+  switch (format) {
+  case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+  case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
+  case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+  case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+  case VK_FORMAT_BC6H_UFLOAT_BLOCK:
+  case VK_FORMAT_BC6H_SFLOAT_BLOCK:
+    return true;
+  default:
+    return false;
+  }
+}
+
+uint32_t Image::BlockSizeBytes(VkFormat format) {
+  switch (format) {
+  case VK_FORMAT_BC1_RGB_UNORM_BLOCK:
+  case VK_FORMAT_BC1_RGB_SRGB_BLOCK:
+  case VK_FORMAT_BC1_RGBA_UNORM_BLOCK:
+  case VK_FORMAT_BC1_RGBA_SRGB_BLOCK:
+    return 8;
+
+  case VK_FORMAT_BC6H_UFLOAT_BLOCK:
+  case VK_FORMAT_BC6H_SFLOAT_BLOCK:
+    return 16;
+
+  default:
+    throw std::runtime_error("Not a block-compressed format");
+  }
+}
+
+uint32_t Image::ImageSizeBytes(uint32_t width, uint32_t height, uint32_t depth, VkFormat format) {
+  if (!IsBlockCompressed(format))
+    return width * height * depth * BytesPerPixel(format);
+
+  uint32_t blockWidth  = (width + 3) / 4;
+  uint32_t blockHeight = (height + 3) / 4;
+
+  return blockWidth * blockHeight * depth * BlockSizeBytes(format);
 }
 
 } // namespace Akari

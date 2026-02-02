@@ -53,6 +53,9 @@ public:
 private:
   void            Release();
   static uint32_t BytesPerPixel(VkFormat format);
+  bool            IsBlockCompressed(VkFormat format);
+  uint32_t        BlockSizeBytes(VkFormat format);
+  uint32_t        ImageSizeBytes(uint32_t width, uint32_t height, uint32_t depth, VkFormat format);
 
 public:
   Image() = default;
