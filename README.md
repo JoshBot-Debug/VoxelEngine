@@ -56,3 +56,4 @@ Run the project
 - [x] Fix memory leaks - NOTE: Fixed it be removing COW, no segment faults during testing
 - [x] Move greedy meshing out of SparseOctree because it depends on material
 - [x] Added basic reflections via raymarching
+- [ ] Make the SVO thread safe. COW works a bit, main problem cleanup, take a page from ECS bitset usage
