@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <vector>
 #include <bitset>
 #include <memory>
 #include <stdint.h>
