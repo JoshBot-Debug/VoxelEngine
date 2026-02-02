@@ -14,6 +14,8 @@ ChunkManager::ChunkManager(uint32_t chunkSize) {
 ChunkManager::~ChunkManager() {
   for (size_t i = 0; i < SIZE; i++)
     delete m_Chunks[i];
+
+  delete m_SVO;
 }
 
 void ChunkManager::Set(uint64_t (&mask)[], Voxel* data) {
