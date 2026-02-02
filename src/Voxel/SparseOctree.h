@@ -105,7 +105,7 @@ private:
    * VoidNode
    * i.e, the nodes outside of the world, if there is no neighbouring chunk
    */
-  Node m_Void = Node();
+  Node m_Void;
 
   /**
    * On Flush callback

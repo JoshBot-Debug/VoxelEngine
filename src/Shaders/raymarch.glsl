@@ -1,4 +1,4 @@
-struct FlatVoxel{
+struct FlatNode{
   uint Material;
   uint Depth;
   uint Children;
@@ -8,7 +8,7 @@ struct FlatVoxel{
 layout(std430,set=1,binding=50)readonly buffer SparseVoxelOctree{
   uint count;
   uint padding[3];
-  FlatVoxel data[];
+  FlatNode data[];
 }voxels;
 
 struct StackEntry{
@@ -35,7 +35,7 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
   while(stackPtr>0){
     StackEntry entry=stack[--stackPtr];
     
-    FlatVoxel voxel=voxels.data[entry.Index];
+    FlatNode voxel=voxels.data[entry.Index];
     
     uint size=(1<<voxel.Depth);
     

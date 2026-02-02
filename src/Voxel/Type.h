@@ -1,25 +1,6 @@
 #pragma once
 #include <glm/glm.hpp>
 
-struct alignas(16) DDGIProbe {
-  glm::vec4 position;
-};
-
-struct alignas(16) FlatVoxel {
-  uint32_t Depth      = 0;
-  uint32_t Children   = 0;
-  uint32_t ChildIndex = 0;
-  uint32_t id         = 0;
-};
-
-struct alignas(16) DenseVoxel {
-  glm::vec3 Position;
-  uint32_t  PadP;
-  uint32_t  Depth      = 0;
-  uint32_t  id         = 0;
-  uint32_t  Padding[3] = {};
-};
-
 struct alignas(16) Material {
   uint32_t  Id        = 0;
   float     Metallic  = 0.0f;

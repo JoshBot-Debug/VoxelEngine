@@ -113,6 +113,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
   if (m_ChunkManager->IsDirty()) {
 
+    // Should be 550787
     m_ChunkManager->Flatten(m_FlatSVO);
 
     m_ChunkManager->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
@@ -224,7 +225,7 @@ const void World::GenerateCornellBox() {
           float dy = y - cy;
           float dz = z - cz;
           if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
             svo->Set(x, y + 1, z, sphere.get());
           }
         }

@@ -51,7 +51,7 @@ void ChunkManager::Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out) {
   m_SVO->Flatten(out);
 }
 
-void ChunkManager::GreedyMesh(std::vector<Material> materials, std::vector<Vertex> &out) {
+void ChunkManager::GreedyMesh(std::vector<Material> materials, std::vector<Vertex>& out) {
   std::vector<std::vector<Vertex>> results(materials.size());
 
   const int chunksPerAxis = std::max(1, static_cast<int>(m_SVO->GetSize() / GreedyMesh64::CHUNK_SIZE));
