@@ -29,7 +29,6 @@ private:
   Registry* m_Registry = nullptr;
 
   std::array<std::shared_ptr<void>, MAX_COMPONENTS> m_Components;
-  std::vector<size_t>                               m_FreeComponentSlots;
 
   std::bitset<MAX_COMPONENTS> m_Has;
   std::bitset<MAX_COMPONENTS> m_Dirty;
