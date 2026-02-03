@@ -229,7 +229,7 @@ const void World::GenerateCornellBox() {
         }
       }
     }
-  }).detach();
+  }).join();
 }
 
 } // namespace Kitagawa
