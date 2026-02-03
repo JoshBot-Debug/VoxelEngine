@@ -13,7 +13,7 @@ layout(set=1,binding=114)uniform samplerCube skyboxTexture;
 layout(std430,set=1,binding=53)readonly buffer Lights{
   uint count;
   uint padding[3];
-  DenseVoxel data[];
+  FilterNode data[];
 }lights;
 
 #include "camera.glsl"
@@ -60,7 +60,7 @@ void main(){
   vec3 Lo=vec3(0.);
   
   for(int i=0;i<lights.count;++i){
-    DenseVoxel light=lights.data[i];
+    FilterNode light=lights.data[i];
     
     // Light position
     vec3 Lp=light.Position+(float(1<<light.Depth)/2.);

@@ -5,10 +5,9 @@ struct Vertex{
   uint Id;
   vec3 Position;
   vec3 Normal;
-  uint PadN;
 };
 
-struct DenseVoxel{
+struct FilterNode{
   uint Material;
   uint Depth;
   vec3 Position;

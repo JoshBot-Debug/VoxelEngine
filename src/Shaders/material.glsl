@@ -2,7 +2,7 @@ struct Material{
   uint Id;
   float Metallic;
   float Roughness;
-  uint Pad2;
+  uint _Padding;
   vec4 Albedo;
   vec4 Emissive;
 };

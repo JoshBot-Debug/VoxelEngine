@@ -112,8 +112,6 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (m_ChunkManager->IsDirty()) {
-
-    // Should be 550787
     m_ChunkManager->Flatten(m_FlatSVO);
 
     m_ChunkManager->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
@@ -135,7 +133,7 @@ void World::Clean() {
   m_Palette.Clean();
   m_ChunkManager->Clean();
 
-  m_FlatSVO.clear();
+  // m_FlatSVO.clear();
   m_Materials.clear();
   m_Vertices.clear();
   m_Lights.clear();

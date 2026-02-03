@@ -1,7 +1,7 @@
 #pragma once
 #include <glm/glm.hpp>
 
-struct alignas(16) Material {
+struct Material {
   uint32_t  Id        = 0;
   float     Metallic  = 0.0f;
   float     Roughness = 1.0f;
@@ -10,12 +10,11 @@ struct alignas(16) Material {
   glm::vec4 Emissive  = glm::vec4(0.0f);
 };
 
-struct alignas(16) Vertex {
+struct Vertex {
   uint32_t  Id;
   glm::vec3 Position;
   glm::vec3 Normal;
-  uint32_t  PadN;
-
+  
   Vertex() = default;
 
   Vertex(float x, float y, float z, float nx, float ny, float nz) {

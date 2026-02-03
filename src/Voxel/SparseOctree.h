@@ -40,7 +40,7 @@ public:
   struct Node {
     uint8_t Depth       = 0;
     T*      Data        = nullptr;
-    Node*   Children[8] = {nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr};
+    Node*   Children[8] = {nullptr};
 
     Node() = default;
 
@@ -64,17 +64,42 @@ public:
     };
   };
 
-  struct alignas(16) FlatNode {
-    uint32_t Id         = 0;
-    uint32_t Depth      = 0;
-    uint32_t Children   = 0;
+  struct FlatNode {
+    // 16bit Id, 8bit Depth & Children
+    uint32_t PackedIDC  = 0;
     uint32_t ChildIndex = 0;
+
+    inline void SetId(uint16_t id) {
+      PackedIDC = (PackedIDC & 0x0000FFFFu) | (uint32_t(id) << 16);
+    }
+
+    inline void SetDepth(uint8_t depth) {
+      PackedIDC = (PackedIDC & 0xFFFF00FFu) | (uint32_t(depth) << 8);
+    }
+
+    inline void SetChildBit(uint8_t index) {
+      PackedIDC |= (1u << index);
+    }
+
+    inline uint16_t GetId() const {
+      return uint16_t(PackedIDC >> 16);
+    }
+
+    inline uint8_t GetDepth() const {
+      return uint8_t((PackedIDC >> 8) & 0xFF);
+    }
+
+    inline uint8_t GetChildren() const {
+      return uint8_t(PackedIDC & 0xFF);
+    }
   };
 
-  struct alignas(16) FilterNode {
-    uint32_t  Id       = 0;
-    uint32_t  Depth    = 0;
+  struct FilterNode {
+    uint32_t  Id    = 0;
+    uint32_t  Depth = 0;
+    uint32_t  P1[2];
     glm::vec3 Position = glm::vec3(0.0f);
+    uint32_t  P2[1];
   };
 
 private:
@@ -358,14 +383,15 @@ private:
 
       uint32_t index = static_cast<uint32_t>(out.size());
 
-      out.emplace_back(FlatNode{.Depth = child->Depth, .Children = 0, .ChildIndex = 0});
+      out.emplace_back(FlatNode{.PackedIDC = 0, .ChildIndex = 0});
+      out[index].SetDepth(child->Depth);
 
       if (child->Data)
-        out[index].Id = child->Data->Id;
+        out[index].SetId(child->Data->Id);
 
       for (size_t i = 0; i < 8; i++)
         if (child->Children[i])
-          out[index].Children |= (1 << i);
+          out[index].SetChildBit(i);
     }
 
     uint32_t pIndex = static_cast<uint32_t>(out.size()) - 1;
@@ -376,7 +402,7 @@ private:
 
       uint32_t nIndex = pIndex - childCount--;
 
-      if (out[nIndex].Depth)
+      if (out[nIndex].GetDepth())
         out[nIndex].ChildIndex = out.size();
 
       Flatten(node->Children[i], out);
@@ -860,15 +886,15 @@ public:
 
     uint32_t index = static_cast<uint32_t>(out.size());
 
-    out.emplace_back(
-        FlatNode{.Depth = root->Depth, .Children = 0, .ChildIndex = 1});
+    out.emplace_back(FlatNode{.PackedIDC = 0, .ChildIndex = 1});
+    out[index].SetDepth(root->Depth);
 
     if (root->Data)
-      out[index].Id = root->Data->Id;
+      out[index].SetId(root->Data->Id);
 
     for (size_t i = 0; i < 8; i++)
       if (root->Children[i])
-        out[index].Children |= (1 << i);
+        out[index].SetChildBit(i);
 
     Flatten(root, out);
   };

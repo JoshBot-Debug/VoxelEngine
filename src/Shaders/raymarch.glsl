@@ -1,7 +1,5 @@
 struct FlatNode{
-  uint Material;
-  uint Depth;
-  uint Children;
+  uint PackedIDC;
   uint ChildIndex;
 };
 
@@ -37,15 +35,21 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
     
     FlatNode voxel=voxels.data[entry.Index];
     
-    uint size=(1<<voxel.Depth);
+    uint depth=0xFFu&(voxel.PackedIDC>>8);
     
-    if(voxel.Children==0U){
+    uint children=0xFFu&voxel.PackedIDC;
+    
+    uint size=(1<<depth);
+    
+    if(children==0u){
+      uint id=0xFFFFu&(voxel.PackedIDC>>16);
+      
       payload.IsValid=true;
       payload.TMin=entry.TMin;
       payload.NodeMin=entry.Min;
       payload.NodeSize=size;
       payload.NodeIndex=entry.Index;
-      payload.Material=voxel.Material;
+      payload.Material=id;
       return payload;
     }
     
@@ -65,14 +69,14 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
     #define VISIT_CHILD(i){\
       uint childOctant=order[i];\
       uint childMask=1u<<childOctant;\
-      if((voxel.Children&childMask)!=0u){\
+      if((children&childMask)!=0u){\
         vec3 offset=vec3((childOctant>>2)&1,(childOctant>>1)&1,(childOctant>>0)&1);\
         float childSize=float(size/2);\
         vec3 childMin=entry.Min+offset*childSize;\
         vec3 childMax=childMin+childSize;\
         float tMin=0.;\
         if(intersectAABB(origin,direction,childMin,childMax,tMin)&&tMin<=dist){\
-          stack[stackPtr++]=StackEntry(tMin,voxel.ChildIndex+bitCount(voxel.Children&(childMask-1)),childMin);\
+          stack[stackPtr++]=StackEntry(tMin,voxel.ChildIndex+bitCount(children&(childMask-1)),childMin);\
         }\
       }\
     }
