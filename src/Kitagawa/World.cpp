@@ -133,7 +133,7 @@ void World::Clean() {
   m_Palette.Clean();
   m_ChunkManager->Clean();
 
-  // m_FlatSVO.clear();
+  m_FlatSVO.clear();
   m_Materials.clear();
   m_Vertices.clear();
   m_Lights.clear();
@@ -229,7 +229,9 @@ const void World::GenerateCornellBox() {
         }
       }
     }
-  }).join();
+
+    svo->Flush();
+  }).detach();
 }
 
 } // namespace Kitagawa

@@ -205,7 +205,7 @@ private:
        */
       for (int i = 0; i < 8; i++) {
         /// TODO: Must defer the deletion of nodes
-        delete node->Children[i];
+        // delete node->Children[i];
         node->Children[i] = nullptr;
       }
 
@@ -240,7 +240,7 @@ private:
 
     for (int i = 0; i < 8; i++) {
       /// TODO: Must defer the deletion of nodes
-      delete node->Children[i];
+      // delete node->Children[i];
       node->Children[i] = nullptr;
     }
 
@@ -721,7 +721,7 @@ public:
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
   Node* Get(int x, int y, int z, uint32_t nodeId = 0) {
-    Node* root = m_Root.load(std::memory_order::relaxed);
+    Node* root = m_Root.load(std::memory_order::acquire);
     return Get(root, x, y, z, m_Size, nodeId);
   };
 
@@ -777,7 +777,7 @@ public:
    * This does not include neighbours.
    */
   size_t GetTotalMemoryUsage() {
-    Node* root = m_Root.load(std::memory_order::relaxed);
+    Node* root = m_Root.load(std::memory_order::acquire);
     return sizeof(SparseOctree) + GetMemoryUsage(root);
   };
 
@@ -794,9 +794,9 @@ public:
    *  #FF2D2D2D (0,0,0)
    *  #FF214365 (1,0,0)
    *  #FF228B22 (6,0,0)
-   * +-------+-------+----------+-----------+----------+
-   * | Index | Depth | Children | ChildIdx  | Color    |
-   * +-------+-------+----------+-----------+----------+
+   * +-------+-------+----------+-----------+------------+
+   * | Index | Depth | Children | ChildIdx  | Color      |
+   * +-------+-------+----------+-----------+------------+
    * |   0   |   6   | 00000001 |     1     | #00000000|
    * |   1   |   5   | 00000001 |     2     | #00000000|
    * |   2   |   4   | 00000001 |     3     | #00000000|
@@ -808,7 +808,7 @@ public:
    * |   8   |   2   | 00010000 |     9     | #00000000|
    * |   9   |   1   | 00000001 |    10     | #00000000|
    * |  10   |   0   | FF228B22 |     0     | #FF228B22|
-   * +-------+-------+----------+-----------+----------+
+   * +-------+-------+----------+-----------+------------+
    *
    * How do you get the data back from this vector of structs?
    * The first thing you need is to use mortin order to find the offset
@@ -826,9 +826,9 @@ public:
    *    offset += (x, y, z) * currentSize;
    *
    * Finding Voxel: #FF2D2D2D
-   * +-------+-------+----------+-----------+----------+
-   * | Index | Depth | Children | ChildIdx  | Color    | Size | Offset
-   * +-------+-------+----------+-----------+----------+
+   * +-------+-------+----------+-----------+------------+
+   * | Index | Depth | Children | ChildIdx  | Color      | Size | Offset
+   * +-------+-------+----------+-----------+------------+
    * |   0   |   6   | 00000001 |     1     | #00000000| 32  *  (0,0,0)
    * |   1   |   5   | 00000001 |     2     | #00000000| 16  *  (0,0,0)
    * |   2   |   4   | 00000001 |     3     | #00000000| 8   *  (0,0,0)
@@ -840,10 +840,10 @@ public:
    * |   8   |   2   | 00010000 |     9     | #00000000|
    * |   9   |   1   | 00000001 |    10     | #00000000|
    * |  10   |   0   | FF228B22 |     0     | #FF228B22|
-   * +-------+-------+----------+-----------+----------+
+   * +-------+-------+----------+-----------+------------+
    */
   void Flatten(std::vector<FlatNode>& out) {
-    Node* root = m_Root.load(std::memory_order::relaxed);
+    Node* root = m_Root.load(std::memory_order::acquire);
 
     if (!root)
       return;
@@ -873,7 +873,7 @@ public:
   template <typename F>
     requires FilterCallback<Node, F>
   void Filter(std::vector<FilterNode>& out, F&& filter) {
-    Node* root = m_Root.load(std::memory_order::relaxed);
+    Node* root = m_Root.load(std::memory_order::acquire);
     Filter(out, filter, {0, 0, 0}, m_Size, root);
   };
 

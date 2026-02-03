@@ -34,7 +34,7 @@ public:
 
   void Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out);
 
-  void GreedyMesh(std::vector<Material> materials, std::vector<Vertex> &out);
+  void GreedyMesh(std::vector<Material> materials, std::vector<Vertex>& out);
 
   template <typename F>
     requires FilterCallback<SparseOctree<Voxel>::Node, F>
