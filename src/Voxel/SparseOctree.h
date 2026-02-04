@@ -3,7 +3,10 @@
 #include <atomic>
 #include <functional>
 #include <glm/glm.hpp>
+#include <new>
 #include <vector>
+
+#include "RCU/RCU.h"
 
 template <typename T>
 concept Data = requires(T t) {
@@ -42,13 +45,18 @@ public:
     T*      Data        = nullptr;
     Node*   Children[8] = {nullptr};
 
+    bool RC = true;
+
     Node() = default;
 
     Node(uint8_t depth, T* data = nullptr)
         : Depth(depth)
         , Data(data){};
 
-    ~Node() { Clear(); };
+    ~Node() {
+      if (RC)
+        Clear();
+    };
 
     bool operator==(const Node& other) const { return Data.Id == other.Data.Id; };
     bool operator!=(const Node& other) const { return Data.Id != other.Data.Id; };
@@ -103,6 +111,8 @@ public:
   };
 
 private:
+  RCU<Node> m_RCU;
+
   /**
    * The total side length of the root node's region.
    * For example, 256 means the root covers a 256×256×256 volume.
@@ -195,7 +205,14 @@ private:
    * @param size      The size of the region represented by this node.
    */
   Node* Set(Node* node, int x, int y, int z, T* data, int leafSize, int size) {
-    // node = new Node(*node);
+
+    node->RC = false;
+
+    m_RCU.Retire(node);
+
+    node = new Node(*node);
+
+    node->RC = true;
 
     if (size == leafSize) {
       node->Data = data;
@@ -206,6 +223,7 @@ private:
       for (int i = 0; i < 8; i++) {
         /// TODO: Must defer the deletion of nodes
         // delete node->Children[i];
+        m_RCU.Retire(node->Children[i]);
         node->Children[i] = nullptr;
       }
 
@@ -241,6 +259,7 @@ private:
     for (int i = 0; i < 8; i++) {
       /// TODO: Must defer the deletion of nodes
       // delete node->Children[i];
+      m_RCU.Retire(node->Children[i]);
       node->Children[i] = nullptr;
     }
 
@@ -699,6 +718,7 @@ public:
     Node* root = m_Root.load(std::memory_order::acquire);
     Node* next = Set(root, x, y, z, data, leafSize, m_Size);
     m_Root.store(next, std::memory_order::release);
+    m_RCU.Sync();
     return next;
   };
 
@@ -721,8 +741,13 @@ public:
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
   Node* Get(int x, int y, int z, uint32_t nodeId = 0) {
+    uint64_t generation = m_RCU.ReadLock();
+
     Node* root = m_Root.load(std::memory_order::acquire);
-    return Get(root, x, y, z, m_Size, nodeId);
+    Node* node = Get(root, x, y, z, m_Size, nodeId);
+
+    m_RCU.ReadUnlock(generation);
+    return node;
   };
 
   /**
@@ -843,7 +868,8 @@ public:
    * +-------+-------+----------+-----------+------------+
    */
   void Flatten(std::vector<FlatNode>& out) {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    uint64_t generation = m_RCU.ReadLock();
+    Node*    root       = m_Root.load(std::memory_order::acquire);
 
     if (!root)
       return;
@@ -863,6 +889,7 @@ public:
         out[index].SetChildBit(i);
 
     Flatten(root, out);
+    m_RCU.ReadUnlock(generation);
   };
 
   /**
