@@ -230,6 +230,7 @@ const void World::GenerateCornellBox() {
       }
     }
 
+    svo->SyncRCU();
     svo->Flush();
   }).detach();
 }

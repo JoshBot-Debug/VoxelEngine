@@ -31,6 +31,8 @@ public:
   bool IsDirty();
 
   void Clean();
+  
+  void SyncRCU();
 
   void Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out);
 

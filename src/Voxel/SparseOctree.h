@@ -45,27 +45,21 @@ public:
     T*      Data        = nullptr;
     Node*   Children[8] = {nullptr};
 
-    bool RC = true;
-
     Node() = default;
 
     Node(uint8_t depth, T* data = nullptr)
         : Depth(depth)
         , Data(data){};
 
-    ~Node() {
-      if (RC)
-        Clear();
-    };
-
     bool operator==(const Node& other) const { return Data.Id == other.Data.Id; };
     bool operator!=(const Node& other) const { return Data.Id != other.Data.Id; };
 
-    void Clear() {
+    void Destroy() {
       Data = nullptr;
 
       for (int i = 0; i < 8; i++)
         if (Children[i]) {
+          Children[i]->Destroy();
           delete Children[i];
           Children[i] = nullptr;
         }
@@ -206,13 +200,9 @@ private:
    */
   Node* Set(Node* node, int x, int y, int z, T* data, int leafSize, int size) {
 
-    node->RC = false;
-
-    m_RCU.Retire(node);
+    m_RCU.Retire(node, false);
 
     node = new Node(*node);
-
-    node->RC = true;
 
     if (size == leafSize) {
       node->Data = data;
@@ -221,8 +211,6 @@ private:
        * Set the voxel and if there are any children, they need to be cleared out
        */
       for (int i = 0; i < 8; i++) {
-        /// TODO: Must defer the deletion of nodes
-        // delete node->Children[i];
         m_RCU.Retire(node->Children[i]);
         node->Children[i] = nullptr;
       }
@@ -257,8 +245,6 @@ private:
         return node;
 
     for (int i = 0; i < 8; i++) {
-      /// TODO: Must defer the deletion of nodes
-      // delete node->Children[i];
       m_RCU.Retire(node->Children[i]);
       node->Children[i] = nullptr;
     }
@@ -338,10 +324,11 @@ private:
 
     if (node->Data) {
       if (size != m_Size) {
+        node->Destroy();
         delete node;
         node = nullptr;
       } else
-        node->Clear();
+        node->Destroy();
 
       m_Dirty = true;
       return node;
@@ -360,6 +347,7 @@ private:
       if (node->Children[i])
         return node;
 
+    node->Destroy();
     delete node;
     node = nullptr;
 
@@ -646,6 +634,7 @@ public:
   ~SparseOctree() {
     Clear();
     Node* root = m_Root.load(std::memory_order::acquire);
+    root->Destroy();
     delete root;
   };
 
@@ -718,7 +707,6 @@ public:
     Node* root = m_Root.load(std::memory_order::acquire);
     Node* next = Set(root, x, y, z, data, leafSize, m_Size);
     m_Root.store(next, std::memory_order::release);
-    m_RCU.Sync();
     return next;
   };
 
@@ -764,7 +752,7 @@ public:
     if (!root)
       return;
 
-    root->Clear();
+    root->Destroy();
   };
 
   /**
@@ -945,4 +933,9 @@ public:
   Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
     return DeepRaymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
   };
+
+  /**
+   * Heavy work, never call it per-update.
+   */
+  void SyncRCU() { m_RCU.Sync(); }
 };

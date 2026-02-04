@@ -49,6 +49,10 @@ void ChunkManager::Clean() {
   m_SVO->Clean();
 }
 
+void ChunkManager::SyncRCU() {
+  m_SVO->SyncRCU();
+}
+
 void ChunkManager::Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out) {
   m_SVO->Flatten(out);
 }
