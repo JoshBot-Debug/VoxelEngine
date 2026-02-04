@@ -324,11 +324,13 @@ private:
 
     if (node->Data) {
       if (size != m_Size) {
-        node->Destroy();
-        delete node;
+        m_RCU.Retire(node);
         node = nullptr;
-      } else
-        node->Destroy();
+      } else {
+        node->Data = nullptr;
+        for (auto* child : node->Children)
+          m_RCU.Retire(child);
+      }
 
       m_Dirty = true;
       return node;
@@ -347,8 +349,7 @@ private:
       if (node->Children[i])
         return node;
 
-    node->Destroy();
-    delete node;
+    m_RCU.Retire(node);
     node = nullptr;
 
     return node;
@@ -632,7 +633,6 @@ public:
    * Destroys the Sparse Voxel Octree and frees all allocated nodes.
    */
   ~SparseOctree() {
-    Clear();
     Node* root = m_Root.load(std::memory_order::acquire);
     root->Destroy();
     delete root;
@@ -730,29 +730,10 @@ public:
    */
   Node* Get(int x, int y, int z, uint32_t nodeId = 0) {
     uint64_t generation = m_RCU.ReadLock();
-
-    Node* root = m_Root.load(std::memory_order::acquire);
-    Node* node = Get(root, x, y, z, m_Size, nodeId);
-
+    Node*    root       = m_Root.load(std::memory_order::acquire);
+    Node*    node       = Get(root, x, y, z, m_Size, nodeId);
     m_RCU.ReadUnlock(generation);
     return node;
-  };
-
-  /**
-   * Calls node.clear() on the root node.
-   * This clears the root node and all it's children.
-   * The root node will not be destroyed, only cleared. All children will be
-   * cleared and deleted.
-   *
-   * @note The root node will be destroyed once the destructor of the SVO is called.
-   */
-  void Clear() {
-    Node* root = m_Root.load(std::memory_order::acquire);
-
-    if (!root)
-      return;
-
-    root->Destroy();
   };
 
   /**
@@ -780,9 +761,11 @@ public:
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    */
   void Clear(int x, int y, int z, int leafSize = 1) {
-    Node* root = m_Root.load(std::memory_order::acquire);
-    Node* next = Clear(root, x, y, z, leafSize, m_Size);
+    uint64_t generation = m_RCU.ReadLock();
+    Node*    root       = m_Root.load(std::memory_order::acquire);
+    Node*    next       = Clear(root, x, y, z, leafSize, m_Size);
     m_Root.store(next, std::memory_order::release);
+    m_RCU.ReadUnlock(generation);
   };
 
   /**
@@ -888,8 +871,10 @@ public:
   template <typename F>
     requires FilterCallback<Node, F>
   void Filter(std::vector<FilterNode>& out, F&& filter) {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    uint64_t generation = m_RCU.ReadLock();
+    Node*    root       = m_Root.load(std::memory_order::acquire);
     Filter(out, filter, {0, 0, 0}, m_Size, root);
+    m_RCU.ReadUnlock(generation);
   };
 
   /**
