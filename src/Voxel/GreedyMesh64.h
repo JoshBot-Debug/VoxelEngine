@@ -63,10 +63,10 @@ public:
      * 0  0 z0 x3 0  0  0  0 z1 x0 0  0  0  0 z1 x1 0  0  0  0 z1 x2 0  0  0  0 z1
      * x3 0  0  0  0
      */
-    alignas(32) uint64_t rows[MASK_LENGTH]    = {};
-    alignas(32) uint64_t columns[MASK_LENGTH] = {};
-    alignas(32) uint64_t layers[MASK_LENGTH]  = {};
-    alignas(32) uint8_t  padding[MASK_LENGTH] = {};
+    uint64_t rows[MASK_LENGTH]    = {};
+    uint64_t columns[MASK_LENGTH] = {};
+    uint64_t layers[MASK_LENGTH]  = {};
+    uint8_t  padding[MASK_LENGTH] = {};
 
     bool hasVoxels = false;
 
@@ -80,9 +80,9 @@ public:
             const unsigned int columnIndex = y + (CHUNK_SIZE * (x + (CHUNK_SIZE * z)));
             const unsigned int layerIndex  = z + (CHUNK_SIZE * (y + (CHUNK_SIZE * x)));
 
-            rows[rowIndex / CHUNK_SIZE] |= (1ULL << (rowIndex % CHUNK_SIZE));
-            columns[columnIndex / CHUNK_SIZE] |= (1ULL << (columnIndex % CHUNK_SIZE));
-            layers[layerIndex / CHUNK_SIZE] |= (1ULL << (layerIndex % CHUNK_SIZE));
+            rows[rowIndex >> 6] |= (1ULL << (rowIndex & (CHUNK_SIZE - 1)));
+            columns[columnIndex >> 6] |= (1ULL << (columnIndex & (CHUNK_SIZE - 1)));
+            layers[layerIndex >> 6] |= (1ULL << (layerIndex & (CHUNK_SIZE - 1)));
           }
 
     if (!hasVoxels)
@@ -99,8 +99,8 @@ public:
       uint64_t& column = columns[i];
       uint64_t& layer  = layers[i];
 
-      int fast = i % CHUNK_SIZE;
-      int slow = (i / CHUNK_SIZE) % CHUNK_SIZE;
+      int fast = i & (CHUNK_SIZE - 1);
+      int slow = (i >> 6) & (CHUNK_SIZE - 1);
       int MSB  = 0;
       int LSB  = 0;
 
@@ -138,11 +138,11 @@ public:
       }
     }
 
-    alignas(32) uint64_t widthStart[MASK_LENGTH]  = {};
-    alignas(32) uint64_t heightStart[MASK_LENGTH] = {};
+    uint64_t widthStart[MASK_LENGTH]  = {};
+    uint64_t heightStart[MASK_LENGTH] = {};
 
-    alignas(32) uint64_t widthEnd[MASK_LENGTH]  = {};
-    alignas(32) uint64_t heightEnd[MASK_LENGTH] = {};
+    uint64_t widthEnd[MASK_LENGTH]  = {};
+    uint64_t heightEnd[MASK_LENGTH] = {};
 
     /**
      * Culls the column/row/layer

@@ -32,7 +32,11 @@ public:
 
   void Clean();
   
-  void SyncRCU();
+  void Sync();
+
+  uint64_t ReadLock();
+
+  void ReadUnlock(uint64_t generation);
 
   void Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out);
 

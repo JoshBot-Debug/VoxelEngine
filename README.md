@@ -31,6 +31,14 @@ Run the project
 ./build/Kitagawa
 ```
 
+
+Benchmark / Performance
+
+```bash
+sudo perf record -F 999 -g --call-graph=dwarf ./build/Kitagawa
+sudo perf report
+```
+
 ---
 
 ## TODO

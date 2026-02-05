@@ -162,7 +162,7 @@ private:
           int iz = z + dz;
 
           int index = ix + m_Size * (iz + m_Size * iy);
-          if (!(mask[index / 64] & (1ULL << (index % 64)))) {
+          if (!(mask[index >> 6] & (1ULL << (index & 63)))) {
             isFullBlock = false;
             break;
           }
@@ -175,12 +175,12 @@ private:
 
     if (size == 1) {
       int index = x + m_Size * (z + m_Size * y);
-      if (mask[index / 64] & (1ULL << (index % 64)))
+      if (mask[index >> 6] & (1ULL << (index & 63)))
         Set(x, y, z, data, 1);
       return;
     }
 
-    int half = size / 2;
+    int half = size >> 1;
 
     for (int dz = 0; dz < size; dz += half)
       for (int dx = 0; dx < size; dx += half)
@@ -219,14 +219,16 @@ private:
       return node;
     }
 
-    int half = size / 2;
+    int half = size >> 1;
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
+
+    int mod = half - 1;
 
     if (!node->Children[index])
       node->Children[index] = new Node(static_cast<uint8_t>(std::log2(half)));
 
-    node->Children[index] = Set(node->Children[index], x % half, y % half, z % half, data, leafSize, half);
+    node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, leafSize, half);
 
     if (node->Data)
       node->Data = nullptr;
@@ -294,11 +296,13 @@ private:
     if (size == 1)
       return nullptr;
 
-    int half = size / 2;
+    int half = size >> 1;
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
 
-    return Get(node->Children[index], x % half, y % half, z % half, half, nodeId);
+    int mod = half - 1;
+
+    return Get(node->Children[index], x & mod, y & mod, z & mod, half, nodeId);
   };
 
   /**
@@ -336,11 +340,13 @@ private:
       return node;
     }
 
-    int half = size / 2;
+    int half = size >> 1;
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
 
-    node->Children[index] = Clear(node->Children[index], x % half, y % half, z % half, leafSize, half);
+    int mod = half - 1;
+
+    node->Children[index] = Clear(node->Children[index], x & mod, y & mod, z & mod, leafSize, half);
 
     if (size == m_Size)
       return node;
@@ -441,7 +447,7 @@ private:
       return;
     }
 
-    int half = size / 2;
+    int half = size >> 1;
 
     for (size_t i = 0; i < 8; i++) {
       if (!node->Children[i])
@@ -515,7 +521,7 @@ private:
     if (!node->Children)
       return Hit();
 
-    float half = size / 2.0f;
+    float half = size >> 1;
 
     int dirX = direction.x >= 0.0f ? 0 : 1;
     int dirY = direction.y >= 0.0f ? 0 : 1;
@@ -574,7 +580,7 @@ private:
           .Size     = size,
       };
 
-    float half = size / 2.0f;
+    float half = size >> 1;
 
     int dirX = direction.x >= 0.0f ? 0 : 1;
     int dirY = direction.y >= 0.0f ? 0 : 1;
@@ -661,7 +667,7 @@ public:
    * Example usage:
    *
    *   const int ChunkSize = 256;
-   *   uint64_t mask[(ChunkSize * ChunkSize) * (ChunkSize / 64)] = {0};
+   *   uint64_t mask[(ChunkSize * ChunkSize) * (ChunkSize >> 6)] = {0};
    *
    *   for (int z = 0; z < ChunkSize; z++)
    *     for (int x = 0; x < ChunkSize; x++)
@@ -670,7 +676,7 @@ public:
    *            int index = x + size * (z + (size * y));
    *
    *            if(blockIsGrass)                            // Your condition
-   *              mask[index / 64] |= 1UL << (index % 64);  // Turn on bit
+   *              mask[index >> 6] |= 1UL << (index & 63);  // Turn on bit
    *        }
    *
    *   tree.set(mask, grassVoxel);
@@ -729,10 +735,8 @@ public:
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
   Node* Get(int x, int y, int z, uint32_t nodeId = 0) {
-    uint64_t generation = m_RCU.ReadLock();
-    Node*    root       = m_Root.load(std::memory_order::acquire);
-    Node*    node       = Get(root, x, y, z, m_Size, nodeId);
-    m_RCU.ReadUnlock(generation);
+    Node* root = m_Root.load(std::memory_order::acquire);
+    Node* node = Get(root, x, y, z, m_Size, nodeId);
     return node;
   };
 
@@ -761,11 +765,9 @@ public:
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    */
   void Clear(int x, int y, int z, int leafSize = 1) {
-    uint64_t generation = m_RCU.ReadLock();
-    Node*    root       = m_Root.load(std::memory_order::acquire);
-    Node*    next       = Clear(root, x, y, z, leafSize, m_Size);
+    Node* root = m_Root.load(std::memory_order::acquire);
+    Node* next = Clear(root, x, y, z, leafSize, m_Size);
     m_Root.store(next, std::memory_order::release);
-    m_RCU.ReadUnlock(generation);
   };
 
   /**
@@ -839,8 +841,7 @@ public:
    * +-------+-------+----------+-----------+------------+
    */
   void Flatten(std::vector<FlatNode>& out) {
-    uint64_t generation = m_RCU.ReadLock();
-    Node*    root       = m_Root.load(std::memory_order::acquire);
+    Node* root = m_Root.load(std::memory_order::acquire);
 
     if (!root)
       return;
@@ -860,7 +861,6 @@ public:
         out[index].SetChildBit(i);
 
     Flatten(root, out);
-    m_RCU.ReadUnlock(generation);
   };
 
   /**
@@ -871,10 +871,8 @@ public:
   template <typename F>
     requires FilterCallback<Node, F>
   void Filter(std::vector<FilterNode>& out, F&& filter) {
-    uint64_t generation = m_RCU.ReadLock();
-    Node*    root       = m_Root.load(std::memory_order::acquire);
+    Node* root = m_Root.load(std::memory_order::acquire);
     Filter(out, filter, {0, 0, 0}, m_Size, root);
-    m_RCU.ReadUnlock(generation);
   };
 
   /**
@@ -920,7 +918,17 @@ public:
   };
 
   /**
-   * Heavy work, never call it per-update.
+   * RCU Sync
    */
-  void SyncRCU() { m_RCU.Sync(); }
+  void Sync() { m_RCU.Sync(); }
+
+  /**
+   * RCU ReadLock
+   */
+  uint64_t ReadLock() { return m_RCU.ReadLock(); }
+
+  /**
+   * RCU ReadUnlock
+   */
+  void ReadUnlock(uint64_t generation) { return m_RCU.ReadUnlock(generation); }
 };

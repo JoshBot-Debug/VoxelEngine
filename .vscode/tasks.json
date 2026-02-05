@@ -59,6 +59,21 @@
       ]
     },
     {
+      "label": "Build Release \\w debug symbols",
+      "type": "shell",
+      "command": "cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build",
+      "group": {
+        "kind": "build",
+        "isDefault": false
+      },
+      "problemMatcher": [
+        "$gcc"
+      ],
+      "dependsOn": [
+        "Compile Shaders"
+      ]
+    },
+    {
       "label": "valgrind",
       "type": "shell",
       "command": "valgrind",

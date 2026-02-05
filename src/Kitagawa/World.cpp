@@ -112,6 +112,8 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (m_ChunkManager->IsDirty()) {
+    uint64_t generation = m_ChunkManager->ReadLock();
+
     m_ChunkManager->Flatten(m_FlatSVO);
 
     m_ChunkManager->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
@@ -120,9 +122,11 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     });
 
     m_ChunkManager->GreedyMesh(m_Palette.GetMaterials(), m_Vertices);
-
-    m_ChunkManager->Update(rayOrigin, rayDirection);
+    
+    m_ChunkManager->ReadUnlock(generation);
   }
+
+  m_ChunkManager->Update(rayOrigin, rayDirection);
 }
 
 bool World::IsDirty() {
@@ -164,6 +168,7 @@ const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
     }
 
   m_ChunkManager->Set(mask, lush.get());
+  m_ChunkManager->Sync();
   m_ChunkManager->Flush();
 }
 
@@ -230,7 +235,7 @@ const void World::GenerateCornellBox() {
       }
     }
 
-    svo->SyncRCU();
+    svo->Sync();
     svo->Flush();
   }).detach();
 }

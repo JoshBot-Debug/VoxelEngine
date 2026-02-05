@@ -49,8 +49,16 @@ void ChunkManager::Clean() {
   m_SVO->Clean();
 }
 
-void ChunkManager::SyncRCU() {
-  m_SVO->SyncRCU();
+void ChunkManager::Sync() {
+  m_SVO->Sync();
+}
+
+uint64_t ChunkManager::ReadLock() {
+  return m_SVO->ReadLock();
+}
+
+void ChunkManager::ReadUnlock(uint64_t generation) {
+  m_SVO->ReadUnlock(generation);
 }
 
 void ChunkManager::Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out) {

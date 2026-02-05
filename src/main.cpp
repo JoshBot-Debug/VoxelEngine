@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <bitset>
 
 #include "Application.h"
 #include "EntryPoint.h"
@@ -20,7 +21,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-const int WORLD_SIZE = 64;
+const int WORLD_SIZE = 256;
 
 class ViewportLayer : public Akari::Layer {
 

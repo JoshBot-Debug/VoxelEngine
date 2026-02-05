@@ -5,10 +5,10 @@ void GreedyMesh64::SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t 
     const uint8_t w = __builtin_ffsll(bits) - 1;
 
     const unsigned int wi = a + (CHUNK_SIZE * (w + (CHUNK_SIZE * b)));
-    widthMasks[wi / CHUNK_SIZE] |= (1ULL << (wi % CHUNK_SIZE));
+    widthMasks[wi >> 6] |= (1ULL << (wi & 63));
 
     const unsigned int hi = b + (CHUNK_SIZE * (w + (CHUNK_SIZE * a)));
-    heightMasks[hi / CHUNK_SIZE] |= (1ULL << (hi % CHUNK_SIZE));
+    heightMasks[hi >> 6] |= (1ULL << (hi & 63));
 
     bits = ClearLowestBits(bits, w + 1);
   }
