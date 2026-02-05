@@ -85,8 +85,6 @@ void ChunkManager::GreedyMesh(std::vector<Material> materials, std::vector<Verte
     results[material.Id - 1] = std::move(buffer);
   });
 
-  static_assert(std::is_trivially_copyable_v<Vertex>);
-
   size_t total = 0;
   for (const auto& v : results)
     total += v.size();

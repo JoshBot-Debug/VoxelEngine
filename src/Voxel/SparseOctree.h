@@ -25,6 +25,12 @@ template <Data T>
 class SparseOctree {
 
 public:
+  enum Axis {
+    X = 0,
+    Y = 1,
+    Z = 2,
+  };
+
   /**
    * The hit struct for raymarching
    * @tparam T The datatype of the pointer stored
@@ -739,6 +745,12 @@ public:
     Node* node = Get(root, x, y, z, m_Size, nodeId);
     return node;
   };
+
+
+  /**
+   * TODO: Create this to get a major perf boost
+   */
+  uint64_t (&GetAxis)(int start, uint32_t nodeId, Axis axis)[4096] {}
 
   /**
    * Clear a voxel at the given 3D position in voxel-space.
