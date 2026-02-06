@@ -59,7 +59,7 @@
       ]
     },
     {
-      "label": "Build Release \\w debug symbols",
+      "label": "Build Release \\w Debug Symbols",
       "type": "shell",
       "command": "cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo && cmake --build build",
       "group": {
