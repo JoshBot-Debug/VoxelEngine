@@ -3,6 +3,7 @@
 #include <execution>
 
 #include "Voxel/GreedyMesh64.h"
+#include "Utility/Debug.h"
 
 ChunkManager::ChunkManager(uint32_t chunkSize) {
   m_SVO = new SparseOctree<Voxel>();
@@ -91,7 +92,7 @@ void ChunkManager::GreedyMesh(std::vector<Material> materials, std::vector<Verte
     });
 
     GreedyMesh64::Generate(buffer, {0, 0, 0}, material.Id, rows, columns, layers, padding);
-
+    
     results[material.Id - 1] = std::move(buffer);
   });
 
