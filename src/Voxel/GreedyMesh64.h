@@ -9,9 +9,8 @@
 
 template <typename F>
 concept ExistsCallback =
-    requires(F f, float x, float y, float z, uint32_t id) {
+    requires(F f, int x, int y, int z) {
       { f(x, y, z) } -> std::same_as<bool>;
-      { f(x, y, z, id) } -> std::same_as<bool>;
     };
 
 class GreedyMesh64 {
@@ -24,19 +23,18 @@ private:
     return (n >= CHUNK_SIZE) ? 0 : (bits & ~((1ULL << n) - 1));
   }
 
-  static void SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[], uint64_t (&heightMasks)[]);
+  static void SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH]);
 
-  static void
-  PrepareWidthHeightMasks(const uint64_t (&bits)[], uint8_t paddingIndex, uint8_t (&padding)[], uint64_t (&widthStart)[], uint64_t (&heightStart)[], uint64_t (&widthEnd)[], uint64_t (&heightEnd)[]);
+  static void PrepareWidthHeightMasks(const uint64_t (&bits)[MASK_LENGTH], uint8_t paddingIndex, uint8_t (&padding)[MASK_LENGTH], uint64_t (&widthStart)[MASK_LENGTH], uint64_t (&heightStart)[MASK_LENGTH], uint64_t (&widthEnd)[MASK_LENGTH], uint64_t (&heightEnd)[MASK_LENGTH]);
 
-  static void GreedyMeshFace(const glm::ivec3& offsetPosition, uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[], uint64_t (&heightMasks)[], std::vector<Vertex>& vertices, FaceType type, uint32_t id);
+  static void GreedyMeshFace(const glm::ivec3& offsetPosition, uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH], std::vector<Vertex>& vertices, FaceType type, uint32_t id);
 
   static void GreedyMeshAxis(const glm::ivec3& offsetPosition,
-                             const uint64_t (&bits)[],
-                             uint64_t (&widthStart)[],
-                             uint64_t (&heightStart)[],
-                             uint64_t (&widthEnd)[],
-                             uint64_t (&heightEnd)[],
+                             const uint64_t (&bits)[MASK_LENGTH],
+                             uint64_t (&widthStart)[MASK_LENGTH],
+                             uint64_t (&heightStart)[MASK_LENGTH],
+                             uint64_t (&widthEnd)[MASK_LENGTH],
+                             uint64_t (&heightEnd)[MASK_LENGTH],
                              std::vector<Vertex>& vertices,
                              FaceType             startType,
                              FaceType             endType,
@@ -44,56 +42,12 @@ private:
 
 public:
   template <ExistsCallback F>
-  static void Generate(F&& exists, std::vector<Vertex>& vertices, const glm::vec3& coord, uint32_t id) {
+  static void GeneratePadding(uint8_t (&padding)[MASK_LENGTH],
+                              uint64_t (&rows)[MASK_LENGTH],
+                              uint64_t (&columns)[MASK_LENGTH],
+                              uint64_t (&layers)[MASK_LENGTH],
+                              F&& exists) {
 
-    const glm::vec3 origin = {
-        coord.x * CHUNK_SIZE,
-        coord.y * CHUNK_SIZE,
-        coord.z * CHUNK_SIZE,
-    };
-
-    /**
-     * Generate the bit mask for rows, columns and layers.
-     *
-     * For columns:
-     *
-     *       At (x, z) you can get the height of the column in one bitwise
-     * operation and you can get the location of all the top & bottom faces in one
-     * bitwise operation y0 y1 y2 y3 z0 x0 0  0  0  0 z0 x1 0  0  0  0 z0 x2 0  0
-     * 0  0 z0 x3 0  0  0  0 z1 x0 0  0  0  0 z1 x1 0  0  0  0 z1 x2 0  0  0  0 z1
-     * x3 0  0  0  0
-     */
-    uint64_t rows[MASK_LENGTH]    = {};
-    uint64_t columns[MASK_LENGTH] = {};
-    uint64_t layers[MASK_LENGTH]  = {};
-    uint8_t  padding[MASK_LENGTH] = {};
-
-    bool hasVoxels = false;
-
-    for (int x = 0; x < CHUNK_SIZE; x++)
-      for (int y = 0; y < CHUNK_SIZE; y++)
-        for (int z = 0; z < CHUNK_SIZE; z++)
-          if (exists(x + origin.x, y + origin.y, z + origin.z, id)) {
-            hasVoxels = true;
-
-            const unsigned int rowIndex    = x + (CHUNK_SIZE * (y + (CHUNK_SIZE * z)));
-            const unsigned int columnIndex = y + (CHUNK_SIZE * (x + (CHUNK_SIZE * z)));
-            const unsigned int layerIndex  = z + (CHUNK_SIZE * (y + (CHUNK_SIZE * x)));
-
-            rows[rowIndex >> 6] |= (1ULL << (rowIndex & (CHUNK_SIZE - 1)));
-            columns[columnIndex >> 6] |= (1ULL << (columnIndex & (CHUNK_SIZE - 1)));
-            layers[layerIndex >> 6] |= (1ULL << (layerIndex & (CHUNK_SIZE - 1)));
-          }
-
-    if (!hasVoxels)
-      return;
-
-    /**
-     * Here we capture the padding bit
-     * Every chunk we need to get the neighbour chunks and check
-     * if the bits at the 0 & 31st index are on. If so, we need to skip making
-     * faces on that end.
-     */
     for (int i = 0; i < MASK_LENGTH; i++) {
       uint64_t& row    = rows[i];
       uint64_t& column = columns[i];
@@ -108,10 +62,10 @@ public:
         MSB = CHUNK_SIZE - __builtin_clzll(row);
         LSB = __builtin_ctzll(row) - 1;
 
-        if (exists(origin.x + MSB, fast + origin.y, slow + origin.z))
+        if (exists(MSB, fast, slow))
           padding[i] |= (1ULL << 1);
 
-        if (exists(origin.x + LSB, fast + origin.y, slow + origin.z))
+        if (exists(LSB, fast, slow))
           padding[i] |= (1ULL << 0);
       }
 
@@ -119,10 +73,10 @@ public:
         MSB = CHUNK_SIZE - __builtin_clzll(column);
         LSB = __builtin_ctzll(column) - 1;
 
-        if (exists(fast + origin.x, origin.y + MSB, slow + origin.z))
+        if (exists(fast, MSB, slow))
           padding[i] |= (1ULL << 3);
 
-        if (exists(fast + origin.x, origin.y + LSB, slow + origin.z))
+        if (exists(fast, LSB, slow))
           padding[i] |= (1ULL << 2);
       }
 
@@ -130,35 +84,46 @@ public:
         MSB = CHUNK_SIZE - __builtin_clzll(layer);
         LSB = __builtin_ctzll(layer) - 1;
 
-        if (exists(slow + origin.x, fast + origin.y, origin.z + MSB))
+        if (exists(slow, fast, MSB))
           padding[i] |= (1ULL << 5);
 
-        if (exists(slow + origin.x, fast + origin.y, origin.z + LSB))
+        if (exists(slow, fast, LSB))
           padding[i] |= (1ULL << 4);
       }
     }
+  }
+
+  /**
+   * Culls the column/row/layer
+   * From: 001110110011111
+   * To: 001010110010001
+   *
+   * Loop over the correct axis for each column/row/layer
+   * for columns x,z
+   * for rows    y,z
+   * for layers  y,x
+   *
+   * Set the width and height of each face for both sides (start & end)
+   * for columns bottom & top
+   * for rows    left & right
+   * for layers  front & back
+   *
+   * Then greedy meshes rows/columns/layers
+   */
+  static void Generate(
+      std::vector<Vertex>& vertices,
+      const glm::vec3&     coord,
+      uint32_t             id,
+      uint64_t (&rows)[MASK_LENGTH],
+      uint64_t (&columns)[MASK_LENGTH],
+      uint64_t (&layers)[MASK_LENGTH],
+      uint8_t (&padding)[MASK_LENGTH]) {
 
     uint64_t widthStart[MASK_LENGTH]  = {};
     uint64_t heightStart[MASK_LENGTH] = {};
 
     uint64_t widthEnd[MASK_LENGTH]  = {};
     uint64_t heightEnd[MASK_LENGTH] = {};
-
-    /**
-     * Culls the column/row/layer
-     * From: 001110110011111
-     * To: 001010110010001
-     *
-     * Loop over the correct axis for each column/row/layer
-     * for columns x,z
-     * for rows    y,z
-     * for layers  y,x
-     *
-     * Set the width and height of each face for both sides (start & end)
-     * for columns bottom & top
-     * for rows    left & right
-     * for layers  front & back
-     */
 
     PrepareWidthHeightMasks(rows, 0, padding, widthStart, heightStart, widthEnd, heightEnd);
     GreedyMeshAxis(coord, rows, widthStart, heightStart, widthEnd, heightEnd, vertices, FaceType::LEFT, FaceType::RIGHT, id);

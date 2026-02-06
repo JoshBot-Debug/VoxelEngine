@@ -1,6 +1,8 @@
 #pragma once
 
+#include <algorithm>
 #include <atomic>
+#include <cstring>
 #include <functional>
 #include <glm/glm.hpp>
 #include <new>
@@ -20,17 +22,12 @@ concept FilterCallback = requires(F f, const N* node) {
 
 /**
  * @tparam T The datatype of the pointer stored
+ * @tparam S The size of the SVO
  */
 template <Data T>
 class SparseOctree {
 
 public:
-  enum Axis {
-    X = 0,
-    Y = 1,
-    Z = 2,
-  };
-
   /**
    * The hit struct for raymarching
    * @tparam T The datatype of the pointer stored
@@ -114,22 +111,9 @@ private:
   RCU<Node> m_RCU;
 
   /**
-   * The total side length of the root node's region.
-   * For example, 256 means the root covers a 256×256×256 volume.
-   */
-  uint32_t m_Size;
-
-  /**
-   * The depth of the octree, typically std::log2(m_Size).
-   * Indicates how many levels of subdivision exist.
-   */
-  uint8_t m_Depth;
-
-  /**
    * Pointer to the root node of the Sparse Voxel Octree.
-   * Should never be empty, is always initialized in the constructor.
    */
-  std::atomic<Node*> m_Root = nullptr;
+  std::atomic<Node*> m_Root = new Node(6);
 
   /**
    * Tracks wheather the tree has changed.
@@ -137,17 +121,13 @@ private:
   bool m_Dirty = false;
 
   /**
-   * VoidNode
-   * i.e, the nodes outside of the world, if there is no neighbouring chunk
-   */
-  Node m_Void;
-
-  /**
    * On Flush callback
    */
   std::function<void()> m_Flush;
 
-private:
+public:
+  static constexpr uint8_t SIZE = 64;
+
   /**
    * Internal recursive setter that applies a voxel to all positions marked in
    * the bitmask. Called by the public `set(mask, voxel)` method.
@@ -157,7 +137,7 @@ private:
    * @tparam T     The datatype to set at the marked positions.
    * @param size   The current size of the region being processed.
    */
-  void Set(uint64_t (&mask)[], int x, int y, int z, T* data, int size) {
+  void Set(uint64_t (&mask)[], uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
     bool isFullBlock = true;
 
     for (int dz = 0; dz < size && isFullBlock; ++dz)
@@ -167,7 +147,7 @@ private:
           int iy = y + dy;
           int iz = z + dz;
 
-          int index = ix + m_Size * (iz + m_Size * iy);
+          int index = ix + SIZE * (iz + SIZE * iy);
           if (!(mask[index >> 6] & (1ULL << (index & 63)))) {
             isFullBlock = false;
             break;
@@ -180,7 +160,7 @@ private:
     }
 
     if (size == 1) {
-      int index = x + m_Size * (z + m_Size * y);
+      int index = x + SIZE * (z + SIZE * y);
       if (mask[index >> 6] & (1ULL << (index & 63)))
         Set(x, y, z, data, 1);
       return;
@@ -204,7 +184,7 @@ private:
    * @param leafSize  The target size of a leaf node (typically 1).
    * @param size      The size of the region represented by this node.
    */
-  Node* Set(Node* node, int x, int y, int z, T* data, int leafSize, int size) {
+  Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t leafSize, uint8_t size) {
 
     m_RCU.Retire(node, false);
 
@@ -274,22 +254,7 @@ private:
    * @return        Pointer to the node at the target position, or nullptr if
    * not found or filtered out.
    */
-  Node* Get(Node* node, int x, int y, int z, int size, uint32_t nodeId = 0) {
-    /// TODO: This "fix" works because I removed neighbour chunks. In reality
-    /// I need to check if the x,y,z is somewhere outside of the world, if it is,
-    /// I need to return a "void" node because GreedyMesher needs to know if it
-    /// has to create faces at the edge of the world (It doesn't need to create a
-    /// face there), so if I return a "void" node GreedyMesher thinks "Oh a node
-    /// is there, welp, no need to create a face since it's hidden." If the world
-    /// is 64x64x64 I query out node at 0,0,64 or 0,0,-1 I should get a void node.
-    /// Not a nullptr.
-    if (x >= m_Size || x < 0)
-      return &m_Void;
-    if (y >= m_Size || y < 0)
-      return &m_Void;
-    if (z >= m_Size || z < 0)
-      return &m_Void;
-
+  Node* Get(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size, uint32_t nodeId = 0) {
     if (!node)
       return nullptr;
 
@@ -325,7 +290,7 @@ private:
    * @param leafSize  Minimum size representing a leaf node; used to terminate recursion.
    * @param size      The size of the region represented by this node.
    */
-  Node* Clear(Node*& node, int x, int y, int z, int leafSize, int size) {
+  Node* Clear(Node*& node, uint8_t x, uint8_t y, uint8_t z, uint8_t leafSize, uint8_t size) {
     if (!node)
       return node;
 
@@ -333,7 +298,7 @@ private:
       return node;
 
     if (node->Data) {
-      if (size != m_Size) {
+      if (size != SIZE) {
         m_RCU.Retire(node);
         node = nullptr;
       } else {
@@ -354,7 +319,7 @@ private:
 
     node->Children[index] = Clear(node->Children[index], x & mod, y & mod, z & mod, leafSize, half);
 
-    if (size == m_Size)
+    if (size == SIZE)
       return node;
 
     for (int i = 0; i < 8; i++)
@@ -440,7 +405,7 @@ private:
    */
   template <typename F>
     requires FilterCallback<Node, F>
-  void Filter(std::vector<FilterNode>& out, F&& filter, const glm::vec3& position, int size, Node* node) {
+  void Filter(std::vector<FilterNode>& out, F&& filter, const glm::vec3& position, uint8_t size, Node* node) {
     if (!node)
       return;
 
@@ -625,21 +590,7 @@ public:
   /**
    * Constructs an empty Sparse Voxel Octree with default settings.
    */
-  SparseOctree()
-      : m_Size(256)
-      , m_Depth(8)
-      , m_Root(new Node(8)){};
-
-  /**
-   * Constructs a Sparse Voxel Octree with the given spatial size.
-   *
-   * @param size  The side length of the root node's region (e.g., 256 for a
-   * 256³ volume).
-   */
-  SparseOctree(uint32_t size)
-      : m_Size(size)
-      , m_Depth(static_cast<uint8_t>(std::log2(size)))
-      , m_Root(new Node(static_cast<uint8_t>(std::log2(size)))){};
+  SparseOctree() = default;
 
   /**
    * Destroys the Sparse Voxel Octree and frees all allocated nodes.
@@ -655,7 +606,7 @@ public:
    *
    * @return The root node's spatial size (e.g., 256).
    */
-  uint32_t GetSize() { return m_Size; };
+  uint32_t GetSize() { return SIZE; };
 
   /**
    * Efficiently sets multiple voxels in the SVO using a 3D bitmask.
@@ -675,9 +626,9 @@ public:
    *   const int ChunkSize = 256;
    *   uint64_t mask[(ChunkSize * ChunkSize) * (ChunkSize >> 6)] = {0};
    *
-   *   for (int z = 0; z < ChunkSize; z++)
-   *     for (int x = 0; x < ChunkSize; x++)
-   *        for (int y= 0; y < ChunkSize; y++)
+   *   for (uint8_t z = 0; z < ChunkSize; z++)
+   *     for (uint8_t x = 0; x < ChunkSize; x++)
+   *        for (uint8_t y= 0; y < ChunkSize; y++)
    *        {
    *            int index = x + size * (z + (size * y));
    *
@@ -691,9 +642,9 @@ public:
    * @param data   Pointer to the datatype to set at the marked positions.
    */
   void Set(uint64_t (&mask)[], T* data) {
-    for (int z = 0; z < m_Size; z += 64)
-      for (int x = 0; x < m_Size; x += 64)
-        for (int y = 0; y < m_Size; y += 64)
+    for (uint8_t z = 0; z < SIZE; z += 64)
+      for (uint8_t x = 0; x < SIZE; x += 64)
+        for (uint8_t y = 0; y < SIZE; y += 64)
           Set(mask, x, y, z, data, 64);
   };
 
@@ -704,7 +655,7 @@ public:
    * @param data      The data to insert.
    * @param leafSize  The smallest voxel size (default is 1 unit).
    */
-  Node* Set(const glm::vec3& position, T* data, int leafSize = 1) {
+  Node* Set(const glm::vec3& position, T* data, uint8_t leafSize = 1) {
     return Set(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), data, leafSize);
   };
 
@@ -715,9 +666,9 @@ public:
    * @param data      The data to insert.
    * @param leafSize  The smallest voxel size (default is 1 unit).
    */
-  Node* Set(int x, int y, int z, T* data, int leafSize = 1) {
+  Node* Set(uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t leafSize = 1) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    Node* next = Set(root, x, y, z, data, leafSize, m_Size);
+    Node* next = Set(root, x, y, z, data, leafSize, SIZE);
     m_Root.store(next, std::memory_order::release);
     return next;
   };
@@ -740,17 +691,60 @@ public:
    * @param nodeId    Optional filter; if provided, only matching voxels are returned.
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
-  Node* Get(int x, int y, int z, uint32_t nodeId = 0) {
+  Node* Get(uint8_t x, uint8_t y, uint8_t z, uint32_t nodeId = 0) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    Node* node = Get(root, x, y, z, m_Size, nodeId);
+    Node* node = Get(root, x, y, z, SIZE, nodeId);
     return node;
   };
 
+  Node* GetRoot(std::memory_order memoryOrder) {
+    return m_Root.load(memoryOrder);
+  }
 
-  /**
-   * TODO: Create this to get a major perf boost
-   */
-  uint64_t (&GetAxis)(int start, uint32_t nodeId, Axis axis)[4096] {}
+  uint64_t (&GetAxisX(Node* root, uint32_t nodeId))[4096] {
+    static thread_local uint64_t masks[4096];
+    std::memset(masks, 0, sizeof(masks));
+
+    for (uint8_t x = 0; x < SIZE; x++)
+      for (uint8_t y = 0; y < SIZE; y++)
+        for (uint8_t z = 0; z < SIZE; z++)
+          if (Get(root, x, y, z, SIZE, nodeId)) {
+            const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
+            masks[rowIndex >> 6] |= (1ULL << (rowIndex & (SIZE - 1)));
+          }
+
+    return masks;
+  }
+
+  uint64_t (&GetAxisY(Node* root, uint32_t nodeId))[4096] {
+    static thread_local uint64_t masks[4096];
+    std::memset(masks, 0, sizeof(masks));
+
+    for (uint8_t x = 0; x < SIZE; x++)
+      for (uint8_t y = 0; y < SIZE; y++)
+        for (uint8_t z = 0; z < SIZE; z++)
+          if (Get(root, x, y, z, SIZE, nodeId)) {
+            const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
+            masks[columnIndex >> 6] |= (1ULL << (columnIndex & (SIZE - 1)));
+          }
+
+    return masks;
+  }
+
+  uint64_t (&GetAxisZ(Node* root, uint32_t nodeId))[4096] {
+    static thread_local uint64_t masks[4096];
+    std::memset(masks, 0, sizeof(masks));
+
+    for (uint8_t x = 0; x < SIZE; x++)
+      for (uint8_t y = 0; y < SIZE; y++)
+        for (uint8_t z = 0; z < SIZE; z++)
+          if (Get(root, x, y, z, SIZE, nodeId)) {
+            const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
+            masks[layerIndex >> 6] |= (1ULL << (layerIndex & (SIZE - 1)));
+          }
+
+    return masks;
+  }
 
   /**
    * Clear a voxel at the given 3D position in voxel-space.
@@ -762,7 +756,7 @@ public:
    * @param position  Voxel-space coordinates to clear (x, y, z).
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    */
-  void Clear(const glm::ivec3& position, int leafSize = 1) {
+  void Clear(const glm::ivec3& position, uint8_t leafSize = 1) {
     Clear(position.x, position.y, position.z, leafSize);
   };
 
@@ -776,9 +770,9 @@ public:
    * @param x, y, z   Voxel-space coordinates to clear.
    * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    */
-  void Clear(int x, int y, int z, int leafSize = 1) {
+  void Clear(uint8_t x, uint8_t y, uint8_t z, uint8_t leafSize = 1) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    Node* next = Clear(root, x, y, z, leafSize, m_Size);
+    Node* next = Clear(root, x, y, z, leafSize, SIZE);
     m_Root.store(next, std::memory_order::release);
   };
 
@@ -826,9 +820,9 @@ public:
    * the offsets
    *
    * // Where i is the index of the child (0 - 7)
-   * int x = (i >> 2) & 1;
-   * int y = (i >> 1) & 1;
-   * int z = (i >> 0) & 1;
+   * uint8_t x = (i >> 2) & 1;
+   * uint8_t y = (i >> 1) & 1;
+   * uint8_t z = (i >> 0) & 1;
    *
    * You need to calculate the sum of (offset * size) until the child.
    *
@@ -884,7 +878,7 @@ public:
     requires FilterCallback<Node, F>
   void Filter(std::vector<FilterNode>& out, F&& filter) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    Filter(out, filter, {0, 0, 0}, m_Size, root);
+    Filter(out, filter, {0, 0, 0}, SIZE, root);
   };
 
   /**
@@ -917,7 +911,7 @@ public:
    * @brief Quick raymarch
    */
   Hit Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
-    return Raymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
+    return Raymarch(m_Root, origin, direction, glm::vec3(0.), SIZE);
   };
 
   /**
@@ -926,7 +920,7 @@ public:
    * @brief Slower raymarch
    */
   Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
-    return DeepRaymarch(m_Root, origin, direction, glm::vec3(0.), m_Size);
+    return DeepRaymarch(m_Root, origin, direction, glm::vec3(0.), SIZE);
   };
 
   /**

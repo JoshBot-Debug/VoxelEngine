@@ -5,10 +5,10 @@
 #include "Voxel/GreedyMesh64.h"
 
 ChunkManager::ChunkManager(uint32_t chunkSize) {
-  m_SVO = new SparseOctree<Voxel>(chunkSize);
+  m_SVO = new SparseOctree<Voxel>();
 
   for (size_t i = 0; i < SIZE; i++)
-    m_Chunks[i] = new SparseOctree<Voxel>(chunkSize);
+    m_Chunks[i] = new SparseOctree<Voxel>();
 }
 
 ChunkManager::~ChunkManager() {
@@ -68,19 +68,29 @@ void ChunkManager::Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out) {
 void ChunkManager::GreedyMesh(std::vector<Material> materials, std::vector<Vertex>& out) {
   std::vector<std::vector<Vertex>> results(materials.size());
 
-  const int chunksPerAxis = std::max(1, static_cast<int>(m_SVO->GetSize() / GreedyMesh64::CHUNK_SIZE));
+  SparseOctree<Voxel>::Node* root = m_SVO->GetRoot(std::memory_order::acquire);
 
-  auto exists = [this](float x, float y, float z, uint32_t id = 0) -> bool {
-    return m_SVO->Get(x, y, z, id);
-  };
-
-  std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&materials, &results, chunksPerAxis, &exists](Material& material) {
+  std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&materials, &results, root, svo = m_SVO](Material& material) {
     std::vector<Vertex> buffer;
 
-    for (int cz = 0; cz < chunksPerAxis; ++cz)
-      for (int cy = 0; cy < chunksPerAxis; ++cy)
-        for (int cx = 0; cx < chunksPerAxis; ++cx)
-          GreedyMesh64::Generate(exists, buffer, {cx, cy, cz}, material.Id);
+    static thread_local uint8_t padding[64 * 64] = {};
+    std::memset(padding, 0, sizeof(padding));
+
+    auto& rows    = svo->GetAxisX(root, material.Id);
+    auto& columns = svo->GetAxisY(root, material.Id);
+    auto& layers  = svo->GetAxisZ(root, material.Id);
+
+    GreedyMesh64::GeneratePadding(padding, rows, columns, layers, [root, svo](int x, int y, int z) -> bool {
+      if (x >= SparseOctree<Voxel>::SIZE || x < 0)
+        return true;
+      if (y >= SparseOctree<Voxel>::SIZE || y < 0)
+        return true;
+      if (z >= SparseOctree<Voxel>::SIZE || z < 0)
+        return true;
+      return svo->Get(root, x, y, z, SparseOctree<Voxel>::SIZE);
+    });
+
+    GreedyMesh64::Generate(buffer, {0, 0, 0}, material.Id, rows, columns, layers, padding);
 
     results[material.Id - 1] = std::move(buffer);
   });

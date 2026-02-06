@@ -1,6 +1,6 @@
 #include "GreedyMesh64.h"
 
-void GreedyMesh64::SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[], uint64_t (&heightMasks)[]) {
+void GreedyMesh64::SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH]) {
   while (bits) {
     const uint8_t w = __builtin_ffsll(bits) - 1;
 
@@ -15,13 +15,13 @@ void GreedyMesh64::SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t 
 }
 
 void GreedyMesh64::PrepareWidthHeightMasks(
-    const uint64_t (&bits)[],
+    const uint64_t (&bits)[MASK_LENGTH],
     uint8_t paddingIndex,
-    uint8_t (&padding)[],
-    uint64_t (&widthStart)[],
-    uint64_t (&heightStart)[],
-    uint64_t (&widthEnd)[],
-    uint64_t (&heightEnd)[]) {
+    uint8_t (&padding)[MASK_LENGTH],
+    uint64_t (&widthStart)[MASK_LENGTH],
+    uint64_t (&heightStart)[MASK_LENGTH],
+    uint64_t (&widthEnd)[MASK_LENGTH],
+    uint64_t (&heightEnd)[MASK_LENGTH]) {
 
   for (uint8_t a = 0; a < CHUNK_SIZE; a++)
     for (uint8_t b = 0; b < CHUNK_SIZE; b++) {
@@ -99,7 +99,7 @@ void GreedyMesh64::PrepareWidthHeightMasks(
     }
 }
 
-void GreedyMesh64::GreedyMeshFace(const glm::ivec3& offsetPosition, uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[], uint64_t (&heightMasks)[], std::vector<Vertex>& vertices, FaceType type, uint32_t id) {
+void GreedyMesh64::GreedyMeshFace(const glm::ivec3& offsetPosition, uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH], std::vector<Vertex>& vertices, FaceType type, uint32_t id) {
   while (bits) {
     const uint8_t w = __builtin_ffsll(bits) - 1;
     bits            = ClearLowestBits(bits, w + 1);
@@ -169,11 +169,11 @@ void GreedyMesh64::GreedyMeshFace(const glm::ivec3& offsetPosition, uint8_t a, u
 
 void GreedyMesh64::GreedyMeshAxis(
     const glm::ivec3& offsetPosition,
-    const uint64_t (&bits)[],
-    uint64_t (&widthStart)[],
-    uint64_t (&heightStart)[],
-    uint64_t (&widthEnd)[],
-    uint64_t (&heightEnd)[],
+    const uint64_t (&bits)[MASK_LENGTH],
+    uint64_t (&widthStart)[MASK_LENGTH],
+    uint64_t (&heightStart)[MASK_LENGTH],
+    uint64_t (&widthEnd)[MASK_LENGTH],
+    uint64_t (&heightEnd)[MASK_LENGTH],
     std::vector<Vertex>& vertices,
     FaceType             startType,
     FaceType             endType,
