@@ -28,6 +28,8 @@ template <Data T>
 class SparseOctree {
 
 public:
+  static constexpr uint8_t SIZE = 64;
+
   /**
    * The hit struct for raymarching
    * @tparam T The datatype of the pointer stored
@@ -108,6 +110,104 @@ public:
   };
 
 private:
+  struct Mask {
+    /**
+     * 0 - Air
+     * 1 - Voxel
+     */
+    uint64_t m_Present[SIZE * SIZE];
+
+    /**
+     * 0 - Exposed
+     * 1 - Hidden (inside walls, underground, etc)
+     */
+    uint64_t m_Hidden[SIZE * SIZE];
+
+    inline bool Exists(uint8_t x, uint8_t y, uint8_t z) {
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+      return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
+    }
+
+    inline bool Hidden(uint8_t x, uint8_t y, uint8_t z) {
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+      return (m_Hidden[i >> 6] >> (i & 63)) & 1ULL;
+    }
+
+    inline bool Present(int x, int y, int z) {
+      if (x < 0 || y < 0 || z < 0 || x >= SIZE || y >= SIZE || z >= SIZE)
+        return false;
+
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+      return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
+    }
+
+    inline void ComputeHidden(uint8_t x, uint8_t y, uint8_t z) {
+      uint32_t i    = x + SIZE * (y + SIZE * z);
+      uint32_t word = i >> 6;
+      uint64_t mask = 1ULL << (i & 63);
+
+      if (!((m_Present[word] >> (i & 63)) & 1ULL)) {
+        m_Hidden[word] &= ~mask;
+        return;
+      }
+
+      static constexpr int dx[6] = {-1, 1, 0, 0, 0, 0};
+      static constexpr int dy[6] = {0, 0, -1, 1, 0, 0};
+      static constexpr int dz[6] = {0, 0, 0, 0, -1, 1};
+
+      for (int n = 0; n < 6; n++)
+        if (!Present(x + dx[n], y + dy[n], z + dz[n])) {
+          m_Hidden[word] &= ~mask;
+          return;
+        }
+
+      m_Hidden[word] |= mask;
+    }
+
+    inline void Set(uint8_t x, uint8_t y, uint8_t z) {
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+      m_Present[i >> 6] |= (1ULL << (i & 63));
+
+      static constexpr int dx[6] = {-1, 1, 0, 0, 0, 0};
+      static constexpr int dy[6] = {0, 0, -1, 1, 0, 0};
+      static constexpr int dz[6] = {0, 0, 0, 0, -1, 1};
+
+      ComputeHidden(x, y, z);
+
+      for (int n = 0; n < 6; n++) {
+        int nx = int(x) + dx[n];
+        int ny = int(y) + dy[n];
+        int nz = int(z) + dz[n];
+
+        if (nx < 0 || ny < 0 || nz < 0 || nx >= SIZE || ny >= SIZE || nz >= SIZE)
+          continue;
+
+        ComputeHidden(nx, ny, nz);
+      }
+    }
+
+    inline void Clear(uint8_t x, uint8_t y, uint8_t z) {
+      uint32_t i = x + (SIZE * (y + (SIZE * x)));
+      m_Present[i >> 6] &= ~(1ULL << (i & 63));
+      m_Hidden[i >> 6] &= ~(1ULL << (i & 63));
+
+      static constexpr int dx[6] = {-1, 1, 0, 0, 0, 0};
+      static constexpr int dy[6] = {0, 0, -1, 1, 0, 0};
+      static constexpr int dz[6] = {0, 0, 0, 0, -1, 1};
+
+      for (int n = 0; n < 6; n++) {
+        int nx = int(x) + dx[n];
+        int ny = int(y) + dy[n];
+        int nz = int(z) + dz[n];
+
+        if (nx < 0 || ny < 0 || nz < 0 || nx >= SIZE || ny >= SIZE || nz >= SIZE)
+          continue;
+
+        ComputeHidden(nx, ny, nz);
+      }
+    }
+  };
+
   RCU<Node> m_RCU;
 
   /**
@@ -125,9 +225,12 @@ private:
    */
   std::function<void()> m_Flush;
 
-public:
-  static constexpr uint8_t SIZE = 64;
+  /**
+   * A mask that can tell you if a voxel exists at x,y,z or if a voxel at x,y,z is hidden
+   */
+  Mask m_Mask;
 
+private:
   /**
    * Internal recursive setter that applies a voxel to all positions marked in
    * the bitmask. Called by the public `set(mask, voxel)` method.
@@ -148,7 +251,7 @@ public:
           int iz = z + dz;
 
           int index = ix + SIZE * (iz + SIZE * iy);
-          if (!(mask[index >> 6] & (1ULL << (index & 63)))) {
+          if (!(mask[index >> 6] & (1ULL << (index & (SIZE - 1))))) {
             isFullBlock = false;
             break;
           }
@@ -161,7 +264,7 @@ public:
 
     if (size == 1) {
       int index = x + SIZE * (z + SIZE * y);
-      if (mask[index >> 6] & (1ULL << (index & 63)))
+      if (mask[index >> 6] & (1ULL << (index & (SIZE - 1))))
         Set(x, y, z, data, 1);
       return;
     }
@@ -185,7 +288,6 @@ public:
    * @param size      The size of the region represented by this node.
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t leafSize, uint8_t size) {
-
     m_RCU.Retire(node, false);
 
     node = new Node(*node);
@@ -197,11 +299,13 @@ public:
        * Set the voxel and if there are any children, they need to be cleared out
        */
       for (int i = 0; i < 8; i++) {
-        m_RCU.Retire(node->Children[i]);
+        if (node->Children[i])
+          m_RCU.Retire(node->Children[i]);
         node->Children[i] = nullptr;
       }
 
       m_Dirty = true;
+
       return node;
     }
 
@@ -254,7 +358,7 @@ public:
    * @return        Pointer to the node at the target position, or nullptr if
    * not found or filtered out.
    */
-  Node* Get(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size, uint32_t nodeId = 0) {
+  Node* Get(Node* node, uint8_t x, uint8_t y, uint8_t z, uint32_t nodeId, uint8_t size) {
     if (!node)
       return nullptr;
 
@@ -273,7 +377,7 @@ public:
 
     int mod = half - 1;
 
-    return Get(node->Children[index], x & mod, y & mod, z & mod, half, nodeId);
+    return Get(node->Children[index], x & mod, y & mod, z & mod, nodeId, half);
   };
 
   /**
@@ -298,15 +402,8 @@ public:
       return node;
 
     if (node->Data) {
-      if (size != SIZE) {
-        m_RCU.Retire(node);
-        node = nullptr;
-      } else {
-        node->Data = nullptr;
-        for (auto* child : node->Children)
-          m_RCU.Retire(child);
-      }
-
+      m_RCU.Retire(node);
+      node    = nullptr;
       m_Dirty = true;
       return node;
     }
@@ -633,7 +730,7 @@ public:
    *            int index = x + size * (z + (size * y));
    *
    *            if(blockIsGrass)                            // Your condition
-   *              mask[index >> 6] |= 1UL << (index & 63);  // Turn on bit
+   *              mask[index >> 6] |= 1UL << (index & (SIZE - 1));  // Turn on bit
    *        }
    *
    *   tree.set(mask, grassVoxel);
@@ -669,6 +766,12 @@ public:
   Node* Set(uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t leafSize = 1) {
     Node* root = m_Root.load(std::memory_order::acquire);
     Node* next = Set(root, x, y, z, data, leafSize, SIZE);
+
+    for (uint32_t dz = 0; dz < leafSize; dz++)
+      for (uint32_t dy = 0; dy < leafSize; dy++)
+        for (uint32_t dx = 0; dx < leafSize; dx++)
+          m_Mask.Set(x + dx, y + dy, z + dz);
+
     m_Root.store(next, std::memory_order::release);
     return next;
   };
@@ -693,25 +796,64 @@ public:
    */
   Node* Get(uint8_t x, uint8_t y, uint8_t z, uint32_t nodeId = 0) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    Node* node = Get(root, x, y, z, SIZE, nodeId);
-    return node;
+    return Get(root, x, y, z, nodeId, SIZE);
   };
+
+  /**
+   * Retrieves the node at the given 3D world position.
+   *
+   * @param x, y, z   The world-space position to query.
+   * @param nodeId    Optional filter; if provided, only matching voxels are returned.
+   * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
+   */
+  Node* Get(Node* root, uint8_t x, uint8_t y, uint8_t z, uint32_t nodeId = 0) {
+    return Get(root, x, y, z, nodeId, SIZE);
+  };
+
+  /**
+   * Check if a voxel exists at location
+   */
+  bool Exists(uint8_t x, uint8_t y, uint8_t z) {
+    return m_Mask.Exists(x, y, z);
+  }
+
+  /**
+   * Check if a voxel is hidden (behind other voxels)
+   */
+  bool Hidden(uint8_t x, uint8_t y, uint8_t z) {
+    return m_Mask.Hidden(x, y, z);
+  }
 
   Node* GetRoot(std::memory_order memoryOrder) {
     return m_Root.load(memoryOrder);
   }
 
+  /**
+   * I only care about voxels that face the air, voxels that are under ground, or in walls,
+   * it doesn't matter what material they are
+   * what I need is
+   * 000122221000
+   * 0 - false
+   * 1 - check
+   * 2 - true
+   *
+   * This way I can skip many gets
+   * hence I will store a uint128_t mask[4096]
+   */
   uint64_t (&GetAxisX(Node* root, uint32_t nodeId))[4096] {
     static thread_local uint64_t masks[4096];
     std::memset(masks, 0, sizeof(masks));
 
-    for (uint8_t x = 0; x < SIZE; x++)
+    for (uint8_t z = 0; z < SIZE; z++)
       for (uint8_t y = 0; y < SIZE; y++)
-        for (uint8_t z = 0; z < SIZE; z++)
-          if (Get(root, x, y, z, SIZE, nodeId)) {
+        for (uint8_t x = 0; x < SIZE; x++) {
+          if (!m_Mask.Exists(x, y, z))
+            continue;
+          if (m_Mask.Hidden(x, y, z) || Get(root, x, y, z, nodeId, SIZE)) {
             const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
             masks[rowIndex >> 6] |= (1ULL << (rowIndex & (SIZE - 1)));
           }
+        }
 
     return masks;
   }
@@ -720,13 +862,16 @@ public:
     static thread_local uint64_t masks[4096];
     std::memset(masks, 0, sizeof(masks));
 
-    for (uint8_t x = 0; x < SIZE; x++)
-      for (uint8_t y = 0; y < SIZE; y++)
-        for (uint8_t z = 0; z < SIZE; z++)
-          if (Get(root, x, y, z, SIZE, nodeId)) {
+    for (uint8_t z = 0; z < SIZE; z++)
+      for (uint8_t x = 0; x < SIZE; x++)
+        for (uint8_t y = 0; y < SIZE; y++) {
+          if (!m_Mask.Exists(x, y, z))
+            continue;
+          if (m_Mask.Hidden(x, y, z) || Get(root, x, y, z, nodeId, SIZE)) {
             const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
             masks[columnIndex >> 6] |= (1ULL << (columnIndex & (SIZE - 1)));
           }
+        }
 
     return masks;
   }
@@ -737,11 +882,14 @@ public:
 
     for (uint8_t x = 0; x < SIZE; x++)
       for (uint8_t y = 0; y < SIZE; y++)
-        for (uint8_t z = 0; z < SIZE; z++)
-          if (Get(root, x, y, z, SIZE, nodeId)) {
+        for (uint8_t z = 0; z < SIZE; z++) {
+          if (!m_Mask.Exists(x, y, z))
+            continue;
+          if (m_Mask.Hidden(x, y, z) || Get(root, x, y, z, nodeId, SIZE)) {
             const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
             masks[layerIndex >> 6] |= (1ULL << (layerIndex & (SIZE - 1)));
           }
+        }
 
     return masks;
   }
@@ -773,6 +921,7 @@ public:
   void Clear(uint8_t x, uint8_t y, uint8_t z, uint8_t leafSize = 1) {
     Node* root = m_Root.load(std::memory_order::acquire);
     Node* next = Clear(root, x, y, z, leafSize, SIZE);
+    m_Mask.Clear(x, y, z);
     m_Root.store(next, std::memory_order::release);
   };
 

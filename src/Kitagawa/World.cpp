@@ -122,7 +122,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     });
 
     m_ChunkManager->GreedyMesh(m_Palette.GetMaterials(), m_Vertices);
-    
+
     m_ChunkManager->ReadUnlock(generation);
   }
 

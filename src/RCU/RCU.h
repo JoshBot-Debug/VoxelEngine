@@ -97,8 +97,6 @@ inline void RCU<T>::Sync() {
     std::this_thread::yield();
 
   for (Retired& r : m_Retired[previous]) {
-    if (!r.Ptr)
-      continue;
     if (r.Destroy)
       r.Ptr->Destroy();
     delete r.Ptr;

@@ -2,8 +2,8 @@
 
 #include <execution>
 
-#include "Voxel/GreedyMesh64.h"
 #include "Utility/Debug.h"
+#include "Voxel/GreedyMesh64.h"
 
 ChunkManager::ChunkManager(uint32_t chunkSize) {
   m_SVO = new SparseOctree<Voxel>();
@@ -81,18 +81,18 @@ void ChunkManager::GreedyMesh(std::vector<Material> materials, std::vector<Verte
     auto& columns = svo->GetAxisY(root, material.Id);
     auto& layers  = svo->GetAxisZ(root, material.Id);
 
-    GreedyMesh64::GeneratePadding(padding, rows, columns, layers, [root, svo](int x, int y, int z) -> bool {
+    GreedyMesh64::GeneratePadding(padding, rows, columns, layers, [svo](int x, int y, int z) -> bool {
       if (x >= SparseOctree<Voxel>::SIZE || x < 0)
         return true;
       if (y >= SparseOctree<Voxel>::SIZE || y < 0)
         return true;
       if (z >= SparseOctree<Voxel>::SIZE || z < 0)
         return true;
-      return svo->Get(root, x, y, z, SparseOctree<Voxel>::SIZE);
+      return svo->Exists(x, y, z);
     });
 
     GreedyMesh64::Generate(buffer, {0, 0, 0}, material.Id, rows, columns, layers, padding);
-    
+
     results[material.Id - 1] = std::move(buffer);
   });
 
