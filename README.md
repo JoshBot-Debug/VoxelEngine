@@ -31,7 +31,6 @@ Run the project
 ./build/Kitagawa
 ```
 
-
 Benchmark / Performance
 
 ```bash
@@ -66,6 +65,7 @@ sudo perf report
 - [x] Added basic reflections via raymarching
 - [x] Make the SVO thread safe. COW works a bit, main problem cleanup, take a page from ECS bitset usage
   - [x] Fixed by implementing RCU. https://www.youtube.com/watch?v=rxQ5K9lo034
-- [ ] Improve greedy meshing
+- [x] Improve greedy meshing
   - [x] Add .GetAxis() - It should return a mask (uint64_t mask[4096]) of x axis for a material
   - [x] Remove the mask generated in GreedyMesh64, it's per voxel and too slow.
+- [ ] Threads clone & start are very slow. Need to implement a thread pool.
