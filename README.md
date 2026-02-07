@@ -67,5 +67,5 @@ sudo perf report
 - [x] Make the SVO thread safe. COW works a bit, main problem cleanup, take a page from ECS bitset usage
   - [x] Fixed by implementing RCU. https://www.youtube.com/watch?v=rxQ5K9lo034
 - [ ] Improve greedy meshing
-  - [ ] Add .GetAxis() - It should return a mask (uint64_t mask[4096]) of x axis for a material
-  - [ ] Remove the mask generated in GreedyMesh64, it's per voxel and too slow.
+  - [x] Add .GetAxis() - It should return a mask (uint64_t mask[4096]) of x axis for a material
+  - [x] Remove the mask generated in GreedyMesh64, it's per voxel and too slow.
