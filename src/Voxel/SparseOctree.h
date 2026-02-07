@@ -192,7 +192,8 @@ private:
     }
 
     inline void Clear(uint8_t x, uint8_t y, uint8_t z) {
-      uint32_t i = x + (SIZE * (y + (SIZE * x)));
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+
       m_Present[i >> 6] &= ~(1ULL << (i & 63));
       m_Hidden[i >> 6] &= ~(1ULL << (i & 63));
 
