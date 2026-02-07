@@ -12,6 +12,8 @@ private:
   std::array<SparseOctree<Voxel>*, SIZE* SIZE* SIZE> m_Chunks = {};
   SparseOctree<Voxel>*                               m_SVO    = nullptr;
 
+  std::vector<std::vector<Vertex>> m_VertexThreads = {};
+
 public:
   ChunkManager(uint32_t chunkSize);
   ~ChunkManager();
@@ -29,7 +31,7 @@ public:
   bool IsDirty();
 
   void Clean();
-  
+
   void Sync();
 
   uint64_t ReadLock();
@@ -38,7 +40,7 @@ public:
 
   void Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out);
 
-  void GreedyMesh(std::vector<Material> materials, std::vector<Vertex>& out);
+  void GreedyMesh(const std::vector<Material> &materials, std::vector<Vertex>& out);
 
   template <typename F>
     requires FilterCallback<SparseOctree<Voxel>::Node, F>

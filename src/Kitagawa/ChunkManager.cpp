@@ -2,6 +2,7 @@
 
 #include <execution>
 
+#include "ThreadPool.h"
 #include "Utility/Debug.h"
 #include "Voxel/GreedyMesh64.h"
 
@@ -62,12 +63,14 @@ void ChunkManager::Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out) {
   m_SVO->Flatten(out);
 }
 
-void ChunkManager::GreedyMesh(std::vector<Material> materials, std::vector<Vertex>& out) {
-  std::vector<std::vector<Vertex>> results(materials.size());
+void ChunkManager::GreedyMesh(const std::vector<Material>& materials, std::vector<Vertex>& out) {
+  m_VertexThreads.resize(materials.size());
 
   SparseOctree<Voxel>::Node* root = m_SVO->GetRoot(std::memory_order::acquire);
 
-  std::for_each(std::execution::par_unseq, materials.begin(), materials.end(), [&materials, &results, root, svo = m_SVO](Material& material) {
+  auto generateVerticies = [&results = m_VertexThreads, root, svo = m_SVO](Material material) {
+    uint64_t generation = svo->ReadLock();
+
     std::vector<Vertex> buffer;
 
     static thread_local uint8_t padding[64 * 64] = {};
@@ -90,19 +93,29 @@ void ChunkManager::GreedyMesh(std::vector<Material> materials, std::vector<Verte
     GreedyMesh64::Generate(buffer, {0, 0, 0}, material.Id, rows, columns, layers, padding);
 
     results[material.Id - 1] = std::move(buffer);
-  });
 
-  size_t total = 0;
-  for (const auto& v : results)
-    total += v.size();
+    svo->ReadUnlock(generation);
+  };
 
-  out.clear();
-  out.reserve(total);
+  auto onComplete = [&results = m_VertexThreads, &out = out, svo = m_SVO]() {
+    size_t total = 0;
+    for (const auto& v : results)
+      total += v.size();
 
-  for (auto& v : results)
-    out.insert(out.end(), v.begin(), v.end());
+    out.clear();
+    out.reserve(total);
 
-  results.clear();
+    for (auto& v : results)
+      out.insert(out.end(), v.begin(), v.end());
+
+    for (auto& v : results)
+      v.clear();
+
+    svo->Sync();
+    svo->Flush();
+  };
+
+  Akari::ThreadPool::ForEach(std::move(materials), generateVerticies, onComplete);
 }
 
 SparseOctree<Voxel>::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {

@@ -1,6 +1,6 @@
+#include <bitset>
 #include <chrono>
 #include <iostream>
-#include <bitset>
 
 #include "Application.h"
 #include "EntryPoint.h"

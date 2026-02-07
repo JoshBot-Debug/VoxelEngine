@@ -117,17 +117,17 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
       return material && material->Emissive.a > 0.0f;
     });
 
-    m_ChunkManager->GreedyMesh(m_Palette.GetMaterials(), m_Vertices);
-
     m_ChunkManager->ReadUnlock(generation);
+
+    m_ChunkManager->GreedyMesh(m_Palette.GetMaterials(), m_Vertices);
   }
 
   m_ChunkManager->Update(rayOrigin, rayDirection);
 
-  if (m_ChunkManager->IsDirty()) {
-    m_ChunkManager->Sync();
-    m_ChunkManager->Flush();
-  }
+  // if (m_ChunkManager->IsDirty()) {
+  //   m_ChunkManager->Sync();
+  //   m_ChunkManager->Flush();
+  // }
 }
 
 bool World::IsDirty() {
