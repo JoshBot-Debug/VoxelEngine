@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "RCU/RCU.h"
+#include "Utility/Debug.h"
 
 template <typename T>
 concept Data = requires(T t) {
@@ -232,80 +233,22 @@ private:
 
 private:
   /**
-   * Internal recursive setter that applies a voxel to all positions marked in
-   * the bitmask. Called by the public `set(mask, voxel)` method.
-   *
-   * @param mask   A bitmask indicating which voxels to set.
-   * @param x,y,z  The origin (offset) position in voxel-space for this mask block.
-   * @tparam T     The datatype to set at the marked positions.
-   * @param size   The current size of the region being processed.
-   */
-  void Set(uint64_t (&mask)[], uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
-    bool isFullBlock = true;
-
-    for (int dz = 0; dz < size && isFullBlock; ++dz)
-      for (int dx = 0; dx < size && isFullBlock; ++dx)
-        for (int dy = 0; dy < size && isFullBlock; ++dy) {
-          int ix = x + dx;
-          int iy = y + dy;
-          int iz = z + dz;
-
-          int index = ix + SIZE * (iz + SIZE * iy);
-          if (!(mask[index >> 6] & (1ULL << (index & (SIZE - 1))))) {
-            isFullBlock = false;
-            break;
-          }
-        }
-
-    if (isFullBlock) {
-      Set(x, y, z, data, size);
-      return;
-    }
-
-    if (size == 1) {
-      int index = x + SIZE * (z + SIZE * y);
-      if (mask[index >> 6] & (1ULL << (index & (SIZE - 1))))
-        Set(x, y, z, data, 1);
-      return;
-    }
-
-    int half = size >> 1;
-
-    for (int dz = 0; dz < size; dz += half)
-      for (int dx = 0; dx < size; dx += half)
-        for (int dy = 0; dy < size; dy += half)
-          Set(mask, x + dx, y + dy, z + dz, data, half);
-  };
-
-  /**
    * Internal recursive setter that traverses and builds the tree as needed.
    * Called by the public `set(x, y, z, voxel)` and `set(vec3, voxel)` methods.
    *
    * @param node      Current node in the octree.
    * @param x,y,z     Local voxel-space coordinates at this level.
    * @tparam T        The datatype to set at the marked positions.
-   * @param leafSize  The target size of a leaf node (typically 1).
    * @param size      The size of the region represented by this node.
    */
-  Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t leafSize, uint8_t size) {
+  Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
     m_RCU.Retire(node, false);
 
     node = new Node(*node);
 
-    if (size == leafSize) {
+    if (size == 1) {
       node->Data = data;
-
-      /**
-       * Set the voxel and if there are any children, they need to be cleared out
-       */
-      for (int i = 0; i < 8; i++) {
-        if (node->Children[i])
-          m_RCU.Retire(node->Children[i]);
-        node->Children[i] = nullptr;
-      }
-
-      m_Dirty = true;
-
+      m_Dirty    = true;
       return node;
     }
 
@@ -315,14 +258,22 @@ private:
 
     int mod = half - 1;
 
+    /**
+     * If the node on this path down does not exist,
+     * create a new empty one to keep traversing to size 1
+     */
     if (!node->Children[index])
       node->Children[index] = new Node(static_cast<uint8_t>(std::log2(half)));
 
-    node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, leafSize, half);
+    node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
 
     if (node->Data)
       node->Data = nullptr;
 
+    /**
+     * Early exit
+     * If there are no children, no merging will be required
+     */
     if (!node->Children[0] || !node->Children[0]->Data)
       return node;
 
@@ -332,10 +283,18 @@ private:
      */
     T* first = node->Children[0]->Data;
 
+    /**
+     * If any child is different or does not exist,
+     * no merging required, return
+     */
     for (int i = 0; i < 8; i++)
       if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != first)
         return node;
 
+    /**
+     * Merge all children
+     * Retire all children, this node will represent all below
+     */
     for (int i = 0; i < 8; i++) {
       m_RCU.Retire(node->Children[i]);
       node->Children[i] = nullptr;
@@ -391,22 +350,21 @@ private:
    * @param node      Reference to the current node pointer in the octree. May
    *                  be deleted and set to nullptr if cleared.
    * @param x, y, z   Local voxel-space coordinates at this level.
-   * @param leafSize  Minimum size representing a leaf node; used to terminate recursion.
    * @param size      The size of the region represented by this node.
    */
-  Node* Clear(Node*& node, uint8_t x, uint8_t y, uint8_t z, uint8_t leafSize, uint8_t size) {
+  Node* Clear(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size) {
     if (!node)
-      return node;
+      return nullptr;
 
-    if (size < leafSize)
-      return node;
-
-    if (node->Data) {
+    if (size == 1) {
       m_RCU.Retire(node);
-      node    = nullptr;
       m_Dirty = true;
-      return node;
+      return nullptr;
     }
+
+    m_RCU.Retire(node, false);
+
+    node = new Node(*node);
 
     int half = size >> 1;
 
@@ -414,17 +372,19 @@ private:
 
     int mod = half - 1;
 
-    node->Children[index] = Clear(node->Children[index], x & mod, y & mod, z & mod, leafSize, half);
+    /**
+     * If this node has data, it's children were merged
+     * Create all children with the same data & clear the parent
+     */
+    if (node->Data) {
+      for (int i = 0; i < 8; i++) {
+        node->Children[i]       = new Node(static_cast<uint8_t>(std::log2(half)));
+        node->Children[i]->Data = node->Data;
+      }
+      node->Data = nullptr;
+    }
 
-    if (size == SIZE)
-      return node;
-
-    for (int i = 0; i < 8; i++)
-      if (node->Children[i])
-        return node;
-
-    m_RCU.Retire(node);
-    node = nullptr;
+    node->Children[index] = Clear(node->Children[index], x & mod, y & mod, z & mod, half);
 
     return node;
   };
@@ -706,54 +666,13 @@ public:
   uint32_t GetSize() { return SIZE; };
 
   /**
-   * Efficiently sets multiple voxels in the SVO using a 3D bitmask.
-   *
-   * This method is optimized for bulk voxel insertion and is significantly
-   * faster than calling `set()` for every individual voxel. Instead of
-   * iterating over x, y, z coordinates and inserting one voxel at a time, this
-   * function uses a bitmask to mark the positions of voxels to be set and
-   * inserts them efficiently with minimal tree traversal.
-   *
-   * The user is responsible for creating and populating the bitmask before
-   * calling this method. The bitmask should be in a flattened 3D format
-   * (x + size * (z + size * y)), with one bit representing each voxel.
-   *
-   * Example usage:
-   *
-   *   const int ChunkSize = 256;
-   *   uint64_t mask[(ChunkSize * ChunkSize) * (ChunkSize >> 6)] = {0};
-   *
-   *   for (uint8_t z = 0; z < ChunkSize; z++)
-   *     for (uint8_t x = 0; x < ChunkSize; x++)
-   *        for (uint8_t y= 0; y < ChunkSize; y++)
-   *        {
-   *            int index = x + size * (z + (size * y));
-   *
-   *            if(blockIsGrass)                            // Your condition
-   *              mask[index >> 6] |= 1UL << (index & (SIZE - 1));  // Turn on bit
-   *        }
-   *
-   *   tree.set(mask, grassVoxel);
-   *
-   * @param mask   A bitmask indicating which voxels to set (1 = set, 0 = skip).
-   * @param data   Pointer to the datatype to set at the marked positions.
-   */
-  void Set(uint64_t (&mask)[], T* data) {
-    for (uint8_t z = 0; z < SIZE; z += 64)
-      for (uint8_t x = 0; x < SIZE; x += 64)
-        for (uint8_t y = 0; y < SIZE; y += 64)
-          Set(mask, x, y, z, data, 64);
-  };
-
-  /**
    * Sets a voxel at the given 3D world position.
    *
    * @param position  The world-space position to place the voxel at.
    * @param data      The data to insert.
-   * @param leafSize  The smallest voxel size (default is 1 unit).
    */
-  Node* Set(const glm::vec3& position, T* data, uint8_t leafSize = 1) {
-    return Set(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), data, leafSize);
+  Node* Set(const glm::vec3& position, T* data) {
+    return Set(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), data);
   };
 
   /**
@@ -761,17 +680,11 @@ public:
    *
    * @param x, y, z   The world-space position to place the voxel at.
    * @param data      The data to insert.
-   * @param leafSize  The smallest voxel size (default is 1 unit).
    */
-  Node* Set(uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t leafSize = 1) {
+  Node* Set(uint8_t x, uint8_t y, uint8_t z, T* data) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    Node* next = Set(root, x, y, z, data, leafSize, SIZE);
-
-    for (uint32_t dz = 0; dz < leafSize; dz++)
-      for (uint32_t dy = 0; dy < leafSize; dy++)
-        for (uint32_t dx = 0; dx < leafSize; dx++)
-          m_Mask.Set(x + dx, y + dy, z + dz);
-
+    Node* next = Set(root, x, y, z, data, SIZE);
+    m_Mask.Set(x, y, z);
     m_Root.store(next, std::memory_order::release);
     return next;
   };
@@ -824,8 +737,8 @@ public:
     return m_Mask.Hidden(x, y, z);
   }
 
-  Node* GetRoot(std::memory_order memoryOrder) {
-    return m_Root.load(memoryOrder);
+  Node* GetRoot(std::memory_order order) {
+    return m_Root.load(order);
   }
 
   /**
@@ -845,15 +758,24 @@ public:
     std::memset(masks, 0, sizeof(masks));
 
     for (uint8_t z = 0; z < SIZE; z++)
-      for (uint8_t y = 0; y < SIZE; y++)
+      for (uint8_t y = 0; y < SIZE; y++) {
+
+        // bool match = false;
+
         for (uint8_t x = 0; x < SIZE; x++) {
-          if (!m_Mask.Exists(x, y, z))
-            continue;
-          if (m_Mask.Hidden(x, y, z) || Get(root, x, y, z, nodeId, SIZE)) {
+
+          // if (!m_Mask.Exists(x, y, z))
+          //   continue;
+
+          // if (!m_Mask.Hidden(x, y, z))
+          //   match = !!Get(root, x, y, z, nodeId, SIZE);
+
+          if (Get(root, x, y, z, nodeId, SIZE)) {
             const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
             masks[rowIndex >> 6] |= (1ULL << (rowIndex & (SIZE - 1)));
           }
         }
+      }
 
     return masks;
   }
@@ -863,15 +785,23 @@ public:
     std::memset(masks, 0, sizeof(masks));
 
     for (uint8_t z = 0; z < SIZE; z++)
-      for (uint8_t x = 0; x < SIZE; x++)
+      for (uint8_t x = 0; x < SIZE; x++) {
+        // bool match = false;
+
         for (uint8_t y = 0; y < SIZE; y++) {
-          if (!m_Mask.Exists(x, y, z))
-            continue;
-          if (m_Mask.Hidden(x, y, z) || Get(root, x, y, z, nodeId, SIZE)) {
+
+          // if (!m_Mask.Exists(x, y, z))
+          //   continue;
+
+          // if (!m_Mask.Hidden(x, y, z))
+          //   match = !!Get(root, x, y, z, nodeId, SIZE);
+
+          if (Get(root, x, y, z, nodeId, SIZE)) {
             const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
             masks[columnIndex >> 6] |= (1ULL << (columnIndex & (SIZE - 1)));
           }
         }
+      }
 
     return masks;
   }
@@ -881,15 +811,23 @@ public:
     std::memset(masks, 0, sizeof(masks));
 
     for (uint8_t x = 0; x < SIZE; x++)
-      for (uint8_t y = 0; y < SIZE; y++)
+      for (uint8_t y = 0; y < SIZE; y++) {
+        // bool match = false;
+
         for (uint8_t z = 0; z < SIZE; z++) {
-          if (!m_Mask.Exists(x, y, z))
-            continue;
-          if (m_Mask.Hidden(x, y, z) || Get(root, x, y, z, nodeId, SIZE)) {
+
+          // if (!m_Mask.Exists(x, y, z))
+          //   continue;
+
+          // if (!m_Mask.Hidden(x, y, z))
+          //   match = !!Get(root, x, y, z, nodeId, SIZE);
+
+          if (Get(root, x, y, z, nodeId, SIZE)) {
             const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
             masks[layerIndex >> 6] |= (1ULL << (layerIndex & (SIZE - 1)));
           }
         }
+      }
 
     return masks;
   }
@@ -902,10 +840,9 @@ public:
    * exists and optionally matches the given target type.
    *
    * @param position  Voxel-space coordinates to clear (x, y, z).
-   * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    */
-  void Clear(const glm::ivec3& position, uint8_t leafSize = 1) {
-    Clear(position.x, position.y, position.z, leafSize);
+  void Clear(const glm::ivec3& position) {
+    Clear(position.x, position.y, position.z);
   };
 
   /**
@@ -916,11 +853,10 @@ public:
    * internal recursive `Clear` function.
    *
    * @param x, y, z   Voxel-space coordinates to clear.
-   * @param leafSize  Minimum size representing a leaf node; defaults to 1.
    */
-  void Clear(uint8_t x, uint8_t y, uint8_t z, uint8_t leafSize = 1) {
+  void Clear(uint8_t x, uint8_t y, uint8_t z) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    Node* next = Clear(root, x, y, z, leafSize, SIZE);
+    Node* next = Clear(root, x, y, z, SIZE);
     m_Mask.Clear(x, y, z);
     m_Root.store(next, std::memory_order::release);
   };

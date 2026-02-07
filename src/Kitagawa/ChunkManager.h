@@ -16,13 +16,11 @@ public:
   ChunkManager(uint32_t chunkSize);
   ~ChunkManager();
 
-  void Set(uint64_t (&mask)[], Voxel* data);
+  void Set(int x, int y, int z, Voxel* data);
 
-  void Set(int x, int y, int z, Voxel* data, int leafSize = 1);
+  void Set(const glm::vec3& position, Voxel* data);
 
-  void Set(const glm::vec3& position, Voxel* data, int leafSize = 1);
-
-  void Clear(const glm::ivec3& position, int leafSize);
+  void Clear(const glm::ivec3& positions);
 
   void Update(const glm::vec3& origin, const glm::vec3& direction);
 

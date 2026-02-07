@@ -19,20 +19,16 @@ ChunkManager::~ChunkManager() {
   delete m_SVO;
 }
 
-void ChunkManager::Set(uint64_t (&mask)[], Voxel* data) {
-  m_SVO->Set(mask, data);
+void ChunkManager::Set(int x, int y, int z, Voxel* data) {
+  m_SVO->Set(x, y, z, data);
 }
 
-void ChunkManager::Set(int x, int y, int z, Voxel* data, int leafSize) {
-  m_SVO->Set(x, y, z, data, leafSize);
+void ChunkManager::Set(const glm::vec3& position, Voxel* data) {
+  m_SVO->Set(position, data);
 }
 
-void ChunkManager::Set(const glm::vec3& position, Voxel* data, int leafSize) {
-  m_SVO->Set(position, data, leafSize);
-}
-
-void ChunkManager::Clear(const glm::ivec3& position, int leafSize) {
-  m_SVO->Clear(position, leafSize);
+void ChunkManager::Clear(const glm::ivec3& position) {
+  m_SVO->Clear(position);
 }
 
 void ChunkManager::Update(const glm::vec3& origin, const glm::vec3& direction) {
