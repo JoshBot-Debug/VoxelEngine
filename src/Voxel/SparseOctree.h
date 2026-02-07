@@ -129,17 +129,17 @@ private:
       return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
     }
 
-    inline bool Hidden(uint8_t x, uint8_t y, uint8_t z) {
-      uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      return (m_Hidden[i >> 6] >> (i & 63)) & 1ULL;
-    }
-
-    inline bool Present(int x, int y, int z) {
+    inline bool Exists(int x, int y, int z) {
       if (x < 0 || y < 0 || z < 0 || x >= SIZE || y >= SIZE || z >= SIZE)
         return false;
 
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
       return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
+    }
+
+    inline bool Hidden(uint8_t x, uint8_t y, uint8_t z) {
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+      return (m_Hidden[i >> 6] >> (i & 63)) & 1ULL;
     }
 
     inline void ComputeHidden(uint8_t x, uint8_t y, uint8_t z) {
@@ -157,7 +157,7 @@ private:
       static constexpr int dz[6] = {0, 0, 0, 0, -1, 1};
 
       for (int n = 0; n < 6; n++)
-        if (!Present(x + dx[n], y + dy[n], z + dz[n])) {
+        if (!Exists(x + dx[n], y + dy[n], z + dz[n])) {
           m_Hidden[word] &= ~mask;
           return;
         }
@@ -263,7 +263,7 @@ private:
      * create a new empty one to keep traversing to size 1
      */
     if (!node->Children[index])
-      node->Children[index] = new Node(static_cast<uint8_t>(std::log2(half)));
+      node->Children[index] = new Node(node->Depth - 1);
 
     node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
 
@@ -378,13 +378,59 @@ private:
      */
     if (node->Data) {
       for (int i = 0; i < 8; i++) {
-        node->Children[i]       = new Node(static_cast<uint8_t>(std::log2(half)));
+        node->Children[i]       = new Node(node->Depth - 1);
         node->Children[i]->Data = node->Data;
       }
       node->Data = nullptr;
     }
 
     node->Children[index] = Clear(node->Children[index], x & mod, y & mod, z & mod, half);
+
+    /**
+     * If all children do not exist, this node must be retired
+     */
+    bool children = false;
+
+    for (int i = 0; i < 8; i++)
+      if (children = node->Children[i])
+        break;
+
+    if (!children) {
+      m_RCU.Retire(node);
+      return nullptr;
+    }
+
+    /**
+     * Early exit
+     * If all children are not set, no merging will be required
+     */
+    if (!node->Children[0] || !node->Children[0]->Data)
+      return node;
+
+    /**
+     * If all 8 children exist and are of the same voxel type.
+     * Delete all 8 children and set the parent voxel as their type.
+     */
+    T* first = node->Children[0]->Data;
+
+    /**
+     * If any child is different or does not exist,
+     * no merging required, return
+     */
+    for (int i = 0; i < 8; i++)
+      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != first)
+        return node;
+
+    /**
+     * Merge all children
+     * Retire all children, this node will represent all below
+     */
+    for (int i = 0; i < 8; i++) {
+      m_RCU.Retire(node->Children[i]);
+      node->Children[i] = nullptr;
+    }
+
+    node->Data = first;
 
     return node;
   };
@@ -759,18 +805,17 @@ public:
 
     for (uint8_t z = 0; z < SIZE; z++)
       for (uint8_t y = 0; y < SIZE; y++) {
-
-        // bool match = false;
+        bool match = false;
 
         for (uint8_t x = 0; x < SIZE; x++) {
 
-          // if (!m_Mask.Exists(x, y, z))
-          //   continue;
+          if (!m_Mask.Exists(x, y, z))
+            continue;
 
-          // if (!m_Mask.Hidden(x, y, z))
-          //   match = !!Get(root, x, y, z, nodeId, SIZE);
+          if (!m_Mask.Hidden(x, y, z))
+            match = !!Get(root, x, y, z, nodeId, SIZE);
 
-          if (Get(root, x, y, z, nodeId, SIZE)) {
+          if (match) {
             const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
             masks[rowIndex >> 6] |= (1ULL << (rowIndex & (SIZE - 1)));
           }
@@ -786,17 +831,17 @@ public:
 
     for (uint8_t z = 0; z < SIZE; z++)
       for (uint8_t x = 0; x < SIZE; x++) {
-        // bool match = false;
+        bool match = false;
 
         for (uint8_t y = 0; y < SIZE; y++) {
 
-          // if (!m_Mask.Exists(x, y, z))
-          //   continue;
+          if (!m_Mask.Exists(x, y, z))
+            continue;
 
-          // if (!m_Mask.Hidden(x, y, z))
-          //   match = !!Get(root, x, y, z, nodeId, SIZE);
+          if (!m_Mask.Hidden(x, y, z))
+            match = !!Get(root, x, y, z, nodeId, SIZE);
 
-          if (Get(root, x, y, z, nodeId, SIZE)) {
+          if (match) {
             const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
             masks[columnIndex >> 6] |= (1ULL << (columnIndex & (SIZE - 1)));
           }
@@ -812,17 +857,17 @@ public:
 
     for (uint8_t x = 0; x < SIZE; x++)
       for (uint8_t y = 0; y < SIZE; y++) {
-        // bool match = false;
+        bool match = false;
 
         for (uint8_t z = 0; z < SIZE; z++) {
 
-          // if (!m_Mask.Exists(x, y, z))
-          //   continue;
+          if (!m_Mask.Exists(x, y, z))
+            continue;
 
-          // if (!m_Mask.Hidden(x, y, z))
-          //   match = !!Get(root, x, y, z, nodeId, SIZE);
+          if (!m_Mask.Hidden(x, y, z))
+            match = !!Get(root, x, y, z, nodeId, SIZE);
 
-          if (Get(root, x, y, z, nodeId, SIZE)) {
+          if (match) {
             const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
             masks[layerIndex >> 6] |= (1ULL << (layerIndex & (SIZE - 1)));
           }

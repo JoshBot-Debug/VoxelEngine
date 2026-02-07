@@ -77,7 +77,7 @@ World::World(uint32_t chunkSize)
   auto lightMaterial = m_Palette.Find("Light");
   auto light         = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
 
-  int center    = m_ChunkSize / 2;
+  int center = m_ChunkSize / 2;
   m_ChunkManager->Set(center, m_ChunkSize - 4, center, light.get());
 
   GenerateCornellBox();
@@ -105,9 +105,6 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
       m_ChunkManager->Set(hit.Position + hit.Normal, hit.Data);
-
-    if (m_ChunkManager->IsDirty())
-      m_ChunkManager->Flush();
   }
 
   if (m_ChunkManager->IsDirty()) {
@@ -126,6 +123,11 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   m_ChunkManager->Update(rayOrigin, rayDirection);
+
+  if (m_ChunkManager->IsDirty()) {
+    m_ChunkManager->Sync();
+    m_ChunkManager->Flush();
+  }
 }
 
 bool World::IsDirty() {
