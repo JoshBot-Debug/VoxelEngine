@@ -200,7 +200,7 @@ const void World::GenerateCornellBox() {
         // Back wall
         svo->Set(a, b, 0, wall.get());
         // Front wall
-        svo->Set(a, b, chunkSize - 1, wall.get());
+        // svo->Set(a, b, chunkSize - 1, wall.get());
       }
     }
     const glm::ivec2 blockDistanceFromWall = {chunkSize / 4, chunkSize / 6};

@@ -111,7 +111,8 @@ public:
   };
 
 private:
-  struct Mask {
+  class Mask {
+  private:
     /**
      * 0 - Air
      * 1 - Voxel
@@ -124,22 +125,12 @@ private:
      */
     uint64_t m_Hidden[SIZE * SIZE];
 
-    inline bool Exists(uint8_t x, uint8_t y, uint8_t z) {
-      uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
-    }
-
     inline bool Exists(int x, int y, int z) {
       if (x < 0 || y < 0 || z < 0 || x >= SIZE || y >= SIZE || z >= SIZE)
         return false;
 
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
       return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
-    }
-
-    inline bool Hidden(uint8_t x, uint8_t y, uint8_t z) {
-      uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      return (m_Hidden[i >> 6] >> (i & 63)) & 1ULL;
     }
 
     inline void ComputeHidden(uint8_t x, uint8_t y, uint8_t z) {
@@ -163,6 +154,19 @@ private:
         }
 
       m_Hidden[word] |= mask;
+    }
+
+  public:
+    Mask() = default;
+
+    inline bool Exists(uint8_t x, uint8_t y, uint8_t z) {
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+      return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
+    }
+
+    inline bool Hidden(uint8_t x, uint8_t y, uint8_t z) {
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+      return (m_Hidden[i >> 6] >> (i & 63)) & 1ULL;
     }
 
     inline void Set(uint8_t x, uint8_t y, uint8_t z) {
