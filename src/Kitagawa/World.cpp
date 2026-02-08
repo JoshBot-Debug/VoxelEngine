@@ -91,12 +91,12 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
       m_ChunkManager->Clear(hit.Position);
-      Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_FLUSH_RENDER | CHUNK_MANAGER_SYNC_UPDATE);
+      Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
       m_ChunkManager->Set(hit.Position + hit.Normal, hit.Data);
-      Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_FLUSH_RENDER | CHUNK_MANAGER_SYNC_UPDATE);
+      Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
   }
 
