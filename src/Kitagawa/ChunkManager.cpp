@@ -115,7 +115,7 @@ void ChunkManager::GreedyMesh(const std::vector<Material>& materials, std::vecto
     svo->Flush();
   };
 
-  Akari::ThreadPool::ForEach(std::move(materials), generateVerticies, onComplete);
+  Akari::ThreadPool::ForEach(m_GreedyMeshingTask, std::move(materials), generateVerticies, onComplete);
 }
 
 SparseOctree<Voxel>::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {

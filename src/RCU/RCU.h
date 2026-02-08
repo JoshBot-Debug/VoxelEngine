@@ -13,8 +13,6 @@ concept Destroyable = requires(T& t) {
 template <Destroyable T>
 class RCU {
 private:
-  static const uint32_t MAX_GENERATIONS = 1024 * 8;
-
   struct alignas(64) Generation {
     std::atomic<uint64_t> Current = 0;
   };
@@ -29,11 +27,18 @@ private:
   };
 
   Generation           m_Generation;
-  Reference            m_References[MAX_GENERATIONS];
-  std::vector<Retired> m_Retired[MAX_GENERATIONS];
+  Reference            m_References[2];
+  std::vector<Retired> m_Retired[2];
 
 public:
-  ~RCU() = default;
+  ~RCU() {
+    for (auto& retired : m_Retired)
+      for (Retired& r : retired) {
+        if (r.Destroy)
+          r.Ptr->Destroy();
+        delete r.Ptr;
+      }
+  };
 
   /**
    * When a reader calls read lock, we hand them the current generation.
@@ -89,9 +94,8 @@ inline void RCU<T>::ReadUnlock(uint64_t g) {
 template <Destroyable T>
 inline void RCU<T>::Sync() {
   uint64_t previous = m_Generation.Current.load(std::memory_order::relaxed);
-  uint64_t next     = previous ^ 1;
 
-  m_Generation.Current.store(next, std::memory_order::release);
+  m_Generation.Current.store(previous ^ 1, std::memory_order::release);
 
   while (m_References[previous].Ref.load(std::memory_order::acquire) != 0)
     std::this_thread::yield();

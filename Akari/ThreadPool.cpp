@@ -1,4 +1,7 @@
 #include "ThreadPool.h"
+
+#include <iostream>
+
 namespace Akari {
 ThreadPool::ThreadPool() {
   const uint32_t SIZE = std::thread::hardware_concurrency();
@@ -10,6 +13,7 @@ ThreadPool::ThreadPool() {
 
         {
           std::unique_lock lock(m_Mutex);
+
           m_CV.wait(lock, [this] {
             return m_Stop || !m_Tasks.empty();
           });
@@ -41,5 +45,16 @@ ThreadPool::~ThreadPool() {
 ThreadPool& ThreadPool::Instance() {
   static ThreadPool instance;
   return instance;
+}
+
+ThreadPool::TaskId ThreadPool::GenerateId() {
+  ThreadPool& pool = Instance();
+
+  uint32_t id = pool.m_TasksInQueueCount.fetch_add(1, std::memory_order::relaxed);
+
+  if (id > 63)
+    throw std::runtime_error("Too many thread job ids. Maximum is 64");
+    
+  return id;
 }
 } // namespace Akari

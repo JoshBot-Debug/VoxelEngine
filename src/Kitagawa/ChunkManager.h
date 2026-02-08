@@ -2,6 +2,7 @@
 
 #include <array>
 
+#include "ThreadPool.h"
 #include "Voxel/SparseOctree.h"
 #include "Voxel/Type.h"
 #include "Voxel/Voxel.h"
@@ -13,6 +14,8 @@ private:
   SparseOctree<Voxel>*                               m_SVO    = nullptr;
 
   std::vector<std::vector<Vertex>> m_VertexThreads = {};
+
+  Akari::ThreadPool::TaskId m_GreedyMeshingTask = Akari::ThreadPool::GenerateId();
 
 public:
   ChunkManager(uint32_t chunkSize);
@@ -40,7 +43,7 @@ public:
 
   void Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out);
 
-  void GreedyMesh(const std::vector<Material> &materials, std::vector<Vertex>& out);
+  void GreedyMesh(const std::vector<Material>& materials, std::vector<Vertex>& out);
 
   template <typename F>
     requires FilterCallback<SparseOctree<Voxel>::Node, F>
