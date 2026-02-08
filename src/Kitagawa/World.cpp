@@ -65,10 +65,10 @@ World::World(uint32_t chunkSize)
   auto light         = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
   m_ChunkManager->Set(m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
-  // GenerateCornellBox();
-  Akari::ThreadPool::Dispatch([&]() {
-    GenerateHeightMapChunk({0, 0, 0}, 1.0f);
-  });
+  GenerateCornellBox();
+  // Akari::ThreadPool::Dispatch([&]() {
+  //   GenerateHeightMapChunk({0, 0, 0}, 1.0f);
+  // });
 }
 
 World::~World() {
@@ -108,7 +108,6 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (m_ChunkManager->IsDirty()) {
-    std::cout << "m_ChunkManager->IsDirty()" << std::endl;
     uint64_t generation = m_ChunkManager->ReadLock();
 
     m_ChunkManager->Flatten(m_FlatSVO);
@@ -161,7 +160,6 @@ const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
         m_ChunkManager->Set(x, y, z, lush.get());
     }
 
-  std::cout << "m_ChunkManager Sync & Flush" << std::endl;
   m_ChunkManager->Sync();
   m_ChunkManager->Flush();
 }
@@ -179,10 +177,9 @@ const void World::GenerateCornellBox() {
   auto cube      = m_Voxels.emplace_back(std::make_shared<Voxel>(cubeMaterial->Id));
   auto sphere    = m_Voxels.emplace_back(std::make_shared<Voxel>(sphereMaterial->Id));
 
-  std::thread([chunkSize = m_ChunkSize, svo = m_ChunkManager, sphere, cube, wall, leftWall, rightWall]() {
+  Akari::ThreadPool::Dispatch([chunkSize = m_ChunkSize, svo = m_ChunkManager, sphere, cube, wall, leftWall, rightWall]() {
     for (int a = 0; a < chunkSize; a++) {
       for (int b = 0; b < chunkSize; b++) {
-        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
         // Top wall
         svo->Set(a, chunkSize - 1, b, wall.get());
         // Bottom wall
@@ -205,7 +202,6 @@ const void World::GenerateCornellBox() {
     for (int z = 0; z < blockSize; z++)
       for (int x = 0; x < blockSize; x++)
         for (int y = 0; y < blockHeight; y++) {
-          // std::this_thread::sleep_for(std::chrono::milliseconds(1));
           svo->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
         }
 
@@ -222,7 +218,6 @@ const void World::GenerateCornellBox() {
           float dy = y - cy;
           float dz = z - cz;
           if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-            // std::this_thread::sleep_for(std::chrono::milliseconds(1));
             svo->Set(x, y + 1, z, sphere.get());
           }
         }
@@ -231,7 +226,7 @@ const void World::GenerateCornellBox() {
 
     svo->Sync();
     svo->Flush();
-  }).detach();
+  });
 }
 
 } // namespace Kitagawa
