@@ -2,6 +2,7 @@
 
 #include "Application.h"
 #include "Binding.h"
+#include "Synchronization.h"
 #include "Utility/Utility.h"
 
 #include "stb/stb.h"
@@ -304,7 +305,7 @@ void Scene::Render() {
   std::vector<VkBufferMemoryBarrier2> bufferBarriers = {};
   bool                                bufferResized  = false;
 
-  if (m_World->IsDirty()) {
+  if (Akari::Synchronization::Consume(Kitagawa::World::Flags::CHUNK_MANAGER_FLUSH_RENDER)) {
     const std::vector<Material>&                        materials   = m_World->GetMaterials();
     const std::vector<uint32_t>&                        materialLUT = m_World->GetMaterialsLUT();
     const std::vector<SparseOctree<Voxel>::FlatNode>&   svo         = m_World->GetSVO();

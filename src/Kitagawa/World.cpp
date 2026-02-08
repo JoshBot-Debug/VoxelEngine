@@ -3,6 +3,7 @@
 #include <execution>
 
 #include "Application.h"
+#include "Synchronization.h"
 #include "Utility/Utility.h"
 #include "Voxel/GreedyMesh64.h"
 
@@ -76,6 +77,9 @@ World::~World() {
 void World::RenderUI() { m_Palette.RenderUI(); }
 
 void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport) {
+  if (Akari::Synchronization::Consume(CHUNK_MANAGER_SYNC_UPDATE))
+    m_ChunkManager->Sync();
+
   glm::vec3 rayOrigin    = m_Camera->Position;
   glm::vec3 rayDirection = m_Camera->GetRayDirection(mouse.x, mouse.y);
 
@@ -87,12 +91,12 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
       m_ChunkManager->Clear(hit.Position);
-      m_ChunkManager->Flush();
+      Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_FLUSH_RENDER | CHUNK_MANAGER_SYNC_UPDATE);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
       m_ChunkManager->Set(hit.Position + hit.Normal, hit.Data);
-      m_ChunkManager->Flush();
+      Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_FLUSH_RENDER | CHUNK_MANAGER_SYNC_UPDATE);
     }
   }
 
@@ -109,7 +113,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
       m_MaterialsLUT[m_Materials[i].Id] = i + 1;
   }
 
-  if (m_ChunkManager->IsDirty()) {
+  if (Akari::Synchronization::Consume(CHUNK_MANAGER_FLUSH_UPDATE)) {
     uint64_t generation = m_ChunkManager->ReadLock();
 
     m_ChunkManager->Flatten(m_FlatSVO);
@@ -133,7 +137,6 @@ bool World::IsDirty() {
 
 void World::Clean() {
   m_Palette.Clean();
-  m_ChunkManager->Clean();
 
   m_FlatSVO.clear();
   m_Materials.clear();
@@ -152,18 +155,17 @@ const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
 
   auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
 
-  uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
-
   for (int z = 0; z < m_ChunkSize; z++)
     for (int x = 0; x < m_ChunkSize; x++) {
       float n      = noise.GetValue(x, z);
       int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
       for (int y = 0; y < height; y++)
-        m_ChunkManager->Set(x, y, z, lush.get());
+        m_ChunkManager->Set(x + (origin.x * m_ChunkSize), y + (origin.y * m_ChunkSize), z + (origin.z * m_ChunkSize), lush.get());
     }
 
-  m_ChunkManager->Sync();
-  m_ChunkManager->Flush();
+  Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  // m_ChunkManager->Sync();
+  // m_ChunkManager->Flush();
 }
 
 const void World::GenerateCornellBox() {
@@ -225,8 +227,9 @@ const void World::GenerateCornellBox() {
     }
   }
 
-  m_ChunkManager->Sync();
-  m_ChunkManager->Flush();
+  Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  // m_ChunkManager->Sync();
+  // m_ChunkManager->Flush();
 }
 
 } // namespace Kitagawa
