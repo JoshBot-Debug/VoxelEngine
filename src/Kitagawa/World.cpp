@@ -8,11 +8,11 @@
 
 namespace Kitagawa {
 
-World::World(uint32_t chunkSize)
-    : m_ChunkSize(chunkSize) {
-  m_ChunkManager = new ChunkManager(chunkSize);
+World::World(uint32_t m_ChunkSize)
+    : m_ChunkSize(m_ChunkSize) {
+  m_ChunkManager = new ChunkManager(m_ChunkSize);
 
-  m_HeightMap.Initialize(chunkSize, chunkSize);
+  m_HeightMap.Initialize(m_ChunkSize, m_ChunkSize);
 
   m_Palette.Create(Palette::Item{
       .Name = "Left Wall",
@@ -65,10 +65,8 @@ World::World(uint32_t chunkSize)
   auto light         = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
   m_ChunkManager->Set(m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
-  GenerateCornellBox();
-  // Akari::ThreadPool::Dispatch([&]() {
-  //   GenerateHeightMapChunk({0, 0, 0}, 1.0f);
-  // });
+  Akari::ThreadPool::Dispatch([&]() { GenerateCornellBox(); });
+  // Akari::ThreadPool::Dispatch([&]() { GenerateHeightMapChunk({0, 0, 0}, 1.0f); });
 }
 
 World::~World() {
@@ -87,11 +85,15 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   if (isCtrlPressed && isActing) {
     SparseOctree<Voxel>::Hit hit = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
 
-    if (ImGui::IsMouseDown(ImGuiMouseButton_Right))
+    if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
       m_ChunkManager->Clear(hit.Position);
+      m_ChunkManager->Flush();
+    }
 
-    if (ImGui::IsMouseDown(ImGuiMouseButton_Left))
+    if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
       m_ChunkManager->Set(hit.Position + hit.Normal, hit.Data);
+      m_ChunkManager->Flush();
+    }
   }
 
   if (m_Palette.IsDirty()) {
@@ -177,56 +179,54 @@ const void World::GenerateCornellBox() {
   auto cube      = m_Voxels.emplace_back(std::make_shared<Voxel>(cubeMaterial->Id));
   auto sphere    = m_Voxels.emplace_back(std::make_shared<Voxel>(sphereMaterial->Id));
 
-  Akari::ThreadPool::Dispatch([chunkSize = m_ChunkSize, svo = m_ChunkManager, sphere, cube, wall, leftWall, rightWall]() {
-    for (int a = 0; a < chunkSize; a++) {
-      for (int b = 0; b < chunkSize; b++) {
-        // Top wall
-        svo->Set(a, chunkSize - 1, b, wall.get());
-        // Bottom wall
-        svo->Set(a, 0, b, wall.get());
-        // Left wall
-        svo->Set(0, a, b, leftWall.get());
-        // Right wall
-        svo->Set(chunkSize - 1, a, b, rightWall.get());
-        // Back wall
-        svo->Set(a, b, 0, wall.get());
-        // Front wall
-        // svo->Set(a, b, chunkSize - 1, wall.get());
-      }
+  for (int a = 0; a < m_ChunkSize; a++) {
+    for (int b = 0; b < m_ChunkSize; b++) {
+      // Top wall
+      m_ChunkManager->Set(a, m_ChunkSize - 1, b, wall.get());
+      // Bottom wall
+      m_ChunkManager->Set(a, 0, b, wall.get());
+      // Left wall
+      m_ChunkManager->Set(0, a, b, leftWall.get());
+      // Right wall
+      m_ChunkManager->Set(m_ChunkSize - 1, a, b, rightWall.get());
+      // Back wall
+      m_ChunkManager->Set(a, b, 0, wall.get());
+      // Front wall
+      m_ChunkManager->Set(a, b, m_ChunkSize - 1, wall.get());
     }
-    const glm::ivec2 blockDistanceFromWall = {chunkSize / 4, chunkSize / 6};
-    const int        blockSize             = chunkSize / 4;
-    const int        blockHeight           = chunkSize / 2;
+  }
+  const glm::ivec2 blockDistanceFromWall = {m_ChunkSize / 4, m_ChunkSize / 6};
+  const int        blockSize             = m_ChunkSize / 4;
+  const int        blockHeight           = m_ChunkSize / 2;
 
-    // Add the rectangle
-    for (int z = 0; z < blockSize; z++)
-      for (int x = 0; x < blockSize; x++)
-        for (int y = 0; y < blockHeight; y++) {
-          svo->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
-        }
+  // Add the rectangle
+  for (int z = 0; z < blockSize; z++)
+    for (int x = 0; x < blockSize; x++)
+      for (int y = 0; y < blockHeight; y++) {
+        m_ChunkManager->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
+      }
 
-    // Add the sphere
-    int radius = chunkSize / 8;
-    int cx     = blockDistanceFromWall.x + (chunkSize / 2);
-    int cy     = radius;
-    int cz     = blockDistanceFromWall.y + (chunkSize / 2);
+  // Add the sphere
+  int radius = m_ChunkSize / 8;
+  int cx     = blockDistanceFromWall.x + (m_ChunkSize / 2);
+  int cy     = radius;
+  int cz     = blockDistanceFromWall.y + (m_ChunkSize / 2);
 
-    for (int z = 0; z < chunkSize; ++z) {
-      for (int y = 0; y < chunkSize; ++y) {
-        for (int x = 0; x < chunkSize; ++x) {
-          float dx = x - cx;
-          float dy = y - cy;
-          float dz = z - cz;
-          if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-            svo->Set(x, y + 1, z, sphere.get());
-          }
+  for (int z = 0; z < m_ChunkSize; ++z) {
+    for (int y = 0; y < m_ChunkSize; ++y) {
+      for (int x = 0; x < m_ChunkSize; ++x) {
+        float dx = x - cx;
+        float dy = y - cy;
+        float dz = z - cz;
+        if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+          m_ChunkManager->Set(x, y + 1, z, sphere.get());
         }
       }
     }
+  }
 
-    svo->Sync();
-    svo->Flush();
-  });
+  m_ChunkManager->Sync();
+  m_ChunkManager->Flush();
 }
 
 } // namespace Kitagawa
