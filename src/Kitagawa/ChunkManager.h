@@ -9,7 +9,7 @@
 
 class ChunkManager {
 private:
-  static const uint32_t                              SIZE     = 16;
+  static const uint32_t                              SIZE     = 2;
   std::array<SparseOctree<Voxel>*, SIZE* SIZE* SIZE> m_Chunks = {};
   SparseOctree<Voxel>*                               m_SVO    = nullptr;
 

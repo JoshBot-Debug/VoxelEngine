@@ -42,7 +42,7 @@ sudo perf report
 
 ## TODO
 
-- [x] Greedy mesh on the GPU
+- [ ] Greedy mesh on the GPU
 - [ ] All voxels that are disjointed need to be in a seperate SVO.
 - [x] Implement copy on write (cow) for the SVO
 - [ ] Add the ability to render rays (raymarching for debug and stuff)
@@ -68,4 +68,4 @@ sudo perf report
 - [x] Improve greedy meshing
   - [x] Add .GetAxis() - It should return a mask (uint64_t mask[4096]) of x axis for a material
   - [x] Remove the mask generated in GreedyMesh64, it's per voxel and too slow.
-- [ ] Threads clone & start are very slow. Need to implement a thread pool.
+- [x] Threads clone & start are very slow. Need to implement a thread pool.
