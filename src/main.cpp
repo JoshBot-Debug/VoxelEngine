@@ -81,8 +81,7 @@ public:
   virtual void OnRender() override {
     ImGui::Begin("Debug");
 
-    ImGui::PushFont(
-        Akari::Application::GetFont(Akari::Application::FontType::Font_Bold));
+    ImGui::PushFont(Akari::Application::GetFont(Akari::Application::FontType::Font_Bold));
     ImGui::Text("General");
     ImGui::PopFont();
     ImGui::Separator();

@@ -29,7 +29,7 @@ template <Data T>
 class SparseOctree {
 
 public:
-  static constexpr uint8_t SIZE = 64;
+  static inline constexpr uint8_t SIZE = 64;
 
   /**
    * The hit struct for raymarching
@@ -253,7 +253,6 @@ private:
 
     if (size == 1) {
       node->Data = data;
-      m_Dirty    = true;
       return node;
     }
 
@@ -363,7 +362,6 @@ private:
 
     if (size == 1) {
       m_RCU.Retire(node);
-      m_Dirty = true;
       return nullptr;
     }
 

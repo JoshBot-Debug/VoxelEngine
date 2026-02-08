@@ -750,9 +750,9 @@ void Application::Run() {
   if (m_Specification.Maximized)
     glfwMaximizeWindow(m_WindowHandle);
 
-  ImGui_ImplVulkanH_Window* wd          = &g_MainWindowData;
-  ImVec4                    clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-  ImGuiIO&                  io          = ImGui::GetIO();
+  ImGui_ImplVulkanH_Window* wd         = &g_MainWindowData;
+  ImVec4                    clearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+  ImGuiIO&                  io         = ImGui::GetIO();
 
   while (!glfwWindowShouldClose(m_WindowHandle) && m_Running) {
 
@@ -800,9 +800,9 @@ void Application::Run() {
       // We are using the ImGuiWindowFlags_NoDocking flag to make the parent
       // window not dockable into, because it would be confusing to have two
       // docking targets within each others.
-      ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoDocking;
+      ImGuiWindowFlags windowFlags = ImGuiWindowFlags_NoDocking;
       if (m_MenubarCallback)
-        window_flags |= ImGuiWindowFlags_MenuBar;
+        windowFlags |= ImGuiWindowFlags_MenuBar;
 
       const ImGuiViewport* viewport = ImGui::GetMainViewport();
       ImGui::SetNextWindowPos(viewport->WorkPos);
@@ -810,17 +810,17 @@ void Application::Run() {
       ImGui::SetNextWindowViewport(viewport->ID);
       ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
       ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-      window_flags |= ImGuiWindowFlags_NoTitleBar |
-                      ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
-                      ImGuiWindowFlags_NoMove;
-      window_flags |=
+      windowFlags |= ImGuiWindowFlags_NoTitleBar |
+                     ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoResize |
+                     ImGuiWindowFlags_NoMove;
+      windowFlags |=
           ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
 
       // When using ImGuiDockNodeFlags_PassthruCentralNode, DockSpace() will
       // render our background and handle the pass-thru hole, so we ask Begin()
       // to not render a background.
       if (dockspace_flags & ImGuiDockNodeFlags_PassthruCentralNode)
-        window_flags |= ImGuiWindowFlags_NoBackground;
+        windowFlags |= ImGuiWindowFlags_NoBackground;
 
       // Important: note that we proceed even if Begin() returns false (aka
       // window is collapsed). This is because we want to keep our DockSpace()
@@ -830,7 +830,7 @@ void Application::Run() {
       // otherwise any change of dockspace/settings would lead to windows being
       // stuck in limbo and never being visible.
       ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0.0f, 0.0f));
-      ImGui::Begin("Application", nullptr, window_flags);
+      ImGui::Begin("Application", nullptr, windowFlags);
 
       ImGui::PopStyleVar(3);
 
@@ -856,17 +856,16 @@ void Application::Run() {
 
     // Rendering
     ImGui::Render();
-    ImDrawData* main_draw_data    = ImGui::GetDrawData();
-    const bool  main_is_minimized = (main_draw_data->DisplaySize.x <= 0.0f ||
-                                    main_draw_data->DisplaySize.y <= 0.0f);
+    ImDrawData* drawData    = ImGui::GetDrawData();
+    const bool  isMinimized = (drawData->DisplaySize.x <= 0.0f || drawData->DisplaySize.y <= 0.0f);
 
-    if (!main_is_minimized) {
-      wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
-      wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
-      wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
-      wd->ClearValue.color.float32[3] = clear_color.w;
+    if (!isMinimized) {
+      wd->ClearValue.color.float32[0] = clearColor.x * clearColor.w;
+      wd->ClearValue.color.float32[1] = clearColor.y * clearColor.w;
+      wd->ClearValue.color.float32[2] = clearColor.z * clearColor.w;
+      wd->ClearValue.color.float32[3] = clearColor.w;
 
-      FrameRender(wd, main_draw_data);
+      FrameRender(wd, drawData);
       FramePresent(wd);
     }
 

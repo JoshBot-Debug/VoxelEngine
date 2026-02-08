@@ -17,6 +17,9 @@ private:
 
   Akari::ThreadPool::TaskId m_GreedyMeshingTask = Akari::ThreadPool::GenerateId();
 
+private:
+  inline glm::ivec3 GetCoord(int x, int y, int z);
+
 public:
   ChunkManager(uint32_t chunkSize);
   ~ChunkManager();

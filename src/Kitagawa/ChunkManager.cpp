@@ -121,3 +121,7 @@ void ChunkManager::GreedyMesh(const std::vector<Material>& materials, std::vecto
 SparseOctree<Voxel>::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
   return m_SVO->DeepRaymarch(origin, direction);
 }
+
+inline glm::ivec3 ChunkManager::GetCoord(int x, int y, int z) {
+  return glm::ivec3{int(x / SparseOctree<Voxel>::SIZE), int(y / SparseOctree<Voxel>::SIZE), int(z / SparseOctree<Voxel>::SIZE)};
+}

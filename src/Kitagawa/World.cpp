@@ -14,19 +14,6 @@ World::World(uint32_t chunkSize)
 
   m_HeightMap.Initialize(chunkSize, chunkSize);
 
-  m_Palette.OnFlush([this]() {
-    m_Materials            = m_Palette.GetMaterials();
-    uint32_t maxMaterialId = 0;
-
-    for (auto& mat : m_Materials)
-      maxMaterialId = mat.Id > maxMaterialId ? mat.Id : maxMaterialId;
-
-    m_MaterialsLUT.resize(maxMaterialId + 1);
-
-    for (size_t i = 0; i < m_Materials.size(); i++)
-      m_MaterialsLUT[m_Materials[i].Id] = i + 1;
-  });
-
   m_Palette.Create(Palette::Item{
       .Name = "Left Wall",
       .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4{0.63f, 0.067f, 0.051f, 1.0f}}),
@@ -76,12 +63,12 @@ World::World(uint32_t chunkSize)
 
   auto lightMaterial = m_Palette.Find("Light");
   auto light         = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
+  m_ChunkManager->Set(m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
-  int center = m_ChunkSize / 2;
-  m_ChunkManager->Set(center, m_ChunkSize - 4, center, light.get());
-
-  GenerateCornellBox();
-  // GenerateHeightMapChunk({0, 0, 0}, 1.0f);
+  // GenerateCornellBox();
+  Akari::ThreadPool::Dispatch([&]() {
+    GenerateHeightMapChunk({0, 0, 0}, 1.0f);
+  });
 }
 
 World::~World() {
@@ -107,7 +94,21 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
       m_ChunkManager->Set(hit.Position + hit.Normal, hit.Data);
   }
 
+  if (m_Palette.IsDirty()) {
+    m_Materials            = m_Palette.GetMaterials();
+    uint32_t maxMaterialId = 0;
+
+    for (auto& mat : m_Materials)
+      maxMaterialId = mat.Id > maxMaterialId ? mat.Id : maxMaterialId;
+
+    m_MaterialsLUT.resize(maxMaterialId + 1);
+
+    for (size_t i = 0; i < m_Materials.size(); i++)
+      m_MaterialsLUT[m_Materials[i].Id] = i + 1;
+  }
+
   if (m_ChunkManager->IsDirty()) {
+    std::cout << "m_ChunkManager->IsDirty()" << std::endl;
     uint64_t generation = m_ChunkManager->ReadLock();
 
     m_ChunkManager->Flatten(m_FlatSVO);
@@ -123,11 +124,6 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   m_ChunkManager->Update(rayOrigin, rayDirection);
-
-  // if (m_ChunkManager->IsDirty()) {
-  //   m_ChunkManager->Sync();
-  //   m_ChunkManager->Flush();
-  // }
 }
 
 bool World::IsDirty() {
@@ -145,31 +141,29 @@ void World::Clean() {
 }
 
 const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
-  // auto gLush   = m_Palette.Find("Grass Lush");
-  // auto gDry    = m_Palette.Find("Grass Dry");
-  // auto gForest = m_Palette.Find("Grass Forest");
+  auto gLush   = m_Palette.Find("Grass Lush");
+  auto gDry    = m_Palette.Find("Grass Dry");
+  auto gForest = m_Palette.Find("Grass Forest");
 
-  // auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
-  // auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
-  // auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
+  auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
+  auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
+  auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
 
-  // auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
+  auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
 
-  // uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
+  uint64_t mask[(m_ChunkSize * m_ChunkSize) * (m_ChunkSize / 64)] = {0};
 
-  // for (int z = 0; z < m_ChunkSize; z++)
-  //   for (int x = 0; x < m_ChunkSize; x++) {
-  //     float n      = noise.GetValue(x, z);
-  //     int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
-  //     for (int y = 0; y < height; y++) {
-  //       int index = x + m_ChunkSize * (z + m_ChunkSize * y);
-  //       mask[index / 64] |= 1ULL << (index % 64);
-  //     }
-  //   }
+  for (int z = 0; z < m_ChunkSize; z++)
+    for (int x = 0; x < m_ChunkSize; x++) {
+      float n      = noise.GetValue(x, z);
+      int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
+      for (int y = 0; y < height; y++)
+        m_ChunkManager->Set(x, y, z, lush.get());
+    }
 
-  // m_ChunkManager->Set(mask, lush.get());
-  // m_ChunkManager->Sync();
-  // m_ChunkManager->Flush();
+  std::cout << "m_ChunkManager Sync & Flush" << std::endl;
+  m_ChunkManager->Sync();
+  m_ChunkManager->Flush();
 }
 
 const void World::GenerateCornellBox() {

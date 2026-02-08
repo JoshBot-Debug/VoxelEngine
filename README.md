@@ -69,3 +69,18 @@ sudo perf report
   - [x] Add .GetAxis() - It should return a mask (uint64_t mask[4096]) of x axis for a material
   - [x] Remove the mask generated in GreedyMesh64, it's per voxel and too slow.
 - [x] Threads clone & start are very slow. Need to implement a thread pool.
+- [ ] Improve sync between flushes. When a thread is dispatched, it may be completed after OnUpdate() and before OnRender()
+      OnRender() clears the dirty flag and OnUpdate never see the flag. Nothing is rendered to the screen.
+      Proposal: World::Flag(CHUNK_MANAGER_SYNC_BIT), World::Flag(CHUNK_MANAGER_FLUSH_BIT), World::Flag(PALETTE_FLUSH_BIT)
+      At the start of OnUpdate(), call World::Sync(), it should check all FLAGS and Flush() / Sync() / Others...
+      This way when a thread completes it's job, if it's after OnUpdate() and before OnRender(), No dirty flags will be toggled
+      They will toggle when World::Sync() is called, at the start of OnUpdate(). Hence fixes the sync problem
+      Create a class to enable synchronization across the application, remove dirty flags from the SVO, palette implementations
+      Create a queue in the class to handle arbatry information needed to process dirty parts efficiently, like chunk id/coord
+      API:
+        - std::atomic<uint64_t> m_Flags;
+        - std::queue<DirtyChunk> m_DirtyChunks;
+        - Synchronization::Set(WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) // different flags for RENDER_BIT, UPDATE_BIT
+        - Synchronization::Queue(DirtyChunk{0,0,0}) // The queue must be protected with a mutex
+        - Synchronization::Pop<DirtyChunk>();
+        - if (m_Flags & WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) atomically read & clear the flag & start popping DirtyChunks;
