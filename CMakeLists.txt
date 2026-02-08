@@ -139,4 +139,4 @@ set(CMAKE_EXE_LINKER_FLAGS_RELEASE "-flto=auto")
 set(CMAKE_SHARED_LINKER_FLAGS_RELEASE "-flto=auto")
 
 # === Release \w Debug Configuration ===
-set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -fno-omit-frame-pointer -march=native")
+set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "-O3 -g -fno-inline -fno-omit-frame-pointer -march=native")
