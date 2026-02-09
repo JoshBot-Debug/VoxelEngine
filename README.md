@@ -80,7 +80,7 @@ sudo perf report
       API:
         - std::atomic<uint64_t> m_Flags;
         - std::queue<DirtyChunk> m_DirtyChunks;
-        - Synchronization::Set(WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) // different flags for RENDER_BIT, UPDATE_BIT
-        - Synchronization::Queue(DirtyChunk{0,0,0}) // The queue must be protected with a mutex
-        - Synchronization::Pop<DirtyChunk>();
+        - Signal::Set(WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) // different flags for RENDER_BIT, UPDATE_BIT
+        - Signal::Queue(DirtyChunk{0,0,0}) // The queue must be protected with a mutex
+        - Signal::Pop<DirtyChunk>();
         - if (m_Flags & WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) atomically read & clear the flag & start popping DirtyChunks (copy the queue & clear it);

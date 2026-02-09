@@ -20,6 +20,7 @@ public:
     CHUNK_MANAGER_SYNC_UPDATE  = 1ULL << 0,
     CHUNK_MANAGER_FLUSH_UPDATE = 1ULL << 1,
     CHUNK_MANAGER_FLUSH_RENDER = 1ULL << 2,
+    PALETTE_FLUSH_UPDATE       = 1ULL << 3,
   };
 
 private:
@@ -60,8 +61,6 @@ public:
   const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
 
   ChunkManager* GetChunkManager() { return m_ChunkManager; };
-
-  bool IsDirty();
 
   void Clean();
 };

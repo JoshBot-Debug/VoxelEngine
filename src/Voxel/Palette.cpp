@@ -2,6 +2,7 @@
 
 #include <glm/gtc/type_ptr.hpp>
 
+#include "Signal.h"
 #include "Utility/Debug.h"
 #include "imgui.h"
 
@@ -161,11 +162,7 @@ void Palette::RenderEditor() {
 }
 
 void Palette::RenderFileMenu() {
-
   if (ImGui::BeginMenuBar()) {
-    if (ImGui::MenuItem("Flush"))
-      Flush();
-
     if (ImGui::BeginMenu("Options")) {
 
       if (ImGui::MenuItem("+ New Voxel"))
@@ -190,14 +187,12 @@ void Palette::Create() {
       .Name = "Material #" + std::to_string(nextId),
       .Mat  = std::make_shared<Material>(nextId),
   });
-  m_Dirty = true;
 }
 
 void Palette::Create(Item item) {
   item.Id      = static_cast<uint32_t>(m_Items.size()) + 1;
   item.Mat->Id = item.Id;
   m_Items.emplace_back(item);
-  m_Dirty = true;
 }
 
 std::shared_ptr<Material> Palette::Find(const std::string& name) {
@@ -208,16 +203,6 @@ std::shared_ptr<Material> Palette::Find(const std::string& name) {
     return nullptr;
 
   return item->Mat;
-}
-
-void Palette::Flush() {
-  m_Dirty = true;
-  if (m_Flush)
-    m_Flush();
-}
-
-void Palette::Clean() {
-  m_Dirty = false;
 }
 
 std::vector<Material> Palette::GetMaterials() {

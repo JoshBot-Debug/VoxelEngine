@@ -1,6 +1,5 @@
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <string>
 #include <vector>
@@ -18,10 +17,8 @@ public:
   };
 
 private:
-  bool                  m_Dirty        = false;
   uint32_t              m_SelectedItem = 0;
   std::vector<Item>     m_Items        = {};
-  std::function<void()> m_Flush        = nullptr;
 
 private:
   void RenderPalette();
@@ -39,14 +36,6 @@ public:
   void Create(Item item);
 
   std::shared_ptr<Material> Find(const std::string& name);
-
-  void OnFlush(std::function<void()> callback) { m_Flush = callback; };
-
-  void Flush();
-
-  void Clean();
-
-  bool IsDirty() { return m_Dirty; };
 
   std::vector<Material> GetMaterials();
 

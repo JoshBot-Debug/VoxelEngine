@@ -32,12 +32,6 @@ public:
 
   void Update(const glm::vec3& origin, const glm::vec3& direction);
 
-  void Flush();
-
-  bool IsDirty();
-
-  void Clean();
-
   void Sync();
 
   uint64_t ReadLock();

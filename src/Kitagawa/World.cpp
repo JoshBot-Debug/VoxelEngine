@@ -3,7 +3,7 @@
 #include <execution>
 
 #include "Application.h"
-#include "Synchronization.h"
+#include "Signal.h"
 #include "Utility/Utility.h"
 #include "Voxel/GreedyMesh64.h"
 
@@ -60,7 +60,7 @@ World::World(uint32_t m_ChunkSize)
       .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f), .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
   });
 
-  m_Palette.Flush();
+  Akari::Signal::Set(PALETTE_FLUSH_UPDATE);
 
   auto lightMaterial = m_Palette.Find("Light");
   auto light         = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
@@ -74,10 +74,28 @@ World::~World() {
   delete m_ChunkManager;
 }
 
-void World::RenderUI() { m_Palette.RenderUI(); }
+void World::RenderUI() {
+  m_Palette.RenderUI();
+
+  ImGui::Begin("World", nullptr, ImGuiWindowFlags_MenuBar);
+
+  if (ImGui::BeginMenuBar()) {
+    if (ImGui::BeginMenu("Options")) {
+
+      if (ImGui::MenuItem("Flush"))
+        Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE | PALETTE_FLUSH_UPDATE);
+
+      ImGui::EndMenu();
+    }
+
+    ImGui::EndMenuBar();
+  }
+
+  ImGui::End();
+}
 
 void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport) {
-  if (Akari::Synchronization::Consume(CHUNK_MANAGER_SYNC_UPDATE))
+  if (Akari::Signal::Consume(CHUNK_MANAGER_SYNC_UPDATE))
     m_ChunkManager->Sync();
 
   glm::vec3 rayOrigin    = m_Camera->Position;
@@ -91,16 +109,16 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
       m_ChunkManager->Clear(hit.Position);
-      Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+      Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
       m_ChunkManager->Set(hit.Position + hit.Normal, hit.Data);
-      Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+      Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
   }
 
-  if (m_Palette.IsDirty()) {
+  if (Akari::Signal::Consume(PALETTE_FLUSH_UPDATE)) {
     m_Materials            = m_Palette.GetMaterials();
     uint32_t maxMaterialId = 0;
 
@@ -113,7 +131,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
       m_MaterialsLUT[m_Materials[i].Id] = i + 1;
   }
 
-  if (Akari::Synchronization::Consume(CHUNK_MANAGER_FLUSH_UPDATE)) {
+  if (Akari::Signal::Consume(CHUNK_MANAGER_FLUSH_UPDATE)) {
     uint64_t generation = m_ChunkManager->ReadLock();
 
     m_ChunkManager->Flatten(m_FlatSVO);
@@ -131,13 +149,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   m_ChunkManager->Update(rayOrigin, rayDirection);
 }
 
-bool World::IsDirty() {
-  return m_Palette.IsDirty() || m_ChunkManager->IsDirty();
-}
-
 void World::Clean() {
-  m_Palette.Clean();
-
   m_FlatSVO.clear();
   m_Materials.clear();
   m_Vertices.clear();
@@ -163,7 +175,7 @@ const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
         m_ChunkManager->Set(x + (origin.x * m_ChunkSize), y + (origin.y * m_ChunkSize), z + (origin.z * m_ChunkSize), lush.get());
     }
 
-  Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
   // m_ChunkManager->Sync();
   // m_ChunkManager->Flush();
 }
@@ -227,7 +239,7 @@ const void World::GenerateCornellBox() {
     }
   }
 
-  Akari::Synchronization::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
   // m_ChunkManager->Sync();
   // m_ChunkManager->Flush();
 }

@@ -1,11 +1,8 @@
 #pragma once
 
-#include <algorithm>
 #include <atomic>
 #include <cstring>
-#include <functional>
 #include <glm/glm.hpp>
-#include <new>
 #include <vector>
 
 #include "RCU/RCU.h"
@@ -220,16 +217,6 @@ private:
    * Pointer to the root node of the Sparse Voxel Octree.
    */
   std::atomic<Node*> m_Root = new Node(6);
-
-  /**
-   * Tracks wheather the tree has changed.
-   */
-  bool m_Dirty = false;
-
-  /**
-   * On Flush callback
-   */
-  std::function<void()> m_Flush;
 
   /**
    * A mask that can tell you if a voxel exists at x,y,z or if a voxel at x,y,z is hidden
@@ -1013,30 +1000,6 @@ public:
     Node* root = m_Root.load(std::memory_order::acquire);
     Filter(out, filter, {0, 0, 0}, SIZE, root);
   };
-
-  /**
-   * Sets dirty to true
-   */
-  void Flush() {
-    m_Dirty = true;
-    if (m_Flush)
-      m_Flush();
-  }
-
-  /**
-   * Sets dirty to false
-   */
-  void Clean() { m_Dirty = false; }
-
-  /**
-   * Returns true if the tree is dirty
-   */
-  bool IsDirty() { return m_Dirty; };
-
-  /**
-   * On flush callback
-   */
-  void OnFlush(std::function<void()> callback) { m_Flush = callback; };
 
   /**
    * Perform a recursive raymarch from the root node of the SVO

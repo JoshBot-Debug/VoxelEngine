@@ -3,7 +3,7 @@
 #include <execution>
 
 #include "Kitagawa/World.h"
-#include "Synchronization.h"
+#include "Signal.h"
 #include "ThreadPool.h"
 #include "Utility/Debug.h"
 #include "Voxel/GreedyMesh64.h"
@@ -35,10 +35,6 @@ void ChunkManager::Clear(const glm::ivec3& position) {
 }
 
 void ChunkManager::Update(const glm::vec3& origin, const glm::vec3& direction) {
-}
-
-bool ChunkManager::IsDirty() {
-  return m_SVO->IsDirty();
 }
 
 void ChunkManager::Sync() {
@@ -105,7 +101,7 @@ void ChunkManager::GreedyMesh(const std::vector<Material>& materials, std::vecto
     for (auto& v : results)
       v.clear();
 
-    Akari::Synchronization::Set(Kitagawa::World::CHUNK_MANAGER_FLUSH_RENDER);
+    Akari::Signal::Set(Kitagawa::World::CHUNK_MANAGER_FLUSH_RENDER);
   };
 
   Akari::ThreadPool::ForEach(m_GreedyMeshingTask, std::move(materials), generateVerticies, onComplete);

@@ -6,19 +6,19 @@
 
 namespace Akari {
   
-class Synchronization {
+class alignas(64) Signal {
 private:
   std::atomic<uint64_t> m_Flags = 0;
 
 private:
-  static Synchronization& Instance();
+  static Signal& Instance();
 
 public:
-  Synchronization() = default;
+  Signal() = default;
 
-  Synchronization(const Synchronization&) = delete;
+  Signal(const Signal&) = delete;
 
-  Synchronization& operator=(const Synchronization&) = delete;
+  Signal& operator=(const Signal&) = delete;
 
   static void Set(uint64_t flags);
 
