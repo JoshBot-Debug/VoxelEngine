@@ -1,6 +1,7 @@
 #pragma once
 
-#ifdef DEBUG
+#define DEBUG_P
+#ifdef DEBUG_P
 
 #include <bitset>
 #include <chrono>

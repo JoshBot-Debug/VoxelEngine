@@ -86,6 +86,7 @@ void ChunkManager::GreedyMesh(const std::vector<Material>& materials, std::vecto
     tmp.reserve(40000);
 
     BENCHMARK([&]() {
+      tmp.clear();
       GreedyMesh64::Generate(tmp, {0, 0, 0}, material.Id, rows, columns, layers, padding);
     }, 1000);
 

@@ -19,17 +19,17 @@ public:
   static constexpr unsigned int MASK_LENGTH = CHUNK_SIZE * CHUNK_SIZE;
 
 private:
-  static uint64_t ClearLowestBits(uint64_t bits, int n) {
-    return (n >= CHUNK_SIZE) ? 0 : (bits & ~((1ULL << n) - 1));
+  static inline uint64_t ClearLowestBits(uint64_t bits, int n) {
+    return (n == 64) ? 0 : (bits & (~0ULL << n));
   }
 
-  static void SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH]);
+  static inline void SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH]);
 
   static void PrepareWidthHeightMasks(const uint64_t (&bits)[MASK_LENGTH], uint8_t paddingIndex, uint8_t (&padding)[MASK_LENGTH], uint64_t (&widthStart)[MASK_LENGTH], uint64_t (&heightStart)[MASK_LENGTH], uint64_t (&widthEnd)[MASK_LENGTH], uint64_t (&heightEnd)[MASK_LENGTH]);
 
-  static void GreedyMeshFace(const glm::ivec3& offsetPosition, uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH], std::vector<Vertex>& vertices, FaceType type, uint32_t id);
+  static inline void GreedyMeshFace(const glm::ivec3& offset, uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH], std::vector<Vertex>& vertices, FaceType type, uint32_t id);
 
-  static void GreedyMeshAxis(const glm::ivec3& offsetPosition,
+  static void GreedyMeshAxis(const glm::ivec3& offset,
                              const uint64_t (&bits)[MASK_LENGTH],
                              uint64_t (&widthStart)[MASK_LENGTH],
                              uint64_t (&heightStart)[MASK_LENGTH],
@@ -121,25 +121,14 @@ public:
 
     uint64_t widthStart[MASK_LENGTH]  = {};
     uint64_t heightStart[MASK_LENGTH] = {};
-
-    uint64_t widthEnd[MASK_LENGTH]  = {};
-    uint64_t heightEnd[MASK_LENGTH] = {};
+    uint64_t widthEnd[MASK_LENGTH]    = {};
+    uint64_t heightEnd[MASK_LENGTH]   = {};
 
     PrepareWidthHeightMasks(rows, 0, padding, widthStart, heightStart, widthEnd, heightEnd);
     GreedyMeshAxis(coord, rows, widthStart, heightStart, widthEnd, heightEnd, vertices, FaceType::LEFT, FaceType::RIGHT, id);
 
-    std::memset(widthStart, 0, sizeof(widthStart));
-    std::memset(heightStart, 0, sizeof(heightStart));
-    std::memset(widthEnd, 0, sizeof(widthEnd));
-    std::memset(heightEnd, 0, sizeof(heightEnd));
-
     PrepareWidthHeightMasks(columns, 2, padding, widthStart, heightStart, widthEnd, heightEnd);
     GreedyMeshAxis(coord, columns, widthStart, heightStart, widthEnd, heightEnd, vertices, FaceType::BOTTOM, FaceType::TOP, id);
-
-    std::memset(widthStart, 0, sizeof(widthStart));
-    std::memset(heightStart, 0, sizeof(heightStart));
-    std::memset(widthEnd, 0, sizeof(widthEnd));
-    std::memset(heightEnd, 0, sizeof(heightEnd));
 
     PrepareWidthHeightMasks(layers, 4, padding, widthStart, heightStart, widthEnd, heightEnd);
     GreedyMeshAxis(coord, layers, widthStart, heightStart, widthEnd, heightEnd, vertices, FaceType::FRONT, FaceType::BACK, id);
