@@ -176,8 +176,6 @@ const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
     }
 
   Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
-  // m_ChunkManager->Sync();
-  // m_ChunkManager->Flush();
 }
 
 const void World::GenerateCornellBox() {
@@ -206,7 +204,7 @@ const void World::GenerateCornellBox() {
       // Back wall
       m_ChunkManager->Set(a, b, 0, wall.get());
       // Front wall
-      m_ChunkManager->Set(a, b, m_ChunkSize - 1, wall.get());
+      // m_ChunkManager->Set(a, b, m_ChunkSize - 1, wall.get());
     }
   }
   const glm::ivec2 blockDistanceFromWall = {m_ChunkSize / 4, m_ChunkSize / 6};
@@ -240,8 +238,6 @@ const void World::GenerateCornellBox() {
   }
 
   Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
-  // m_ChunkManager->Sync();
-  // m_ChunkManager->Flush();
 }
 
 } // namespace Kitagawa

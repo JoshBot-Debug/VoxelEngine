@@ -82,6 +82,13 @@ void ChunkManager::GreedyMesh(const std::vector<Material>& materials, std::vecto
 
     GreedyMesh64::Generate(buffer, {0, 0, 0}, material.Id, rows, columns, layers, padding);
 
+    std::vector<Vertex> tmp;
+    tmp.reserve(40000);
+
+    BENCHMARK([&]() {
+      GreedyMesh64::Generate(tmp, {0, 0, 0}, material.Id, rows, columns, layers, padding);
+    }, 1000);
+
     results[material.Id - 1] = std::move(buffer);
 
     svo->ReadUnlock(generation);
