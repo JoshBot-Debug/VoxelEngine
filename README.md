@@ -35,6 +35,7 @@ Benchmark / Performance
 
 ```bash
 sudo perf record -F 999 -g --call-graph=dwarf ./build/Kitagawa
+sudo perf record -e branch-misses -g ./build/Experiment
 sudo perf report
 ```
 

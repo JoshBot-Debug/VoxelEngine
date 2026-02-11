@@ -80,7 +80,7 @@
       "args": [
         "--leak-check=full",
         "--track-origins=yes",
-        "${workspaceFolder}/build/Kitagawa"
+        "${workspaceFolder}/build/vxen"
       ],
       "group": {
         "kind": "build",
@@ -107,7 +107,7 @@
         "capture",
         "--working-dir",
         "${workspaceFolder}",
-        "${workspaceFolder}/build/Kitagawa"
+        "${workspaceFolder}/build/vxen"
       ],
       "group": {
         "kind": "build",

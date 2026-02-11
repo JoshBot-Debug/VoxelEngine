@@ -1,6 +1,5 @@
 #include "PerspectiveCamera.h"
 
-#include <execution>
 #include <glm/gtc/matrix_transform.hpp>
 
 float ToDegree(float degree) {

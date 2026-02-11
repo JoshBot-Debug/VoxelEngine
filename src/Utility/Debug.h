@@ -1,7 +1,6 @@
 #pragma once
 
-#define DEBUG_P
-#ifdef DEBUG_P
+#ifdef DEBUG
 
 #include <bitset>
 #include <chrono>
@@ -13,40 +12,33 @@
 #include <iostream>
 #include <string>
 #include <thread>
+
 namespace fs = std::filesystem;
 
 template <typename... Args>
-inline void Log(const char* file, int line, const char* functionName,
-                const Args&... args) {
+inline void Log(const char* file, int line, const char* functionName, const Args&... args) {
   std::cout << "LOG " << file << ":" << line << " (" << functionName << "):";
   ((std::cout << " " << args), ...);
   std::cout << std::endl;
 }
 
-inline void LogIVec3(const char* file, int line, const char* functionName,
-                     const std::string& name, const glm::ivec3& position) {
+inline void LogIVec3(const char* file, int line, const char* functionName, const std::string& name, const glm::ivec3& position) {
 
-  Log(file, line, functionName, name, "(", position.x, ",", position.y, ",",
-      position.z, ")");
+  Log(file, line, functionName, name, "(", position.x, ",", position.y, ",", position.z, ")");
 }
 
-inline void LogVec3(const char* file, int line, const char* functionName,
-                    const std::string& name, const glm::vec3& position) {
+inline void LogVec3(const char* file, int line, const char* functionName, const std::string& name, const glm::vec3& position) {
 
-  Log(file, line, functionName, name, "(", position.x, ",", position.y, ",",
-      position.z, ")");
+  Log(file, line, functionName, name, "(", position.x, ",", position.y, ",", position.z, ")");
 }
 
-inline void LogVec4(const char* file, int line, const char* functionName,
-                    const std::string& name, const glm::vec4& position) {
+inline void LogVec4(const char* file, int line, const char* functionName, const std::string& name, const glm::vec4& position) {
 
-  Log(file, line, functionName, name, "(", position.x, ",", position.y, ",",
-      position.z, ",", position.w, ")");
+  Log(file, line, functionName, name, "(", position.x, ",", position.y, ",", position.z, ",", position.w, ")");
 }
 
 template <typename... Args>
-inline void LogToFile(const char* file, int line, const char* functionName,
-                      const std::string& outputFile, const Args&... args) {
+inline void LogToFile(const char* file, int line, const char* functionName, const std::string& outputFile, const Args&... args) {
   const std::string logDir = "logs/";
   fs::create_directories(logDir);
 
@@ -59,8 +51,7 @@ inline void LogToFile(const char* file, int line, const char* functionName,
   ofs << std::endl;
 }
 
-inline void Benchmark(const char* file, int line, const char* functionName,
-                      const std::function<void()>& func, int iterations) {
+inline void Benchmark(const char* file, int line, const char* functionName, const std::function<void()>& func, int iterations) {
 
   for (int i = 0; i < 50; ++i)
     func();
@@ -73,61 +64,21 @@ inline void Benchmark(const char* file, int line, const char* functionName,
   auto                                      end     = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double, std::milli> elapsed = end - start;
 
-  Log(file, line, functionName, "Took:", elapsed.count() / iterations,
-      "ms (average) over", iterations, "iterations");
-}
-
-template <typename Tuple, size_t... I>
-void StreamTextArgs(const Tuple& tuple, std::stringstream& ss, std::index_sequence<I...>) {
-  (void)std::initializer_list<int>{
-      (ss << std::get<I>(tuple), 0)...};
-}
-
-template <typename... Args>
-inline void EndTimer(const char* file, int line, const char* functionName, Args&&... args) {
-  static_assert(sizeof...(Args) >= 1, "EndTimer requires at least one argument (startTime)");
-
-  constexpr size_t N     = sizeof...(Args);
-  auto             tuple = std::make_tuple(std::forward<Args>(args)...);
-
-  // Last argument = startTime
-  const auto& startTime = std::get<N - 1>(tuple);
-
-  std::stringstream ss;
-  StreamTextArgs(tuple, ss, std::make_index_sequence<N - 1>{});
-
-  auto                                      end      = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double, std::milli> duration = end - startTime;
-
-  Log(file, line, functionName, ss.str(), duration.count(), "ms");
-}
-
-inline void Log256(const char* file, int line, const char* functionName,
-                   __m256i val) {
-  uint64_t* p = (uint64_t*)&val;
-  Log(file, line, functionName, std::bitset<64>(p[0]), std::bitset<64>(p[1]),
-      std::bitset<64>(p[2]), std::bitset<64>(p[3]));
+  Log(file, line, functionName, "Took:", elapsed.count() / iterations, "ms (average) over", iterations, "iterations");
 }
 
 #define LOG(...) Log(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #define BENCHMARK(...) Benchmark(__FILE__, __LINE__, __func__, __VA_ARGS__)
-#define START_TIMER std::chrono::high_resolution_clock::now()
-#define END_TIMER(...) EndTimer(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #define LOG_IVEC3(...) LogIVec3(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #define LOG_VEC3(...) LogVec3(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #define LOG_VEC4(...) LogVec4(__FILE__, __LINE__, __func__, __VA_ARGS__)
-#define LOG_256(...) Log256(__FILE__, __LINE__, __func__, __VA_ARGS__)
-#define LOG_TO_FILE(outputFile, ...) \
-  LogToFile(__FILE__, __LINE__, __func__, outputFile, __VA_ARGS__)
+#define LOG_TO_FILE(outputFile, ...) LogToFile(__FILE__, __LINE__, __func__, outputFile, __VA_ARGS__)
 
 #else
 #define LOG(...)
 #define BENCHMARK(...)
-#define START_TIMER 0
-#define END_TIMER(...)
 #define LOG_IVEC3(...)
 #define LOG_VEC3(...)
 #define LOG_VEC4(...)
 #define LOG_TO_FILE(...)
-#define LOG_256(...)
 #endif

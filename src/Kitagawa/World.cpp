@@ -191,47 +191,51 @@ const void World::GenerateCornellBox() {
   auto cube      = m_Voxels.emplace_back(std::make_shared<Voxel>(cubeMaterial->Id));
   auto sphere    = m_Voxels.emplace_back(std::make_shared<Voxel>(sphereMaterial->Id));
 
-  for (int a = 0; a < m_ChunkSize; a++) {
-    for (int b = 0; b < m_ChunkSize; b++) {
-      // Top wall
-      m_ChunkManager->Set(a, m_ChunkSize - 1, b, wall.get());
-      // Bottom wall
-      m_ChunkManager->Set(a, 0, b, wall.get());
-      // Left wall
-      m_ChunkManager->Set(0, a, b, leftWall.get());
-      // Right wall
-      m_ChunkManager->Set(m_ChunkSize - 1, a, b, rightWall.get());
-      // Back wall
-      m_ChunkManager->Set(a, b, 0, wall.get());
-      // Front wall
-      // m_ChunkManager->Set(a, b, m_ChunkSize - 1, wall.get());
-    }
-  }
-  const glm::ivec2 blockDistanceFromWall = {m_ChunkSize / 4, m_ChunkSize / 6};
-  const int        blockSize             = m_ChunkSize / 4;
-  const int        blockHeight           = m_ChunkSize / 2;
+  {
+    auto guard = m_ChunkManager->BeginWrite();
 
-  // Add the rectangle
-  for (int z = 0; z < blockSize; z++)
-    for (int x = 0; x < blockSize; x++)
-      for (int y = 0; y < blockHeight; y++) {
-        m_ChunkManager->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
+    for (int a = 0; a < m_ChunkSize; a++) {
+      for (int b = 0; b < m_ChunkSize; b++) {
+        // Top wall
+        m_ChunkManager->Set(guard, a, m_ChunkSize - 1, b, wall.get());
+        // Bottom wall
+        m_ChunkManager->Set(guard, a, 0, b, wall.get());
+        // Left wall
+        m_ChunkManager->Set(guard, 0, a, b, leftWall.get());
+        // Right wall
+        m_ChunkManager->Set(guard, m_ChunkSize - 1, a, b, rightWall.get());
+        // Back wall
+        m_ChunkManager->Set(guard, a, b, 0, wall.get());
+        // Front wall
+        // m_ChunkManager->Set(a, b, m_ChunkSize - 1, wall.get());
       }
+    }
+    const glm::ivec2 blockDistanceFromWall = {m_ChunkSize / 4, m_ChunkSize / 6};
+    const int        blockSize             = m_ChunkSize / 4;
+    const int        blockHeight           = m_ChunkSize / 2;
 
-  // Add the sphere
-  int radius = m_ChunkSize / 8;
-  int cx     = blockDistanceFromWall.x + (m_ChunkSize / 2);
-  int cy     = radius;
-  int cz     = blockDistanceFromWall.y + (m_ChunkSize / 2);
+    // Add the rectangle
+    for (int z = 0; z < blockSize; z++)
+      for (int x = 0; x < blockSize; x++)
+        for (int y = 0; y < blockHeight; y++) {
+          m_ChunkManager->Set(guard, x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
+        }
 
-  for (int z = 0; z < m_ChunkSize; ++z) {
-    for (int y = 0; y < m_ChunkSize; ++y) {
-      for (int x = 0; x < m_ChunkSize; ++x) {
-        float dx = x - cx;
-        float dy = y - cy;
-        float dz = z - cz;
-        if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-          m_ChunkManager->Set(x, y + 1, z, sphere.get());
+    // Add the sphere
+    int radius = m_ChunkSize / 8;
+    int cx     = blockDistanceFromWall.x + (m_ChunkSize / 2);
+    int cy     = radius;
+    int cz     = blockDistanceFromWall.y + (m_ChunkSize / 2);
+
+    for (int z = 0; z < m_ChunkSize; ++z) {
+      for (int y = 0; y < m_ChunkSize; ++y) {
+        for (int x = 0; x < m_ChunkSize; ++x) {
+          float dx = x - cx;
+          float dy = y - cy;
+          float dz = z - cz;
+          if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+            m_ChunkManager->Set(guard, x, y + 1, z, sphere.get());
+          }
         }
       }
     }

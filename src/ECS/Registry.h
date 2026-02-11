@@ -1,13 +1,8 @@
 #pragma once
 
-#include <array>
-#include <bitset>
-#include <memory>
-#include <stdint.h>
 #include <vector>
 
 #include "Entity.h"
-#include <iostream>
 
 namespace ECS {
 
@@ -70,7 +65,14 @@ private:
 public:
   Registry() = default;
 
-  ~Registry();
+  ~Registry() {
+    for (auto entities : m_EntitiesByETID)
+      for (auto e : entities)
+        delete e;
+
+    m_EntitiesByETID.clear();
+    m_FreeEntitySlotsByETID.clear();
+  };
 
   /**
    * Creates a new entity with a given name.

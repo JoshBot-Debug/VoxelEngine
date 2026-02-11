@@ -1,9 +1,10 @@
 #pragma once
 
 #include <atomic>
-#include <iostream>
+#include <cstdint>
 #include <thread>
 #include <vector>
+#include <concepts>
 
 template <typename T>
 concept Destroyable = requires(T& t) {

@@ -2,8 +2,8 @@
 
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
+#include <cstdint>
 #include <glm/glm.hpp>
-#include <vector>
 
 class PerspectiveCamera {
 private:

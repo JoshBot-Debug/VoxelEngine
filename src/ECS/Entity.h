@@ -1,10 +1,9 @@
 #pragma once
 
 #include <array>
-#include <vector>
 #include <bitset>
+#include <cstdint>
 #include <memory>
-#include <stdint.h>
 
 namespace ECS {
 
@@ -60,7 +59,10 @@ public:
    * @param id The unique identifier for the entity.
    * @param registry A pointer to the Registry managing this entity.
    */
-  Entity(EntityTypeId tid, EntityId id, Registry* registry) : m_TId(tid), m_Id(id), m_Registry(registry){};
+  Entity(EntityTypeId tid, EntityId id, Registry* registry)
+      : m_TId(tid)
+      , m_Id(id)
+      , m_Registry(registry){};
 
   ~Entity() {
     m_TId      = 0;

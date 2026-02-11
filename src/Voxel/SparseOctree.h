@@ -107,6 +107,41 @@ public:
     uint32_t  P2[1];
   };
 
+  class Writer {
+  private:
+    std::atomic<SparseOctree<T>::Node*>* m_Atomic = nullptr;
+
+  public:
+    SparseOctree<T>::Node* Root = nullptr;
+
+    Writer(std::atomic<SparseOctree<T>::Node*>* atomic)
+        : m_Atomic(atomic)
+        , Root(atomic->load(std::memory_order::acquire)) {}
+
+    ~Writer() {
+      m_Atomic->store(Root, std::memory_order::release);
+    }
+  };
+
+  class Reader {
+  private:
+    RCU<Node>* m_RCU        = nullptr;
+    uint64_t   m_Generation = 0;
+
+  public:
+    SparseOctree<T>::Node* Root = nullptr;
+
+    Reader(std::atomic<SparseOctree<T>::Node*>* atomic, RCU<Node>* rcu)
+        : m_RCU(rcu)
+        , Root(atomic->load(std::memory_order::acquire)) {
+      m_Generation = m_RCU->ReadLock();
+    }
+
+    ~Reader() {
+      m_RCU->ReadUnlock(m_Generation);
+    }
+  };
+
 private:
   class Mask {
   private:
@@ -114,13 +149,13 @@ private:
      * 0 - Air
      * 1 - Voxel
      */
-    uint64_t m_Present[SIZE * SIZE];
+    uint64_t m_Present[SIZE * SIZE] = {};
 
     /**
      * 0 - Exposed
      * 1 - Hidden (inside walls, underground, etc)
      */
-    uint64_t m_Hidden[SIZE * SIZE];
+    uint64_t m_Hidden[SIZE * SIZE] = {};
 
     inline bool Exists(int x, int y, int z) {
       if (x < 0 || y < 0 || z < 0 || x >= SIZE || y >= SIZE || z >= SIZE)
@@ -257,9 +292,7 @@ private:
       node->Children[index] = new Node(node->Depth - 1);
 
     node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
-
-    if (node->Data)
-      node->Data = nullptr;
+    node->Data            = nullptr;
 
     /**
      * Early exit
@@ -304,30 +337,23 @@ private:
    * @param node    Current node in the octree.
    * @param x,y,z   Local voxel-space coordinates at this level.
    * @param size    The size of the region represented by this node.
-   * @param nodeId  Optional filter; only returns nodes matching this id.
    * @return        Pointer to the node at the target position, or nullptr if
    * not found or filtered out.
    */
-  Node* Get(Node* node, uint8_t x, uint8_t y, uint8_t z, uint32_t nodeId, uint8_t size) {
-    if (!node)
-      return nullptr;
-
-    if (node->Data) {
-      if (nodeId && nodeId != node->Data->Id)
-        return nullptr;
-      return node;
-    }
-
-    if (size == 1)
-      return nullptr;
-
+  Node* Get(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size) {
     int half = size >> 1;
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
 
     int mod = half - 1;
 
-    return Get(node->Children[index], x & mod, y & mod, z & mod, nodeId, half);
+    if (!node->Children[index])
+      return nullptr;
+
+    if (node->Children[index]->Data)
+      return node->Children[index];
+
+    return Get(node->Children[index], x & mod, y & mod, z & mod, half);
   };
 
   /**
@@ -366,14 +392,13 @@ private:
      * If this node has data, it's children were merged
      * Create all children with the same data & clear the parent
      */
-    if (node->Data) {
+    if (node->Data)
       for (int i = 0; i < 8; i++) {
         node->Children[i]       = new Node(node->Depth - 1);
         node->Children[i]->Data = node->Data;
       }
-      node->Data = nullptr;
-    }
 
+    node->Data            = nullptr;
     node->Children[index] = Clear(node->Children[index], x & mod, y & mod, z & mod, half);
 
     /**
@@ -382,8 +407,10 @@ private:
     bool children = false;
 
     for (int i = 0; i < 8; i++)
-      if (children = node->Children[i])
+      if (node->Children[i]) {
+        children = true;
         break;
+      }
 
     if (!children) {
       m_RCU.Retire(node);
@@ -695,20 +722,19 @@ public:
   };
 
   /**
-   * Returns the total size (width, height, depth) of the root node.
-   *
-   * @return The root node's spatial size (e.g., 256).
+   * Used for batch writing in scope
+   * @note This is not thread safe, make sure only one thread is writing
    */
-  uint32_t GetSize() { return SIZE; };
+  Writer BeginWrite() {
+    return Writer(&m_Root);
+  };
 
   /**
-   * Sets a voxel at the given 3D world position.
-   *
-   * @param position  The world-space position to place the voxel at.
-   * @param data      The data to insert.
+   * Used for reading in scope
+   * @note This is not thread safe, make sure only one thread is writing
    */
-  Node* Set(const glm::vec3& position, T* data) {
-    return Set(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), data);
+  Reader BeginRead() {
+    return Reader(&m_Root, &m_RCU);
   };
 
   /**
@@ -717,46 +743,42 @@ public:
    * @param x, y, z   The world-space position to place the voxel at.
    * @param data      The data to insert.
    */
-  Node* Set(uint8_t x, uint8_t y, uint8_t z, T* data) {
+  void Set(uint8_t x, uint8_t y, uint8_t z, T* data) {
     Node* root = m_Root.load(std::memory_order::acquire);
     Node* next = Set(root, x, y, z, data, SIZE);
     m_Mask.Set(x, y, z);
     m_Root.store(next, std::memory_order::release);
-    return next;
   };
 
   /**
-   * Retrieves the node at the given 3D world position.
+   * Sets a voxel at the given 3D world position.
    *
-   * @param position  The world-space position to query.
-   * @param nodeId    Optional filter; if provided, only matching voxels are returned.
-   * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
+   * @param x, y, z   The world-space position to place the voxel at.
+   * @param data      The data to insert.
    */
-  Node* Get(const glm::vec3& position, uint32_t nodeId = 0) {
-    return Get(static_cast<int>(position.x), static_cast<int>(position.y), static_cast<int>(position.z), nodeId);
-  };
-
-  /**
-   * Retrieves the node at the given 3D world position.
-   *
-   * @param x, y, z   The world-space position to query.
-   * @param nodeId    Optional filter; if provided, only matching voxels are returned.
-   * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
-   */
-  Node* Get(uint8_t x, uint8_t y, uint8_t z, uint32_t nodeId = 0) {
-    Node* root = m_Root.load(std::memory_order::acquire);
-    return Get(root, x, y, z, nodeId, SIZE);
+  void Set(Writer& session, uint8_t x, uint8_t y, uint8_t z, T* data) {
+    session.Root = Set(session.Root, x, y, z, data, SIZE);
+    m_Mask.Set(x, y, z);
   };
 
   /**
    * Retrieves the node at the given 3D world position.
    *
    * @param x, y, z   The world-space position to query.
-   * @param nodeId    Optional filter; if provided, only matching voxels are returned.
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
-  Node* Get(Node* root, uint8_t x, uint8_t y, uint8_t z, uint32_t nodeId = 0) {
-    return Get(root, x, y, z, nodeId, SIZE);
+  Node* Get(Node* root, uint8_t x, uint8_t y, uint8_t z) {
+    return Get(root, x, y, z, SIZE);
+  };
+
+  /**
+   * Retrieves the node at the given 3D world position.
+   *
+   * @param x, y, z   The world-space position to query.
+   * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
+   */
+  Node* Get(Reader& session, uint8_t x, uint8_t y, uint8_t z) {
+    return Get(session.Root, x, y, z, SIZE);
   };
 
   /**
@@ -773,6 +795,9 @@ public:
     return m_Mask.Hidden(x, y, z);
   }
 
+  /**
+   * @returns The root node
+   */
   Node* GetRoot(std::memory_order order) {
     return m_Root.load(order);
   }
@@ -795,7 +820,7 @@ public:
 
     for (uint8_t z = 0; z < SIZE; z++)
       for (uint8_t y = 0; y < SIZE; y++) {
-        bool match = false;
+        Node* match = nullptr;
 
         for (uint8_t x = 0; x < SIZE; x++) {
 
@@ -803,9 +828,9 @@ public:
             continue;
 
           if (!m_Mask.Hidden(x, y, z))
-            match = !!Get(root, x, y, z, nodeId, SIZE);
+            match = Get(root, x, y, z, SIZE);
 
-          if (match) {
+          if (match && match->Data->Id == nodeId) {
             const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
             masks[rowIndex >> 6] |= (1ULL << (rowIndex & (SIZE - 1)));
           }
@@ -821,7 +846,7 @@ public:
 
     for (uint8_t z = 0; z < SIZE; z++)
       for (uint8_t x = 0; x < SIZE; x++) {
-        bool match = false;
+        Node* match = nullptr;
 
         for (uint8_t y = 0; y < SIZE; y++) {
 
@@ -829,9 +854,9 @@ public:
             continue;
 
           if (!m_Mask.Hidden(x, y, z))
-            match = !!Get(root, x, y, z, nodeId, SIZE);
+            match = Get(root, x, y, z, SIZE);
 
-          if (match) {
+          if (match && match->Data->Id == nodeId) {
             const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
             masks[columnIndex >> 6] |= (1ULL << (columnIndex & (SIZE - 1)));
           }
@@ -847,7 +872,7 @@ public:
 
     for (uint8_t x = 0; x < SIZE; x++)
       for (uint8_t y = 0; y < SIZE; y++) {
-        bool match = false;
+        Node* match = nullptr;
 
         for (uint8_t z = 0; z < SIZE; z++) {
 
@@ -855,9 +880,9 @@ public:
             continue;
 
           if (!m_Mask.Hidden(x, y, z))
-            match = !!Get(root, x, y, z, nodeId, SIZE);
+            match = Get(root, x, y, z, SIZE);
 
-          if (match) {
+          if (match && match->Data->Id == nodeId) {
             const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
             masks[layerIndex >> 6] |= (1ULL << (layerIndex & (SIZE - 1)));
           }
@@ -866,19 +891,6 @@ public:
 
     return masks;
   }
-
-  /**
-   * Clear a voxel at the given 3D position in voxel-space.
-   * This overload uses a `glm::ivec3` for convenience.
-   *
-   * Internally calls the recursive clear method to remove the voxel if it
-   * exists and optionally matches the given target type.
-   *
-   * @param position  Voxel-space coordinates to clear (x, y, z).
-   */
-  void Clear(const glm::ivec3& position) {
-    Clear(position.x, position.y, position.z);
-  };
 
   /**
    * Clear a voxel at the given x, y, z coordinates in

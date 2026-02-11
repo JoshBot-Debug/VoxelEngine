@@ -27,11 +27,19 @@ void ChunkManager::Set(int x, int y, int z, Voxel* data) {
 }
 
 void ChunkManager::Set(const glm::vec3& position, Voxel* data) {
-  m_SVO->Set(position, data);
+  m_SVO->Set(position.x, position.y, position.z, data);
+}
+
+void ChunkManager::Set(SparseOctree<Voxel>::Writer& session, int x, int y, int z, Voxel* data) {
+  return m_SVO->Set(session, x, y, z, data);
+}
+
+SparseOctree<Voxel>::Writer ChunkManager::BeginWrite() {
+  return m_SVO->BeginWrite();
 }
 
 void ChunkManager::Clear(const glm::ivec3& position) {
-  m_SVO->Clear(position);
+  m_SVO->Clear(position.x, position.y, position.z);
 }
 
 void ChunkManager::Update(const glm::vec3& origin, const glm::vec3& direction) {
@@ -82,13 +90,14 @@ void ChunkManager::GreedyMesh(const std::vector<Material>& materials, std::vecto
 
     GreedyMesh64::Generate(buffer, {0, 0, 0}, material.Id, rows, columns, layers, padding);
 
-    std::vector<Vertex> tmp;
-    tmp.reserve(40000);
+    // std::vector<Vertex> tmp;
+    // tmp.reserve(40000);
 
-    BENCHMARK([&]() {
-      tmp.clear();
-      GreedyMesh64::Generate(tmp, {0, 0, 0}, material.Id, rows, columns, layers, padding);
-    }, 1000);
+    // BENCHMARK([&]() {
+    //   tmp.clear();
+    //   GreedyMesh64::Generate(tmp, {0, 0, 0}, material.Id, rows, columns, layers, padding);
+    // },
+    //           1000);
 
     results[material.Id - 1] = std::move(buffer);
 

@@ -28,6 +28,10 @@ public:
 
   void Set(const glm::vec3& position, Voxel* data);
 
+  void Set(SparseOctree<Voxel>::Writer& session, int x, int y, int z, Voxel* data);
+
+  SparseOctree<Voxel>::Writer BeginWrite();
+
   void Clear(const glm::ivec3& positions);
 
   void Update(const glm::vec3& origin, const glm::vec3& direction);
