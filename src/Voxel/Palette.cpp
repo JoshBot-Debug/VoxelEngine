@@ -1,5 +1,6 @@
 #include "Palette.h"
 
+#include <algorithm>
 #include <glm/gtc/type_ptr.hpp>
 
 #include "Signal.h"
