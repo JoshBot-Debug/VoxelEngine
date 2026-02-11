@@ -29,23 +29,35 @@ ChunkManager::~ChunkManager() {
 }
 
 void ChunkManager::Set(const glm::ivec3& coord, int x, int y, int z, Voxel* data) {
-  uint32_t i = index(coord, ROOT_POSITION, SIZE);
-  m_Chunks[i]->Set(x, y, z, data);
+  uint32_t i       = index(coord, ROOT_POSITION, SIZE);
+  uint32_t offsetX = coord.x * SparseOctree<Voxel>::SIZE;
+  uint32_t offsetY = coord.y * SparseOctree<Voxel>::SIZE;
+  uint32_t offsetZ = coord.z * SparseOctree<Voxel>::SIZE;
+  m_Chunks[i]->Set(x + offsetX, y + offsetY, z + offsetZ, data);
 }
 
 void ChunkManager::Set(const glm::ivec3& coord, const glm::vec3& position, Voxel* data) {
-  uint32_t i = index(coord, ROOT_POSITION, SIZE);
-  m_Chunks[i]->Set(position.x, position.y, position.z, data);
+  uint32_t i       = index(coord, ROOT_POSITION, SIZE);
+  uint32_t offsetX = coord.x * SparseOctree<Voxel>::SIZE;
+  uint32_t offsetY = coord.y * SparseOctree<Voxel>::SIZE;
+  uint32_t offsetZ = coord.z * SparseOctree<Voxel>::SIZE;
+  m_Chunks[i]->Set(position.x + offsetX, position.y + offsetY, position.z + offsetZ, data);
 }
 
 void ChunkManager::Set(const glm::ivec3& coord, SparseOctree<Voxel>::Writer& session, int x, int y, int z, Voxel* data) {
-  uint32_t i = index(coord, ROOT_POSITION, SIZE);
-  m_Chunks[i]->Set(session, x, y, z, data);
+  uint32_t i       = index(coord, ROOT_POSITION, SIZE);
+  uint32_t offsetX = coord.x * SparseOctree<Voxel>::SIZE;
+  uint32_t offsetY = coord.y * SparseOctree<Voxel>::SIZE;
+  uint32_t offsetZ = coord.z * SparseOctree<Voxel>::SIZE;
+  m_Chunks[i]->Set(session, x + offsetX, y + offsetY, z + offsetZ, data);
 }
 
 void ChunkManager::Clear(const glm::ivec3& coord, const glm::ivec3& position) {
-  uint32_t i = index(coord, ROOT_POSITION, SIZE);
-  m_Chunks[i]->Clear(position.x, position.y, position.z);
+  uint32_t i       = index(coord, ROOT_POSITION, SIZE);
+  uint32_t offsetX = coord.x * SparseOctree<Voxel>::SIZE;
+  uint32_t offsetY = coord.y * SparseOctree<Voxel>::SIZE;
+  uint32_t offsetZ = coord.z * SparseOctree<Voxel>::SIZE;
+  m_Chunks[i]->Clear(position.x + offsetX, position.y + offsetY, position.z + offsetZ);
 }
 
 void ChunkManager::Sync(const glm::ivec3& coord) {
@@ -72,7 +84,7 @@ void ChunkManager::GreedyMesh(const glm::ivec3& coord, const std::vector<Materia
   uint32_t i = index(coord, ROOT_POSITION, SIZE);
   m_VertexThreads.resize(materials.size());
 
-  auto generateVerticies = [&results = m_VertexThreads, svo = m_Chunks[i]](Material material) {
+  auto generateVerticies = [&results = m_VertexThreads, svo = m_Chunks[i], coord](Material material) {
     auto session = svo->BeginRead();
 
     std::vector<Vertex> buffer;
@@ -93,7 +105,7 @@ void ChunkManager::GreedyMesh(const glm::ivec3& coord, const std::vector<Materia
       return svo->Exists(x, y, z);
     });
 
-    GreedyMesh64::Generate(buffer, {0, 0, 0}, material.Id, rows, columns, layers, padding);
+    GreedyMesh64::Generate(buffer, coord, material.Id, rows, columns, layers, padding);
 
     results[material.Id - 1] = std::move(buffer);
   };
