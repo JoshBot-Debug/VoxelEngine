@@ -814,6 +814,18 @@ public:
    * This way I can skip many gets
    * hence I will store a uint128_t mask[4096]
    */
+  uint64_t (&GetAxisX(Reader& session, uint32_t nodeId))[4096] {
+    return GetAxisX(session.Root, nodeId);
+  }
+
+  uint64_t (&GetAxisY(Reader& session, uint32_t nodeId))[4096] {
+    return GetAxisY(session.Root, nodeId);
+  }
+
+  uint64_t (&GetAxisZ(Reader& session, uint32_t nodeId))[4096] {
+    return GetAxisZ(session.Root, nodeId);
+  }
+
   uint64_t (&GetAxisX(Node* root, uint32_t nodeId))[4096] {
     static thread_local uint64_t masks[4096];
     std::memset(masks, 0, sizeof(masks));
@@ -1001,6 +1013,27 @@ public:
     Flatten(root, out);
   };
 
+  void Flatten(Reader& session, std::vector<FlatNode>& out) {
+    if (!session.Root)
+      return;
+
+    out.clear();
+
+    uint32_t index = static_cast<uint32_t>(out.size());
+
+    out.emplace_back(FlatNode{.PackedIDC = 0, .ChildIndex = 1});
+    out[index].SetDepth(session.Root->Depth);
+
+    if (session.Root->Data)
+      out[index].SetId(session.Root->Data->Id);
+
+    for (size_t i = 0; i < 8; i++)
+      if (session.Root->Children[i])
+        out[index].SetChildBit(i);
+
+    Flatten(session.Root, out);
+  };
+
   /**
    * Filter the tree for selected nodes
    *
@@ -1011,6 +1044,12 @@ public:
   void Filter(std::vector<FilterNode>& out, F&& filter) {
     Node* root = m_Root.load(std::memory_order::acquire);
     Filter(out, filter, {0, 0, 0}, SIZE, root);
+  };
+
+  template <typename F>
+    requires FilterCallback<Node, F>
+  void Filter(Reader& session, std::vector<FilterNode>& out, F&& filter) {
+    Filter(out, filter, {0, 0, 0}, SIZE, session.Root);
   };
 
   /**

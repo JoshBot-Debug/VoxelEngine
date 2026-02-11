@@ -42,7 +42,7 @@ private:
 private:
   const void GenerateCornellBox();
 
-  const void GenerateHeightMapChunk(const glm::ivec3& origin, float step);
+  const void GenerateChunk(const glm::ivec3& coord);
 
 public:
   World(uint32_t chunkSize);

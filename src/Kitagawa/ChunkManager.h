@@ -8,49 +8,55 @@
 #include "Voxel/Voxel.h"
 
 class ChunkManager {
+public:
+  static constexpr uint32_t   SIZE          = 3;
+  static constexpr glm::ivec3 CHUNK_RADIUS  = glm::ivec3(1);
+  static constexpr glm::ivec3 ROOT_POSITION = glm::ivec3(1);
+
 private:
-  static const uint32_t                              SIZE     = 2;
-  std::array<SparseOctree<Voxel>*, SIZE* SIZE* SIZE> m_Chunks = {};
-  SparseOctree<Voxel>*                               m_SVO    = nullptr;
+  std::array<SparseOctree<Voxel>*, 3 * 3 * 3> m_Chunks = {};
+  SparseOctree<Voxel>*                        m_SVO    = nullptr;
 
   std::vector<std::vector<Vertex>> m_VertexThreads = {};
 
   Akari::ThreadPool::TaskId m_GreedyMeshingTask = Akari::ThreadPool::GenerateId();
 
-private:
-  inline glm::ivec3 GetCoord(int x, int y, int z);
-
 public:
   ChunkManager(uint32_t chunkSize);
   ~ChunkManager();
 
-  void Set(int x, int y, int z, Voxel* data);
+  void Set(const glm::ivec3& coord, int x, int y, int z, Voxel* data);
 
-  void Set(const glm::vec3& position, Voxel* data);
+  void Set(const glm::ivec3& coord, const glm::vec3& position, Voxel* data);
 
-  void Set(SparseOctree<Voxel>::Writer& session, int x, int y, int z, Voxel* data);
+  void Set(const glm::ivec3& coord, SparseOctree<Voxel>::Writer& session, int x, int y, int z, Voxel* data);
 
-  SparseOctree<Voxel>::Writer BeginWrite();
+  void Clear(const glm::ivec3& coord, const glm::ivec3& positions);
 
-  void Clear(const glm::ivec3& positions);
+  void Sync(const glm::ivec3& coord);
 
-  void Update(const glm::vec3& origin, const glm::vec3& direction);
+  SparseOctree<Voxel>::Reader BeginRead(const glm::ivec3& coord);
 
-  void Sync();
+  SparseOctree<Voxel>::Writer BeginWrite(const glm::ivec3& coord);
 
-  uint64_t ReadLock();
+  void Flatten(SparseOctree<Voxel>::Reader& session, const glm::ivec3& coord, std::vector<SparseOctree<Voxel>::FlatNode>& out);
 
-  void ReadUnlock(uint64_t generation);
-
-  void Flatten(std::vector<SparseOctree<Voxel>::FlatNode>& out);
-
-  void GreedyMesh(const std::vector<Material>& materials, std::vector<Vertex>& out);
+  void GreedyMesh(const glm::ivec3& coord, const std::vector<Material>& materials, std::vector<Vertex>& out);
 
   template <typename F>
     requires FilterCallback<SparseOctree<Voxel>::Node, F>
-  void Filter(std::vector<SparseOctree<Voxel>::FilterNode>& out, F&& filter) {
-    m_SVO->Filter(out, filter);
+  void Filter(SparseOctree<Voxel>::Reader& session, const glm::ivec3& coord, std::vector<SparseOctree<Voxel>::FilterNode>& out, F&& filter) {
+    m_SVO->Filter(session, out, filter);
   };
 
-  SparseOctree<Voxel>::Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction);
+  SparseOctree<Voxel>::Hit DeepRaymarch(const glm::ivec3& coord, const glm::vec3& origin, const glm::vec3& direction);
+
+  inline glm::ivec3 GetChunkCoord(const glm::vec3& rayOrigin) {
+    return {static_cast<int>(
+                std::floor(rayOrigin.x / static_cast<float>(SparseOctree<Voxel>::SIZE))),
+            static_cast<int>(
+                std::floor(rayOrigin.y / static_cast<float>(SparseOctree<Voxel>::SIZE))),
+            static_cast<int>(
+                std::floor(rayOrigin.z / static_cast<float>(SparseOctree<Voxel>::SIZE)))};
+  };
 };

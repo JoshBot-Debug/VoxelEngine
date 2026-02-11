@@ -62,7 +62,7 @@ void UI::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport)
 
   if (isCtrlPressed) {
     ChunkManager*            chunkManager = m_World->GetChunkManager();
-    SparseOctree<Voxel>::Hit hit          = chunkManager->DeepRaymarch(rayOrigin, rayDirection);
+    SparseOctree<Voxel>::Hit hit          = chunkManager->DeepRaymarch(chunkManager->GetChunkCoord(rayOrigin), rayOrigin, rayDirection);
 
     ConstructHighlightVertices(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);
   }

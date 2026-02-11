@@ -9,6 +9,24 @@
 
 namespace Kitagawa {
 
+inline glm::ivec3 getChunkCoord(const glm::vec3& rayOrigin) {
+  return {static_cast<int>(
+              std::floor(rayOrigin.x / static_cast<float>(SparseOctree<Voxel>::SIZE))),
+          static_cast<int>(
+              std::floor(rayOrigin.y / static_cast<float>(SparseOctree<Voxel>::SIZE))),
+          static_cast<int>(
+              std::floor(rayOrigin.z / static_cast<float>(SparseOctree<Voxel>::SIZE)))};
+};
+
+inline std::vector<glm::ivec3> getChunkCoordsInRadius(const glm::vec3& coord) {
+  std::vector<glm::ivec3> result;
+  for (int dz = -ChunkManager::CHUNK_RADIUS.z; dz <= ChunkManager::CHUNK_RADIUS.z; dz++)
+    for (int dx = -ChunkManager::CHUNK_RADIUS.x; dx <= ChunkManager::CHUNK_RADIUS.x; dx++)
+      for (int dy = -ChunkManager::CHUNK_RADIUS.y; dy <= ChunkManager::CHUNK_RADIUS.y; dy++)
+        result.emplace_back(coord.x + dx, coord.y + dy, coord.z + dz);
+  return result;
+};
+
 World::World(uint32_t m_ChunkSize)
     : m_ChunkSize(m_ChunkSize) {
   m_ChunkManager = new ChunkManager(m_ChunkSize);
@@ -64,10 +82,11 @@ World::World(uint32_t m_ChunkSize)
 
   auto lightMaterial = m_Palette.Find("Light");
   auto light         = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
-  m_ChunkManager->Set(m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
+  m_ChunkManager->Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
-  Akari::ThreadPool::Dispatch([&]() { GenerateCornellBox(); });
-  // Akari::ThreadPool::Dispatch([&]() { GenerateHeightMapChunk({0, 0, 0}, 1.0f); });
+  // Akari::ThreadPool::Dispatch([&]() { GenerateCornellBox(); });
+  // Akari::ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}, 1.0f); });
+  GenerateChunk({0, 0, 0});
 }
 
 World::~World() {
@@ -95,25 +114,27 @@ void World::RenderUI() {
 }
 
 void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport) {
-  if (Akari::Signal::Consume(CHUNK_MANAGER_SYNC_UPDATE))
-    m_ChunkManager->Sync();
 
-  glm::vec3 rayOrigin    = m_Camera->Position;
-  glm::vec3 rayDirection = m_Camera->GetRayDirection(mouse.x, mouse.y);
+  glm::vec3  rayOrigin    = m_Camera->Position;
+  glm::vec3  rayDirection = m_Camera->GetRayDirection(mouse.x, mouse.y);
+  glm::ivec3 coord       = getChunkCoord(rayOrigin);
+
+  if (Akari::Signal::Consume(CHUNK_MANAGER_SYNC_UPDATE))
+    m_ChunkManager->Sync(coord);
 
   bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
   bool isActing      = ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Left);
 
   if (isCtrlPressed && isActing) {
-    SparseOctree<Voxel>::Hit hit = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
+    SparseOctree<Voxel>::Hit hit = m_ChunkManager->DeepRaymarch(coord, rayOrigin, rayDirection);
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-      m_ChunkManager->Clear(hit.Position);
+      m_ChunkManager->Clear(coord, hit.Position);
       Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-      m_ChunkManager->Set(hit.Position + hit.Normal, hit.Data);
+      m_ChunkManager->Set({0, 0, 0}, hit.Position + hit.Normal, hit.Data);
       Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
   }
@@ -132,21 +153,19 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (Akari::Signal::Consume(CHUNK_MANAGER_FLUSH_UPDATE)) {
-    uint64_t generation = m_ChunkManager->ReadLock();
+    {
+      auto session = m_ChunkManager->BeginRead(coord);
 
-    m_ChunkManager->Flatten(m_FlatSVO);
+      m_ChunkManager->Flatten(session, coord, m_FlatSVO);
 
-    m_ChunkManager->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
-      auto material = m_Palette.GetMaterial(node->Data->Id);
-      return material && material->Emissive.a > 0.0f;
-    });
+      m_ChunkManager->Filter(session, coord, m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
+        auto material = m_Palette.GetMaterial(node->Data->Id);
+        return material && material->Emissive.a > 0.0f;
+      });
+    }
 
-    m_ChunkManager->ReadUnlock(generation);
-
-    m_ChunkManager->GreedyMesh(m_Palette.GetMaterials(), m_Vertices);
+    m_ChunkManager->GreedyMesh(coord, m_Palette.GetMaterials(), m_Vertices);
   }
-
-  m_ChunkManager->Update(rayOrigin, rayDirection);
 }
 
 void World::Clean() {
@@ -156,7 +175,7 @@ void World::Clean() {
   m_Lights.clear();
 }
 
-const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
+const void World::GenerateChunk(const glm::ivec3& coord) {
   auto gLush   = m_Palette.Find("Grass Lush");
   auto gDry    = m_Palette.Find("Grass Dry");
   auto gForest = m_Palette.Find("Grass Forest");
@@ -165,17 +184,31 @@ const void World::GenerateHeightMapChunk(const glm::ivec3& origin, float step) {
   auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
   auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
 
-  auto noise = m_HeightMap.Build(origin.x, origin.x + step, origin.z, origin.z + step);
+  auto generateVoxels = [&](const glm::vec3& coord) {
+    auto session = m_ChunkManager->BeginWrite(coord);
 
-  for (int z = 0; z < m_ChunkSize; z++)
-    for (int x = 0; x < m_ChunkSize; x++) {
-      float n      = noise.GetValue(x, z);
-      int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
-      for (int y = 0; y < height; y++)
-        m_ChunkManager->Set(x + (origin.x * m_ChunkSize), y + (origin.y * m_ChunkSize), z + (origin.z * m_ChunkSize), lush.get());
-    }
+    auto noise = m_HeightMap.Build(coord.x, coord.x + 1.0f, coord.z, coord.z + 1.0f);
 
-  Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+    session.Root->Destroy();
+
+    for (int z = 0; z < m_ChunkSize; z++)
+      for (int x = 0; x < m_ChunkSize; x++) {
+        float n      = noise.GetValue(x, z);
+        int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
+        for (int y = 0; y < height; y++)
+          m_ChunkManager->Set(coord, session, x, y, z, lush.get());
+      }
+  };
+
+  std::vector<glm::ivec3> radiusCoords = getChunkCoordsInRadius(coord);
+
+  for (size_t i = 0; i < radiusCoords.size(); i++) {
+    glm::ivec3& rCoord = radiusCoords[i];
+    auto        offset = coord + rCoord;
+    generateVoxels(offset);
+  }
+
+  // Akari::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
 }
 
 const void World::GenerateCornellBox() {
@@ -191,23 +224,25 @@ const void World::GenerateCornellBox() {
   auto cube      = m_Voxels.emplace_back(std::make_shared<Voxel>(cubeMaterial->Id));
   auto sphere    = m_Voxels.emplace_back(std::make_shared<Voxel>(sphereMaterial->Id));
 
+  auto origin = glm::ivec3(0);
+
   {
-    auto guard = m_ChunkManager->BeginWrite();
+    auto guard = m_ChunkManager->BeginWrite(origin);
 
     for (int a = 0; a < m_ChunkSize; a++) {
       for (int b = 0; b < m_ChunkSize; b++) {
         // Top wall
-        m_ChunkManager->Set(guard, a, m_ChunkSize - 1, b, wall.get());
+        m_ChunkManager->Set(origin, guard, a, m_ChunkSize - 1, b, wall.get());
         // Bottom wall
-        m_ChunkManager->Set(guard, a, 0, b, wall.get());
+        m_ChunkManager->Set(origin, guard, a, 0, b, wall.get());
         // Left wall
-        m_ChunkManager->Set(guard, 0, a, b, leftWall.get());
+        m_ChunkManager->Set(origin, guard, 0, a, b, leftWall.get());
         // Right wall
-        m_ChunkManager->Set(guard, m_ChunkSize - 1, a, b, rightWall.get());
+        m_ChunkManager->Set(origin, guard, m_ChunkSize - 1, a, b, rightWall.get());
         // Back wall
-        m_ChunkManager->Set(guard, a, b, 0, wall.get());
+        m_ChunkManager->Set(origin, guard, a, b, 0, wall.get());
         // Front wall
-        // m_ChunkManager->Set(a, b, m_ChunkSize - 1, wall.get());
+        // m_ChunkManager->Set(origin, guard, a, b, m_ChunkSize - 1, wall.get());
       }
     }
     const glm::ivec2 blockDistanceFromWall = {m_ChunkSize / 4, m_ChunkSize / 6};
@@ -218,7 +253,7 @@ const void World::GenerateCornellBox() {
     for (int z = 0; z < blockSize; z++)
       for (int x = 0; x < blockSize; x++)
         for (int y = 0; y < blockHeight; y++) {
-          m_ChunkManager->Set(guard, x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
+          m_ChunkManager->Set(origin, guard, x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
         }
 
     // Add the sphere
@@ -234,7 +269,7 @@ const void World::GenerateCornellBox() {
           float dy = y - cy;
           float dz = z - cz;
           if (dx * dx + dy * dy + dz * dz <= radius * radius) {
-            m_ChunkManager->Set(guard, x, y + 1, z, sphere.get());
+            m_ChunkManager->Set(origin, guard, x, y + 1, z, sphere.get());
           }
         }
       }
