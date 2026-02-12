@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(Kitagawa)
+project(vxen)
 
 # === Options ===
 option(ENABLE_AVX256 "Enable AVX-256 instructions" OFF)
@@ -36,15 +36,15 @@ endif()
 add_subdirectory(vendor/imgui-cmake)
 
 # === Source Files ===
-file(GLOB_RECURSE SRC_FILES_AKARI ${CMAKE_SOURCE_DIR}/Akari/*.cpp)
-file(GLOB_RECURSE SRC_FILES_KITAGAWA ${CMAKE_SOURCE_DIR}/src/*.cpp)
-file(GLOB_RECURSE SRC_FILES_VOXEL_ENGINE ${CMAKE_SOURCE_DIR}/app/main.cpp)
+file(GLOB_RECURSE SRC_FILES_AKARI ${CMAKE_SOURCE_DIR}/akari/*.cpp)
+file(GLOB_RECURSE SRC_FILES_VXENGINE ${CMAKE_SOURCE_DIR}/engine/*.cpp)
+file(GLOB_RECURSE SRC_FILES_VXEN ${CMAKE_SOURCE_DIR}/app/main.cpp)
 file(GLOB_RECURSE SRC_FILES_EXPERIMENT ${CMAKE_SOURCE_DIR}/experiment/main.cpp)
 
 # === Add libraries ===
 add_library(akari ${SRC_FILES_AKARI})
-add_library(kitagawa ${SRC_FILES_KITAGAWA})
-add_executable(vxen ${SRC_FILES_VOXEL_ENGINE})
+add_library(vxengine ${SRC_FILES_VXENGINE})
+add_executable(vxen ${SRC_FILES_VXEN})
 add_executable(experiment ${SRC_FILES_EXPERIMENT})
 
 # === Link Libraries ===
@@ -59,7 +59,7 @@ target_link_libraries(akari PUBLIC
   glfw
 )
 
-target_link_libraries(kitagawa PUBLIC
+target_link_libraries(vxengine PUBLIC
   akari
   TBB::tbb
   imgui
@@ -67,19 +67,19 @@ target_link_libraries(kitagawa PUBLIC
   ${NOISEUTILS_LIB}
 )
 
-target_link_libraries(vxen PRIVATE kitagawa)
-target_link_libraries(experiment PRIVATE kitagawa)
+target_link_libraries(vxen PRIVATE vxengine)
+target_link_libraries(experiment PRIVATE vxengine)
 
 # === Include Directories ===
 target_include_directories(akari PUBLIC 
-  ${CMAKE_SOURCE_DIR}/Akari
+  ${CMAKE_SOURCE_DIR}/akari
   ${CMAKE_SOURCE_DIR}/vendor/imgui
   ${CMAKE_SOURCE_DIR}/vendor/imgui/backends
   ${CMAKE_SOURCE_DIR}/vendor/VulkanMemoryAllocator/include
 )
 
-target_include_directories(kitagawa PUBLIC 
-  ${CMAKE_SOURCE_DIR}/src
+target_include_directories(vxengine PUBLIC 
+  ${CMAKE_SOURCE_DIR}/engine
   ${CMAKE_SOURCE_DIR}/external
 )
 
@@ -96,7 +96,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_definitions(-DDEBUG -D_GLIBCXX_DEBUG)
 
   if(ENABLE_STL_DEBUG)
-    target_compile_options(akari kitagawa PRIVATE
+    target_compile_options(akari vxengine PRIVATE
       $<$<CONFIG:Debug>:
         -Wall
         -Wextra
@@ -133,7 +133,7 @@ target_compile_options(akari PRIVATE
   $<$<CONFIG:RelWithDebInfo>:-O3 -g -fno-inline -fno-omit-frame-pointer -march=native>
 )
 
-target_compile_options(kitagawa PRIVATE
+target_compile_options(vxengine PRIVATE
   $<$<CONFIG:RelWithDebInfo>:-O3 -g -fno-inline -fno-omit-frame-pointer -march=native>
 )
 
@@ -143,7 +143,7 @@ target_compile_options(akari PRIVATE
   $<$<CONFIG:Release>:-O3 -march=native -flto=auto -funroll-loops -fomit-frame-pointer -ffast-math>
 )
 
-target_compile_options(kitagawa PRIVATE
+target_compile_options(vxengine PRIVATE
   $<$<CONFIG:Release>:-O3 -march=native -flto=auto -funroll-loops -fomit-frame-pointer -ffast-math>
 )
 
@@ -151,6 +151,6 @@ target_link_options(akari PRIVATE
   $<$<CONFIG:Release>:-flto=auto>
 )
 
-target_link_options(kitagawa PRIVATE
+target_link_options(vxengine PRIVATE
   $<$<CONFIG:Release>:-flto=auto>
 )

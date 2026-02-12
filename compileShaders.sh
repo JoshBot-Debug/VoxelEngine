@@ -10,7 +10,7 @@ command -v glslc >/dev/null 2>&1 || { echo -e "${RED}glslc not found. Install Vu
 command -v spirv-opt >/dev/null 2>&1 || { echo -e "${RED}spirv-opt not found. Install SPIRV-Tools.${NC}"; exit 1; }
 command -v spirv-val >/dev/null 2>&1 || { echo -e "${RED}spirv-val not found. Install SPIRV-Tools.${NC}"; exit 1; }
 
-SHADER_DIR="src/Shaders"
+SHADER_DIR="engine/shaders"
 EXTENSIONS=("rgen" "rmiss" "rchit" "rint" "rahit" "vert" "frag" "comp")
 OPTIMIZE=false
 

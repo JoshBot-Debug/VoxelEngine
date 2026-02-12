@@ -1,11 +1,11 @@
 #include <iostream>
 #include <vector>
 
-#include "Utility/Debug.h"
-#include "Voxel/GreedyMesh64.h"
-#include "Voxel/Palette.h"
-#include "Voxel/SparseOctree.h"
-#include "Voxel/Voxel.h"
+#include "Debug.h"
+#include "voxel/GreedyMesh64.h"
+#include "voxel/Palette.h"
+#include "voxel/SparseOctree.h"
+#include "voxel/Voxel.h"
 
 void GenerateVerticies(std::vector<std::vector<Vertex>>& results, Material material, SparseOctree<Voxel>::Node* root, SparseOctree<Voxel>* svo) {
   SparseOctree<Voxel>::Reader session = svo->BeginRead();

@@ -3,8 +3,8 @@
     {
       "name": "c++23",
       "includePath": [
-        "${workspaceFolder}/src/**",
-        "${workspaceFolder}/Akari/**",
+        "${workspaceFolder}/akari/**",
+        "${workspaceFolder}/engine/**",
         "${workspaceFolder}/external/**",
         "${workspaceFolder}/vendor/imgui",
         "${workspaceFolder}/vendor/imgui/backends",

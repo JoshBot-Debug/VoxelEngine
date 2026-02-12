@@ -2,35 +2,37 @@
 #include <chrono>
 #include <iostream>
 
-#include "Application.h"
-#include "EntryPoint.h"
-#include "Image.h"
+#include "window/Application.h"
+#include "window/EntryPoint.h"
+#include "window/Image.h"
 
-#include "Utility/Debug.h"
-#include "Utility/Utility.h"
+#include "Debug.h"
+#include "Utility.h"
 
-#include "Kitagawa/Controller.h"
-#include "Kitagawa/UI.h"
-#include "Kitagawa/World.h"
+#include "Controller.h"
+#include "UI.h"
+#include "World.h"
 
-#include "Input/Input.h"
+#include "window/Input.h"
 
-#include "Camera/PerspectiveCamera.h"
-#include "Kitagawa/Scene.h"
+#include "Scene.h"
+#include "camera/PerspectiveCamera.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
 const int WORLD_SIZE = 64;
 
-class ViewportLayer : public Akari::Layer {
+using namespace akari::window;
+
+class ViewportLayer : public Layer {
 
 private:
-  PerspectiveCamera    m_Camera;
-  Kitagawa::Controller m_Controller;
-  Kitagawa::World      m_World{WORLD_SIZE};
-  Kitagawa::UI         m_UI;
-  Scene                m_Scene;
+  akari::camera::PerspectiveCamera m_Camera;
+  vxen::Controller                 m_Controller;
+  vxen::World                      m_World{WORLD_SIZE};
+  vxen::UI                         m_UI;
+  Scene                            m_Scene;
 
   glm::vec2 m_ViewportSize{1080.0f, 720.0f};
   glm::vec2 m_ViewportMouse{0.0f};
@@ -81,13 +83,13 @@ public:
   virtual void OnRender() override {
     ImGui::Begin("Debug");
 
-    ImGui::PushFont(Akari::Application::GetFont(Akari::Application::FontType::Font_Bold));
+    ImGui::PushFont(Application::GetFont(Application::FontType::Font_Bold));
     ImGui::Text("General");
     ImGui::PopFont();
     ImGui::Separator();
 
     ImGui::Text("Update Time: %f", m_UpdateTime);
-    ImGui::Text("Render Time: %f", m_RenderTime);
+    ImGui::Text("render Time: %f", m_RenderTime);
     ImGui::Text("FPS: %f", 1000 / m_RenderTime);
     ImGui::Text("Mouse Position %f, %f", m_ViewportMouse.x, m_ViewportMouse.y);
 
@@ -163,9 +165,9 @@ public:
   }
 };
 
-Akari::Application* Akari::CreateApplication(int argc, char** argv) {
+Application* akari::window::CreateApplication(int argc, char** argv) {
 
-  const Akari::ApplicationSpecification applicationSpecification = {
+  const ApplicationSpecification applicationSpecification = {
       .Width         = 1440,
       .Height        = 300,
       .EnableDocking = true,
@@ -173,7 +175,7 @@ Akari::Application* Akari::CreateApplication(int argc, char** argv) {
       .Centered      = true,
   };
 
-  Akari::Application* app = new Akari::Application(applicationSpecification);
+  Application* app = new Application(applicationSpecification);
 
   app->PushLayer<ViewportLayer>();
 
