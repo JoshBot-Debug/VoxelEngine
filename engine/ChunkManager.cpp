@@ -8,35 +8,6 @@
 #include "thread/ThreadPool.h"
 #include "voxel/GreedyMesh64.h"
 
-inline uint32_t radius(uint32_t chunkSize) {
-  return (chunkSize - 1) / 2;
-}
-
-inline uint32_t index(const glm::ivec3& lcc, uint32_t chunkSize) {
-  auto p = lcc + glm::ivec3(radius(chunkSize));
-  return p.x + (chunkSize * (p.y + (chunkSize * p.z)));
-}
-
-inline uint32_t index(uint8_t x, uint8_t y, uint8_t z, uint32_t chunkSize) {
-  uint32_t r = radius(chunkSize);
-  x += r;
-  y += r;
-  z += r;
-  return x + (chunkSize * (y + (chunkSize * z)));
-}
-
-inline int floorDivision(int a, int b) {
-  return (a >= 0) ? (a / b) : ((a - b + 1) / b);
-}
-
-inline int wrap(int i, int size) {
-  if (i == -1)
-    return size - 1;
-  if (i == size)
-    return 0;
-  return i;
-}
-
 ChunkManager::ChunkManager(uint32_t chunkSize) {
   m_SVO = new SparseOctree<Voxel>();
 

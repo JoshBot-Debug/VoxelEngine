@@ -90,10 +90,6 @@ World::World(uint32_t m_ChunkSize)
 
   akari::thread::Signal::Set(PALETTE_FLUSH_UPDATE);
 
-  auto lightMaterial = m_Palette.Find("Light");
-  auto light         = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
-  m_ChunkManager->Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
-
   // akari::thread::ThreadPool::Dispatch([&]() { GenerateCornellBox(); });
   // akari::thread::ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}, 1.0f); });
   GenerateChunk({0, 0, 0});
@@ -192,13 +188,17 @@ void World::Clean() {
 }
 
 const void World::GenerateChunk(const glm::ivec3& wcc) {
-  auto gLush   = m_Palette.Find("Grass Lush");
-  auto gDry    = m_Palette.Find("Grass Dry");
-  auto gForest = m_Palette.Find("Grass Forest");
+  auto gLush         = m_Palette.Find("Grass Lush");
+  auto gDry          = m_Palette.Find("Grass Dry");
+  auto gForest       = m_Palette.Find("Grass Forest");
+  auto lightMaterial = m_Palette.Find("Light");
 
   auto lush   = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
   auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
   auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
+  auto light  = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
+
+  m_ChunkManager->Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
   std::vector<glm::ivec3> lccs = getLocalChunkCoordinates(wcc);
 
@@ -228,12 +228,16 @@ const void World::GenerateCornellBox() {
   auto wallMaterial      = m_Palette.Find("Wall");
   auto cubeMaterial      = m_Palette.Find("Cube");
   auto sphereMaterial    = m_Palette.Find("Sphere");
+  auto lightMaterial     = m_Palette.Find("Light");
 
   auto leftWall  = m_Voxels.emplace_back(std::make_shared<Voxel>(leftWallMaterial->Id));
   auto rightWall = m_Voxels.emplace_back(std::make_shared<Voxel>(rightWallMaterial->Id));
   auto wall      = m_Voxels.emplace_back(std::make_shared<Voxel>(wallMaterial->Id));
   auto cube      = m_Voxels.emplace_back(std::make_shared<Voxel>(cubeMaterial->Id));
   auto sphere    = m_Voxels.emplace_back(std::make_shared<Voxel>(sphereMaterial->Id));
+  auto light     = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
+
+  m_ChunkManager->Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
   auto origin = glm::ivec3(0);
 

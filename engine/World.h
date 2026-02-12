@@ -26,8 +26,19 @@ public:
 private:
   uint32_t m_ChunkSize = 0;
 
-  Palette            m_Palette;
-  HeightMap          m_HeightMap;
+  Palette   m_Palette;
+  HeightMap m_HeightMap = {
+      64,
+      64,
+      TerrainSpecification{
+          .Seed        = 50,
+          .OctaveCount = 3,
+          .Frequency   = 1.0f,
+          .Persistence = 0.4f,
+          .Scale       = 0.3f,
+          .Bias        = -0.4f,
+      },
+  };
   akari::camera::PerspectiveCamera* m_Camera = nullptr;
 
   std::vector<std::shared_ptr<Voxel>> m_Voxels;
