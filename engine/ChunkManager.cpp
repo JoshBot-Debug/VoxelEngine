@@ -8,21 +8,33 @@
 #include "thread/ThreadPool.h"
 #include "voxel/GreedyMesh64.h"
 
-inline uint32_t radius(uint32_t size) {
-  return (size - 1) / 2;
+inline uint32_t radius(uint32_t chunkSize) {
+  return (chunkSize - 1) / 2;
 }
 
-inline uint32_t index(const glm::ivec3& coord, uint32_t size) {
-  auto p = coord + glm::ivec3(radius(size));
-  return p.x + (size * (p.y + (size * p.z)));
+inline uint32_t index(const glm::ivec3& lcc, uint32_t chunkSize) {
+  auto p = lcc + glm::ivec3(radius(chunkSize));
+  return p.x + (chunkSize * (p.y + (chunkSize * p.z)));
 }
 
-inline uint32_t index(uint8_t x, uint8_t y, uint8_t z, uint32_t size) {
-  uint32_t r = radius(size);
+inline uint32_t index(uint8_t x, uint8_t y, uint8_t z, uint32_t chunkSize) {
+  uint32_t r = radius(chunkSize);
   x += r;
   y += r;
   z += r;
-  return x + (size * (y + (size * z)));
+  return x + (chunkSize * (y + (chunkSize * z)));
+}
+
+inline int floorDivision(int a, int b) {
+  return (a >= 0) ? (a / b) : ((a - b + 1) / b);
+}
+
+inline int wrap(int i, int size) {
+  if (i == -1)
+    return size - 1;
+  if (i == size)
+    return 0;
+  return i;
 }
 
 ChunkManager::ChunkManager(uint32_t chunkSize) {
@@ -42,152 +54,110 @@ ChunkManager::~ChunkManager() {
   delete m_SVO;
 }
 
-void ChunkManager::Set(const glm::ivec3& coord, int x, int y, int z, Voxel* data) {
-  uint32_t i = index(coord, SIZE);
+void ChunkManager::Set(const glm::ivec3& lcc, int x, int y, int z, Voxel* data) {
+  uint32_t i = index(lcc, SIZE);
   m_Chunks[i]->Set(x, y, z, data);
 }
 
-void ChunkManager::Set(const glm::ivec3& coord, const glm::ivec3& position, Voxel* data) {
-  uint32_t i = index(coord, SIZE);
+void ChunkManager::Set(const glm::ivec3& lcc, const glm::ivec3& position, Voxel* data) {
+  uint32_t i = index(lcc, SIZE);
   m_Chunks[i]->Set(position.x, position.y, position.z, data);
 }
 
-void ChunkManager::Set(const glm::ivec3& coord, SparseOctree<Voxel>::Writer& session, int x, int y, int z, Voxel* data) {
-  uint32_t i = index(coord, SIZE);
+void ChunkManager::Set(const glm::ivec3& lcc, SparseOctree<Voxel>::Writer& session, int x, int y, int z, Voxel* data) {
+  uint32_t i = index(lcc, SIZE);
   m_Chunks[i]->Set(session, x, y, z, data);
 }
 
-void ChunkManager::Clear(const glm::ivec3& coord, const glm::ivec3& position) {
-  uint32_t i = index(coord, SIZE);
+void ChunkManager::Clear(const glm::ivec3& lcc, const glm::ivec3& position) {
+  uint32_t i = index(lcc, SIZE);
   m_Chunks[i]->Clear(position.x, position.y, position.z);
 }
 
-void ChunkManager::Sync(const glm::ivec3& coord) {
-  uint32_t i = index(coord, SIZE);
+void ChunkManager::Sync(const glm::ivec3& lcc) {
+  uint32_t i = index(lcc, SIZE);
   m_Chunks[i]->Sync();
 }
 
-SparseOctree<Voxel>::Writer ChunkManager::BeginWrite(const glm::ivec3& coord) {
-  uint32_t i = index(coord, SIZE);
+SparseOctree<Voxel>::Writer ChunkManager::BeginWrite(const glm::ivec3& lcc) {
+  uint32_t i = index(lcc, SIZE);
   return m_Chunks[i]->BeginWrite();
 }
 
-SparseOctree<Voxel>::Reader ChunkManager::BeginRead(const glm::ivec3& coord) {
-  uint32_t i = index(coord, SIZE);
+SparseOctree<Voxel>::Reader ChunkManager::BeginRead(const glm::ivec3& lcc) {
+  uint32_t i = index(lcc, SIZE);
   return m_Chunks[i]->BeginRead();
 }
 
-void ChunkManager::Flatten(SparseOctree<Voxel>::Reader& session, const glm::ivec3& coord, std::vector<SparseOctree<Voxel>::FlatNode>& out) {
-  uint32_t i = index(coord, SIZE);
+void ChunkManager::Flatten(SparseOctree<Voxel>::Reader& session, const glm::ivec3& lcc, std::vector<SparseOctree<Voxel>::FlatNode>& out) {
+  uint32_t i = index(lcc, SIZE);
   m_Chunks[i]->Flatten(session, out);
 }
 
-void ChunkManager::GreedyMesh(const glm::ivec3& coord, const glm::ivec3& offset, const std::vector<Material>& materials, std::vector<Vertex>& out) {
-  uint32_t i = index(coord, SIZE);
-  m_VertexThreads[i].resize(materials.size());
+void ChunkManager::GreedyMesh(const glm::ivec3& wcc, const glm::ivec3& lcc, const std::vector<Material>& materials, std::vector<Vertex>& out) {
+  uint32_t i                  = index(lcc, SIZE);
+  auto&    chunkVertexThreads = m_VertexThreads[i];
+  uint64_t threadId           = m_GreedyMeshingTask[i];
 
-  auto generateVerticies = [&results = m_VertexThreads[i], &chunks = m_Chunks, offset, i, coord](Material material) {
+  chunkVertexThreads.resize(materials.size());
+
+  auto generateVerticies = [&chunkVertexThreads, &chunks = m_Chunks, wcc, lcc, i](Material material) {
     auto& svo     = chunks[i];
     auto  session = svo->BeginRead();
 
     std::vector<Vertex> buffer;
-
-    uint8_t padding[64 * 64] = {};
+    uint8_t             padding[64 * 64] = {};
 
     auto& rows    = svo->GetAxisX(session, material.Id);
     auto& columns = svo->GetAxisY(session, material.Id);
     auto& layers  = svo->GetAxisZ(session, material.Id);
 
-    GreedyMesh64::GeneratePadding(padding, rows, columns, layers, [&chunks, i, coord](int x, int y, int z) -> bool {
-      uint32_t size      = SparseOctree<Voxel>::SIZE;
-      uint32_t chunkSize = ChunkManager::SIZE;
-      uint32_t r         = radius(chunkSize);
+    GreedyMesh64::GeneratePadding(padding, rows, columns, layers, [&chunks, wcc, lcc, i](int x, int y, int z) -> bool {
+      uint32_t size = SparseOctree<Voxel>::SIZE;
+      uint32_t r    = radius(SIZE);
 
-      if (x == size || x == -1) {
-        uint32_t ax = std::abs(coord.x);
+      if (x < 0 || y < 0 || z < 0 || x >= size || y >= size || z >= size) {
+        const glm::ivec3 np = {floorDivision(x, size) + lcc.x, floorDivision(y, size) + lcc.y, floorDivision(z, size) + lcc.z};
 
-        if (ax >= r)
+        if (std::abs(np.x) > r || std::abs(np.y) > r || std::abs(np.z) > r)
           return true;
 
-        if (x == 64) {
-          uint32_t i = index(coord.x + 1, coord.y, coord.z, chunkSize);
-          return chunks[i]->Exists(0, y, z);
-        }
+        uint32_t ni   = index(np, SIZE);
+        auto&    nsvo = chunks[ni];
 
-        if (x == -1) {
-          uint32_t i = index(coord.x - 1, coord.y, coord.z, chunkSize);
-          return chunks[i]->Exists(63, y, z);
-        }
-
-        return true;
-      }
-      if (y == size || y == -1) {
-        uint32_t ay = std::abs(coord.y);
-
-        if (ay >= r)
-          return true;
-
-        if (y == 64) {
-          uint32_t i = index(coord.x, coord.y + 1, coord.z, chunkSize);
-          return chunks[i]->Exists(x, 0, z);
-        }
-
-        if (y == -1) {
-          uint32_t i = index(coord.x, coord.y - 1, coord.z, chunkSize);
-          return chunks[i]->Exists(x, 63, z);
-        }
-        return true;
-      }
-
-      if (z == size || z == -1) {
-        uint32_t az = std::abs(coord.z);
-
-        if (az >= r)
-          return true;
-
-        if (z == 64) {
-          uint32_t i = index(coord.x, coord.y, coord.z + 1, chunkSize);
-          return chunks[i]->Exists(x, y, 0);
-        }
-
-        if (z == -1) {
-          uint32_t i = index(coord.x, coord.y, coord.z - 1, chunkSize);
-          return chunks[i]->Exists(x, y, 63);
-        }
-
-        return true;
+        return nsvo->Exists(wrap(x, size), wrap(y, size), wrap(z, size));
       }
 
       return chunks[i]->Exists(x, y, z);
     });
 
-    GreedyMesh64::Generate(buffer, offset, material.Id, rows, columns, layers, padding);
+    GreedyMesh64::Generate(buffer, wcc + lcc, material.Id, rows, columns, layers, padding);
 
-    results[material.Id - 1] = std::move(buffer);
+    chunkVertexThreads[material.Id - 1] = std::move(buffer);
   };
 
-  auto onComplete = [&results = m_VertexThreads[i], &out = out]() {
+  auto onComplete = [&chunkVertexThreads, &out = out]() {
     size_t total = 0;
 
-    for (const auto& v : results)
+    for (const auto& v : chunkVertexThreads)
       total += v.size();
 
     // out.clear();
     out.reserve(out.size() + total);
 
-    for (auto& v : results)
+    for (auto& v : chunkVertexThreads)
       out.insert(out.end(), v.begin(), v.end());
 
-    for (auto& v : results)
+    for (auto& v : chunkVertexThreads)
       v.clear();
 
     akari::thread::Signal::Set(vxen::World::CHUNK_MANAGER_FLUSH_RENDER);
   };
 
-  akari::thread::ThreadPool::ForEach(m_GreedyMeshingTask[i], std::move(materials), generateVerticies, onComplete);
+  akari::thread::ThreadPool::ForEach(threadId, std::move(materials), generateVerticies, onComplete);
 }
 
-SparseOctree<Voxel>::Hit ChunkManager::DeepRaymarch(const glm::ivec3& coord, const glm::vec3& origin, const glm::vec3& direction) {
-  uint32_t i = index(coord, SIZE);
+SparseOctree<Voxel>::Hit ChunkManager::DeepRaymarch(const glm::ivec3& lcc, const glm::vec3& origin, const glm::vec3& direction) {
+  uint32_t i = index(lcc, SIZE);
   return m_Chunks[i]->DeepRaymarch(origin, direction);
 }
