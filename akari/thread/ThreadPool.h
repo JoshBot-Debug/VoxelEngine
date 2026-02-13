@@ -14,7 +14,7 @@ public:
   using TaskId = uint32_t;
 
 private:
-  std::array<std::atomic<uint32_t>, 64> m_TasksInQueue      = {};
+  std::array<std::atomic<uint32_t>, 4096> m_TasksInQueue      = {};
   std::atomic<size_t>                   m_TasksInQueueCount = 0;
 
   std::vector<std::thread>          m_Workers = {};

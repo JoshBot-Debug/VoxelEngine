@@ -34,8 +34,10 @@ Run the project
 Benchmark / Performance
 
 ```bash
-sudo perf record -F 999 -g --call-graph=dwarf ./build/Kitagawa
-sudo perf record -e branch-misses -g ./build/Experiment
+sudo apt install heaptrack heaptrack-gui
+heaptrack ./build/vxen
+sudo perf record -F 999 -g --call-graph=dwarf ./build/vxen
+sudo perf record -e branch-misses -g ./build/experiment
 sudo perf report
 ```
 

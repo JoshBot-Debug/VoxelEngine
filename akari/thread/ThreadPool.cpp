@@ -52,7 +52,7 @@ ThreadPool::TaskId ThreadPool::GenerateId() {
 
   uint32_t id = pool.m_TasksInQueueCount.fetch_add(1, std::memory_order::relaxed);
 
-  if (id > 63)
+  if (id > pool.m_TasksInQueue.size())
     throw std::runtime_error("Too many thread job ids. Maximum is 64");
 
   return id;

@@ -38,16 +38,16 @@ inline int wrap(int i, int size) {
 
 class ChunkManager {
 public:
-  static constexpr uint32_t   SIZE         = 3;
-  static constexpr glm::ivec3 CHUNK_RADIUS = glm::ivec3(1);
+  static constexpr uint32_t   SIZE         = 5;
+  static constexpr glm::ivec3 CHUNK_RADIUS = glm::ivec3((SIZE - 1) >> 1);
 
 private:
-  std::array<SparseOctree<Voxel>*, 3 * 3 * 3> m_Chunks = {};
+  std::array<SparseOctree<Voxel>*, SIZE * SIZE * SIZE> m_Chunks = {};
   SparseOctree<Voxel>*                        m_SVO    = nullptr;
 
-  std::array<std::vector<std::vector<Vertex>>, 3 * 3 * 3> m_VertexThreads = {};
+  std::array<std::vector<std::vector<Vertex>>, SIZE * SIZE * SIZE> m_VertexThreads = {};
 
-  std::array<akari::thread::ThreadPool::TaskId, 3 * 3 * 3> m_GreedyMeshingTask = {};
+  std::array<akari::thread::ThreadPool::TaskId, SIZE * SIZE * SIZE> m_GreedyMeshingTask = {};
 
 public:
   ChunkManager(uint32_t chunkSize);

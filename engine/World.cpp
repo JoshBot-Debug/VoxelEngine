@@ -183,7 +183,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 void World::Clean() {
   m_FlatSVO.clear();
   m_Materials.clear();
-  // m_Vertices.clear();
+  m_Vertices.clear();
   m_Lights.clear();
 }
 
@@ -197,8 +197,6 @@ const void World::GenerateChunk(const glm::ivec3& wcc) {
   auto dry    = m_Voxels.emplace_back(std::make_shared<Voxel>(gDry->Id));
   auto forest = m_Voxels.emplace_back(std::make_shared<Voxel>(gForest->Id));
   auto light  = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
-
-  m_ChunkManager->Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
   std::vector<glm::ivec3> lccs = getLocalChunkCoordinates(wcc);
 
@@ -218,6 +216,8 @@ const void World::GenerateChunk(const glm::ivec3& wcc) {
             m_ChunkManager->Set(lcc, session, x, y, z, lush.get());
         }
     }
+
+  m_ChunkManager->Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
   akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
 }
