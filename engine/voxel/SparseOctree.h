@@ -154,6 +154,14 @@ private:
   public:
     Mask() = default;
 
+    inline bool Exists(int x, int y, int z) {
+      if (x < 0 || y < 0 || z < 0 || x > SIZE || y > SIZE || z > SIZE)
+        return false;
+
+      uint32_t i = x + (SIZE * (y + (SIZE * z)));
+      return (m_Present[i >> DIV] >> (i & MOD)) & 1ULL;
+    }
+
     inline bool Exists(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
       return (m_Present[i >> DIV] >> (i & MOD)) & 1ULL;
@@ -694,6 +702,13 @@ public:
   Node* Get(Reader& session, uint8_t x, uint8_t y, uint8_t z) {
     return Get(session.Root, x, y, z, SIZE);
   };
+
+  /**
+   * Check if a voxel exists at location
+   */
+  bool Exists(int x, int y, int z) {
+    return m_Mask.Exists(x, y, z);
+  }
 
   /**
    * Check if a voxel exists at location

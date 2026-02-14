@@ -140,16 +140,16 @@ int main(int argc, char** argv) {
   // }
 
 
-  // {
-  //   auto read = m_Chunks->BeginRead();
+  {
+    auto read = chunkManager.BeginRead();
 
-  //   for (size_t z = 0; z < chunkManager.CHUNK_SIZE; z++)
-  //     for (size_t y = 0; y < chunkManager.CHUNK_SIZE; y++)
-  //       for (size_t x = 0; x < chunkManager.CHUNK_SIZE; x++) {
-  //         auto c = m_Chunks->Get(read, x, y, z);
-  //         std::cout << c->Data->Id << std::endl;
-  //       }
-  // }
+    for (size_t z = 0; z < chunkManager.CHUNK_SIZE; z++)
+      for (size_t y = 0; y < chunkManager.CHUNK_SIZE; y++)
+        for (size_t x = 0; x < chunkManager.CHUNK_SIZE; x++) {
+          auto c = chunkManager.Get(read, x, y, z);
+          std::cout << c->Data->Id << std::endl;
+        }
+  }
 
   return EXIT_SUCCESS;
 }

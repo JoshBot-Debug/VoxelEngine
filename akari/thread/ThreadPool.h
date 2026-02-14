@@ -63,6 +63,8 @@ inline void ThreadPool::Dispatch(F&& task, Args&... args) {
 
 template <typename T, typename F, typename C>
 inline void ThreadPool::ForEach(std::vector<T> data, F&& task, C&& onComplete) {
+  static_assert(std::is_trivially_copyable<T>());
+
   ThreadPool& pool = ThreadPool::Instance();
 
   if (data.empty()) {
@@ -78,8 +80,8 @@ inline void ThreadPool::ForEach(std::vector<T> data, F&& task, C&& onComplete) {
 
     for (size_t i = 0; i < data.size(); ++i) {
       pool.m_Tasks.emplace(
-          [item = std::move(data[i]), f = std::forward<F>(task), remaining, completion]() mutable {
-            f(std::move(item));
+          [i, item = data[i], f = std::forward<F>(task), remaining, completion]() mutable {
+            f(i, item);
             if (remaining->fetch_sub(1, std::memory_order_acq_rel) == 1)
               (*completion)();
           });
