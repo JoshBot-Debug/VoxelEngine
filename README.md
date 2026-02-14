@@ -88,6 +88,7 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
 - [x] MAJOR: Rework the archtecture of the code base in this scene. GOAL: Bring the design slightly closer to something more satisfactory.
 - [ ] Add chunking again
 - [ ] Add LOD
+- [ ] Add frustum culling of chunks
 - [ ] Add trees
 - [x] Add a skybox
 - [x] Make the SVO a sparse octree, the datatype associated with it should be templated.

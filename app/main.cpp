@@ -56,8 +56,9 @@ public:
     m_Scene.SetWorld(&m_World);
     m_Scene.SetCamera(&m_Camera);
     m_Scene.Initialize({
-        .width  = static_cast<uint32_t>(m_ViewportSize.x),
-        .height = static_cast<uint32_t>(m_ViewportSize.y),
+        .PolygonMode = VK_POLYGON_MODE_FILL,
+        .Width       = static_cast<uint32_t>(m_ViewportSize.x),
+        .Height      = static_cast<uint32_t>(m_ViewportSize.y),
     });
 
     m_World.SetCamera(&m_Camera);
@@ -74,6 +75,22 @@ public:
 
     m_UI.Update(deltaTime, m_ViewportMouse, m_ViewportSize);
     m_World.Update(deltaTime, m_ViewportMouse, m_ViewportSize);
+
+    if (ImGui::IsKeyPressed(ImGuiKey_L)) {
+      m_Scene.Initialize({
+          .PolygonMode = VK_POLYGON_MODE_LINE,
+          .Width       = static_cast<uint32_t>(m_ViewportSize.x),
+          .Height      = static_cast<uint32_t>(m_ViewportSize.y),
+      });
+    }
+
+    if (ImGui::IsKeyPressed(ImGuiKey_P)) {
+      m_Scene.Initialize({
+          .PolygonMode = VK_POLYGON_MODE_FILL,
+          .Width       = static_cast<uint32_t>(m_ViewportSize.x),
+          .Height      = static_cast<uint32_t>(m_ViewportSize.y),
+      });
+    }
 
     auto                                     end      = std::chrono::high_resolution_clock::now();
     std::chrono::duration<float, std::milli> duration = end - start;

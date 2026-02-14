@@ -1,11 +1,22 @@
 #include <iostream>
 #include <vector>
 
+#include "ChunkManager.h"
 #include "Debug.h"
 #include "voxel/GreedyMesh64.h"
+#include "voxel/HeightMap.h"
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"
 #include "voxel/Voxel.h"
+
+inline std::vector<glm::ivec3> getLocalChunkCoordinates(const glm::vec3& coord) {
+  std::vector<glm::ivec3> result;
+  for (int dz = -ChunkManager::CHUNK_RADIUS.z; dz <= ChunkManager::CHUNK_RADIUS.z; dz++)
+    for (int dx = -ChunkManager::CHUNK_RADIUS.x; dx <= ChunkManager::CHUNK_RADIUS.x; dx++)
+      for (int dy = -ChunkManager::CHUNK_RADIUS.y; dy <= ChunkManager::CHUNK_RADIUS.y; dy++)
+        result.emplace_back(coord.x + dx, coord.y + dy, coord.z + dz);
+  return result;
+};
 
 void GenerateVerticies(std::vector<std::vector<Vertex>>& results, Material material, SparseOctree<Voxel>::Node* root, SparseOctree<Voxel>* svo) {
   SparseOctree<Voxel>::Reader session = svo->BeginRead();
@@ -44,6 +55,40 @@ void GreedyMesh(const std::vector<Material>& materials, SparseOctree<Voxel>* svo
     GenerateVerticies(results, material, root, svo);
 }
 
+void GenerateChunk(ChunkManager& chunkManager, const glm::ivec3& wcc, Voxel* voxel) {
+  uint64_t                m_ChunkSize = 64;
+  std::vector<glm::ivec3> lccs        = getLocalChunkCoordinates(wcc);
+  HeightMap               m_HeightMap;
+
+  m_HeightMap.Initialize(m_ChunkSize, m_ChunkSize);
+
+  for (auto& lcc : lccs) {
+    if (lcc.y == 0) {
+      auto session = chunkManager.BeginWrite(lcc);
+
+      auto noise = m_HeightMap.Build(lcc.x, lcc.x + 1.0f, lcc.z, lcc.z + 1.0f);
+
+      session.Root->Destroy();
+
+      for (int z = 0; z < m_ChunkSize; z++)
+        for (int x = 0; x < m_ChunkSize; x++) {
+          float n      = noise.GetValue(x, z);
+          int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
+          // for (int y = 0; y < height; y++)
+          //   chunkManager.Set(lcc, session, x, y, z, voxel);
+          for (int y = 0; y < m_ChunkSize; y++) {
+            chunkManager.Set(lcc, session, x, y, z, voxel);
+            chunkManager.Sync(lcc);
+          }
+        }
+    }
+    // chunkManager.Sync(lcc);
+  }
+
+  chunkManager.Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, voxel);
+  // chunkManager.Sync({0, 0, 0});
+}
+
 int main(int argc, char** argv) {
 
   SparseOctree<Voxel> svo;
@@ -61,25 +106,29 @@ int main(int argc, char** argv) {
 
   // GreedyMesh(m_Palette.GetMaterials(), &svo);
 
-  {
-    SparseOctree<Voxel>::Writer session = svo.BeginWrite();
+  // {
+  //   SparseOctree<Voxel>::Writer session = svo.BeginWrite();
 
-    for (size_t z = 0; z < 64; z++)
-      for (size_t y = 0; y < 64; y++)
-        for (size_t x = 0; x < 64; x++)
-          svo.Set(session, x, y, z, brick.get());
-  }
+  //   for (size_t z = 0; z < 64; z++)
+  //     for (size_t y = 0; y < 64; y++)
+  //       for (size_t x = 0; x < 64; x++)
+  //         svo.Set(session, x, y, z, brick.get());
+  // }
 
-  svo.Sync();
+  // svo.Sync();
 
-  {
-    SparseOctree<Voxel>::Reader session = svo.BeginRead();
+  // {
+  //   SparseOctree<Voxel>::Reader session = svo.BeginRead();
 
-    for (size_t z = 0; z < 64; z++)
-      for (size_t y = 0; y < 64; y++)
-        for (size_t x = 0; x < 64; x++)
-          svo.Get(session, x, y, z);
-  }
+  //   for (size_t z = 0; z < 64; z++)
+  //     for (size_t y = 0; y < 64; y++)
+  //       for (size_t x = 0; x < 64; x++)
+  //         svo.Get(session, x, y, z);
+  // }
+
+  ChunkManager chunkManager(64);
+
+  GenerateChunk(chunkManager, {0, 0, 0}, brick.get());
 
   return EXIT_SUCCESS;
 }

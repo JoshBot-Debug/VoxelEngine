@@ -90,9 +90,9 @@ World::World(uint32_t m_ChunkSize)
 
   akari::thread::Signal::Set(PALETTE_FLUSH_UPDATE);
 
-  // akari::thread::ThreadPool::Dispatch([&]() { GenerateCornellBox(); });
+  akari::thread::ThreadPool::Dispatch([&]() { GenerateCornellBox(); });
   // akari::thread::ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}, 1.0f); });
-  GenerateChunk({0, 0, 0});
+  // GenerateChunk({0, 0, 0});
 }
 
 World::~World() {
@@ -101,36 +101,39 @@ World::~World() {
 
 void World::RenderUI() {
   m_Palette.RenderUI();
-
-  ImGui::Begin("World", nullptr, ImGuiWindowFlags_MenuBar);
-
-  if (ImGui::BeginMenuBar()) {
-    if (ImGui::BeginMenu("Options")) {
-
-      if (ImGui::MenuItem("Flush"))
-        akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE | PALETTE_FLUSH_UPDATE);
-
-      ImGui::EndMenu();
-    }
-
-    ImGui::EndMenuBar();
-  }
-
-  ImGui::End();
 }
 
 void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport) {
 
   glm::vec3 rayOrigin    = m_Camera->Position;
   glm::vec3 rayDirection = m_Camera->GetRayDirection(mouse.x, mouse.y);
+
   // glm::ivec3 wcc        = getWorldChunkCoordinate(rayOrigin);
   glm::ivec3 wcc = glm::ivec3(0);
 
+  /// TODO: We are syncing here, only one chunk?? Need to sync all dirty chunks :|
   if (akari::thread::Signal::Consume(CHUNK_MANAGER_SYNC_UPDATE))
     m_ChunkManager->Sync(wcc);
 
   bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
   bool isActing      = ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Left);
+
+  if (ImGui::IsKeyPressed(ImGuiKey_F5))
+    akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE | PALETTE_FLUSH_UPDATE);
+
+  if (ImGui::IsKeyPressed(ImGuiKey_T)) {
+    SparseOctree<Voxel>::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
+    auto                     position = getChunkLocalPosition(hit.Position + hit.Normal);
+    m_ChunkManager->Set(wcc, position, hit.Data);
+    akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  }
+
+  if (ImGui::IsKeyPressed(ImGuiKey_Y)) {
+    SparseOctree<Voxel>::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
+    auto                     position = getChunkLocalPosition(hit.Position);
+    m_ChunkManager->Clear(wcc, position);
+    akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  }
 
   if (isCtrlPressed && isActing) {
     SparseOctree<Voxel>::Hit hit = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
@@ -175,8 +178,9 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
     std::vector<glm::ivec3> lccs = getLocalChunkCoordinates(wcc);
 
-    for (auto& lcc : lccs)
-      m_ChunkManager->GreedyMesh(wcc, lcc, m_Palette.GetMaterials(), m_Vertices);
+    // for (auto& lcc : lccs)
+    //   m_ChunkManager->GreedyMesh(wcc, lcc, m_Palette.GetMaterials(), m_Vertices);
+    m_ChunkManager->GreedyMesh(wcc, wcc, m_Palette.GetMaterials(), m_Vertices);
   }
 }
 
@@ -267,9 +271,8 @@ const void World::GenerateCornellBox() {
     // Add the rectangle
     for (int z = 0; z < blockSize; z++)
       for (int x = 0; x < blockSize; x++)
-        for (int y = 0; y < blockHeight; y++) {
+        for (int y = 0; y < blockHeight; y++)
           m_ChunkManager->Set(origin, guard, x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube.get());
-        }
 
     // Add the sphere
     int radius = m_ChunkSize / 8;
@@ -283,9 +286,8 @@ const void World::GenerateCornellBox() {
           float dx = x - cx;
           float dy = y - cy;
           float dz = z - cz;
-          if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+          if (dx * dx + dy * dy + dz * dz <= radius * radius)
             m_ChunkManager->Set(origin, guard, x, y + 1, z, sphere.get());
-          }
         }
       }
     }

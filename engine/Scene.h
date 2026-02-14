@@ -13,8 +13,9 @@
 class Scene {
 private:
   struct InitializeInfo {
-    uint32_t width;
-    uint32_t height;
+    VkPolygonMode PolygonMode;
+    uint32_t Width;
+    uint32_t Height;
   };
 
 private:

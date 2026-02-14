@@ -5,8 +5,8 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-#include "RCU/RCU.h"
 #include "Debug.h"
+#include "RCU/RCU.h"
 
 template <typename T>
 concept Data = requires(T t) {
@@ -143,50 +143,9 @@ public:
   };
 
 private:
-  class Mask {
+  class alignas(64) Mask {
   private:
-    /**
-     * 0 - Air
-     * 1 - Voxel
-     */
     uint64_t m_Present[SIZE * SIZE] = {};
-
-    /**
-     * 0 - Exposed
-     * 1 - Hidden (inside walls, underground, etc)
-     */
-    uint64_t m_Hidden[SIZE * SIZE] = {};
-
-    inline bool Exists(int x, int y, int z) {
-      if (x < 0 || y < 0 || z < 0 || x >= SIZE || y >= SIZE || z >= SIZE)
-        return false;
-
-      uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
-    }
-
-    inline void ComputeHidden(uint8_t x, uint8_t y, uint8_t z) {
-      uint32_t i    = x + SIZE * (y + SIZE * z);
-      uint32_t word = i >> 6;
-      uint64_t mask = 1ULL << (i & 63);
-
-      if (!((m_Present[word] >> (i & 63)) & 1ULL)) {
-        m_Hidden[word] &= ~mask;
-        return;
-      }
-
-      static constexpr int dx[6] = {-1, 1, 0, 0, 0, 0};
-      static constexpr int dy[6] = {0, 0, -1, 1, 0, 0};
-      static constexpr int dz[6] = {0, 0, 0, 0, -1, 1};
-
-      for (int n = 0; n < 6; n++)
-        if (!Exists(x + dx[n], y + dy[n], z + dz[n])) {
-          m_Hidden[word] &= ~mask;
-          return;
-        }
-
-      m_Hidden[word] |= mask;
-    }
 
   public:
     Mask() = default;
@@ -196,53 +155,14 @@ private:
       return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
     }
 
-    inline bool Hidden(uint8_t x, uint8_t y, uint8_t z) {
-      uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      return (m_Hidden[i >> 6] >> (i & 63)) & 1ULL;
-    }
-
     inline void Set(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
       m_Present[i >> 6] |= (1ULL << (i & 63));
-
-      static constexpr int dx[6] = {-1, 1, 0, 0, 0, 0};
-      static constexpr int dy[6] = {0, 0, -1, 1, 0, 0};
-      static constexpr int dz[6] = {0, 0, 0, 0, -1, 1};
-
-      ComputeHidden(x, y, z);
-
-      for (int n = 0; n < 6; n++) {
-        int nx = int(x) + dx[n];
-        int ny = int(y) + dy[n];
-        int nz = int(z) + dz[n];
-
-        if (nx < 0 || ny < 0 || nz < 0 || nx >= SIZE || ny >= SIZE || nz >= SIZE)
-          continue;
-
-        ComputeHidden(nx, ny, nz);
-      }
     }
 
     inline void Clear(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
-
       m_Present[i >> 6] &= ~(1ULL << (i & 63));
-      m_Hidden[i >> 6] &= ~(1ULL << (i & 63));
-
-      static constexpr int dx[6] = {-1, 1, 0, 0, 0, 0};
-      static constexpr int dy[6] = {0, 0, -1, 1, 0, 0};
-      static constexpr int dz[6] = {0, 0, 0, 0, -1, 1};
-
-      for (int n = 0; n < 6; n++) {
-        int nx = int(x) + dx[n];
-        int ny = int(y) + dy[n];
-        int nz = int(z) + dz[n];
-
-        if (nx < 0 || ny < 0 || nz < 0 || nx >= SIZE || ny >= SIZE || nz >= SIZE)
-          continue;
-
-        ComputeHidden(nx, ny, nz);
-      }
     }
   };
 
@@ -789,13 +709,6 @@ public:
   }
 
   /**
-   * Check if a voxel is hidden (behind other voxels)
-   */
-  bool Hidden(uint8_t x, uint8_t y, uint8_t z) {
-    return m_Mask.Hidden(x, y, z);
-  }
-
-  /**
    * @returns The root node
    */
   Node* GetRoot(std::memory_order order) {
@@ -839,10 +752,9 @@ public:
           if (!m_Mask.Exists(x, y, z))
             continue;
 
-          if (!m_Mask.Hidden(x, y, z))
-            match = Get(root, x, y, z, SIZE);
+          match = Get(root, x, y, z, SIZE);
 
-          if (match && match->Data->Id == nodeId) {
+          if (match->Data->Id == nodeId) {
             const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
             masks[rowIndex >> 6] |= (1ULL << (rowIndex & (SIZE - 1)));
           }
@@ -865,10 +777,9 @@ public:
           if (!m_Mask.Exists(x, y, z))
             continue;
 
-          if (!m_Mask.Hidden(x, y, z))
-            match = Get(root, x, y, z, SIZE);
+          match = Get(root, x, y, z, SIZE);
 
-          if (match && match->Data->Id == nodeId) {
+          if (match->Data->Id == nodeId) {
             const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
             masks[columnIndex >> 6] |= (1ULL << (columnIndex & (SIZE - 1)));
           }
@@ -891,10 +802,9 @@ public:
           if (!m_Mask.Exists(x, y, z))
             continue;
 
-          if (!m_Mask.Hidden(x, y, z))
-            match = Get(root, x, y, z, SIZE);
+          match = Get(root, x, y, z, SIZE);
 
-          if (match && match->Data->Id == nodeId) {
+          if (match->Data->Id == nodeId) {
             const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
             masks[layerIndex >> 6] |= (1ULL << (layerIndex & (SIZE - 1)));
           }

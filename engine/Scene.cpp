@@ -221,10 +221,10 @@ void Scene::Initialize(const InitializeInfo& init) {
       },
   });
 
-  OnResize(init.width, init.height);
+  OnResize(init.Width, init.Height);
 
   m_GeometryPipeline.CreatePipeline({
-      .polygonMode  = VK_POLYGON_MODE_FILL,
+      .polygonMode  = init.PolygonMode,
       .vertexStride = sizeof(Vertex),
       .attribs      = {
           {0, 0, VK_FORMAT_R8_UINT, offsetof(Vertex, Id)},
