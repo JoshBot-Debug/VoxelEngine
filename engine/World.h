@@ -10,7 +10,7 @@
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"
 
-#include "ChunkManager.h"
+// #include "ChunkManager.h"
 
 namespace vxen {
 
@@ -39,16 +39,19 @@ private:
           .Bias        = -0.4f,
       },
   };
+
   akari::camera::PerspectiveCamera* m_Camera = nullptr;
 
   std::vector<std::shared_ptr<Voxel>> m_Voxels;
-  ChunkManager*                       m_ChunkManager = nullptr;
+  // ChunkManager*                       m_ChunkManager = nullptr;
 
   std::vector<Material>                        m_Materials    = {};
   std::vector<uint32_t>                        m_MaterialsLUT = {};
   std::vector<SparseOctree<Voxel>::FlatNode>   m_FlatSVO      = {};
   std::vector<Vertex>                          m_Vertices     = {};
   std::vector<SparseOctree<Voxel>::FilterNode> m_Lights       = {};
+
+  glm::ivec3 m_CurrentOrigin = glm::ivec3(999);
 
 private:
   const void GenerateCornellBox();
@@ -71,7 +74,7 @@ public:
   const std::vector<Vertex>&                          GetVertices() { return m_Vertices; };
   const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
 
-  ChunkManager* GetChunkManager() { return m_ChunkManager; };
+  // ChunkManager* GetChunkManager() { return m_ChunkManager; };
 
   void Clean();
 };

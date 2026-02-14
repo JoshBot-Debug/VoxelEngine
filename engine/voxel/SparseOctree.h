@@ -22,11 +22,15 @@ concept FilterCallback = requires(F f, const N* node) {
  * @tparam T The datatype of the pointer stored
  * @tparam S The size of the SVO
  */
-template <Data T>
+template <Data T, uint8_t S = 64>
 class SparseOctree {
 
+  static_assert(S != 0 && (S & (S - 1)) == 0, "S must be a power of two");
+
 public:
-  static inline constexpr uint8_t SIZE = 64;
+  static inline constexpr uint8_t SIZE = S;
+  static inline constexpr uint8_t MOD  = SIZE - 1;
+  static inline constexpr uint8_t DIV  = std::log2(SIZE);
 
   /**
    * The hit struct for raymarching
@@ -109,12 +113,12 @@ public:
 
   class Writer {
   private:
-    std::atomic<SparseOctree<T>::Node*>* m_Atomic = nullptr;
+    std::atomic<SparseOctree<T, S>::Node*>* m_Atomic = nullptr;
 
   public:
-    SparseOctree<T>::Node* Root = nullptr;
+    SparseOctree<T, S>::Node* Root = nullptr;
 
-    Writer(std::atomic<SparseOctree<T>::Node*>* atomic)
+    Writer(std::atomic<SparseOctree<T, S>::Node*>* atomic)
         : m_Atomic(atomic)
         , Root(atomic->load(std::memory_order::acquire)) {}
 
@@ -129,9 +133,9 @@ public:
     uint64_t   m_Generation = 0;
 
   public:
-    SparseOctree<T>::Node* Root = nullptr;
+    SparseOctree<T, S>::Node* Root = nullptr;
 
-    Reader(std::atomic<SparseOctree<T>::Node*>* atomic, RCU<Node>* rcu)
+    Reader(std::atomic<SparseOctree<T, S>::Node*>* atomic, RCU<Node>* rcu)
         : m_RCU(rcu)
         , Root(atomic->load(std::memory_order::acquire)) {
       m_Generation = m_RCU->ReadLock();
@@ -152,17 +156,17 @@ private:
 
     inline bool Exists(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      return (m_Present[i >> 6] >> (i & 63)) & 1ULL;
+      return (m_Present[i >> DIV] >> (i & MOD)) & 1ULL;
     }
 
     inline void Set(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      m_Present[i >> 6] |= (1ULL << (i & 63));
+      m_Present[i >> DIV] |= (1ULL << (i & MOD));
     }
 
     inline void Clear(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      m_Present[i >> 6] &= ~(1ULL << (i & 63));
+      m_Present[i >> DIV] &= ~(1ULL << (i & MOD));
     }
   };
 
@@ -370,24 +374,6 @@ private:
     node->Data = first;
 
     return node;
-  };
-
-  /**
-   * Returns the total memory used in bytes by this node and all it's children.
-   */
-  size_t GetMemoryUsage(Node* node) {
-    if (!node)
-      return 0;
-
-    size_t size = sizeof(T);
-
-    if (node->Data)
-      size += sizeof(T);
-
-    for (int i = 0; i < 8; ++i)
-      size += GetMemoryUsage(node->Children[i]);
-
-    return size;
   };
 
   /**
@@ -642,6 +628,7 @@ public:
   };
 
   /**
+   * RCU
    * Used for batch writing in scope
    * @note This is not thread safe, make sure only one thread is writing
    */
@@ -650,12 +637,18 @@ public:
   };
 
   /**
+   * RCU
    * Used for reading in scope
    * @note This is not thread safe, make sure only one thread is writing
    */
   Reader BeginRead() {
     return Reader(&m_Root, &m_RCU);
   };
+
+  /**
+   * RCU Sync
+   */
+  void Sync() { m_RCU.Sync(); }
 
   /**
    * Sets a voxel at the given 3D world position.
@@ -687,7 +680,8 @@ public:
    * @param x, y, z   The world-space position to query.
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
-  Node* Get(Node* root, uint8_t x, uint8_t y, uint8_t z) {
+  Node* Get(uint8_t x, uint8_t y, uint8_t z) {
+    Node* root = m_Root.load(std::memory_order::acquire);
     return Get(root, x, y, z, SIZE);
   };
 
@@ -709,13 +703,6 @@ public:
   }
 
   /**
-   * @returns The root node
-   */
-  Node* GetRoot(std::memory_order order) {
-    return m_Root.load(order);
-  }
-
-  /**
    * I only care about voxels that face the air, voxels that are under ground, or in walls,
    * it doesn't matter what material they are
    * what I need is
@@ -725,22 +712,10 @@ public:
    * 2 - true
    *
    * This way I can skip many gets
-   * hence I will store a uint128_t mask[4096]
+   * hence I will store a uint128_t mask[SIZE * SIZE]
    */
-  uint64_t (&GetAxisX(Reader& session, uint32_t nodeId))[4096] {
-    return GetAxisX(session.Root, nodeId);
-  }
-
-  uint64_t (&GetAxisY(Reader& session, uint32_t nodeId))[4096] {
-    return GetAxisY(session.Root, nodeId);
-  }
-
-  uint64_t (&GetAxisZ(Reader& session, uint32_t nodeId))[4096] {
-    return GetAxisZ(session.Root, nodeId);
-  }
-
-  uint64_t (&GetAxisX(Node* root, uint32_t nodeId))[4096] {
-    static thread_local uint64_t masks[4096];
+  uint64_t (&GetAxisX(Reader& session, uint32_t nodeId))[SIZE * SIZE] {
+    static thread_local uint64_t masks[SIZE * SIZE];
     std::memset(masks, 0, sizeof(masks));
 
     for (uint8_t z = 0; z < SIZE; z++)
@@ -752,11 +727,11 @@ public:
           if (!m_Mask.Exists(x, y, z))
             continue;
 
-          match = Get(root, x, y, z, SIZE);
+          match = Get(session.Root, x, y, z, SIZE);
 
           if (match->Data->Id == nodeId) {
             const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
-            masks[rowIndex >> 6] |= (1ULL << (rowIndex & (SIZE - 1)));
+            masks[rowIndex >> DIV] |= (1ULL << (rowIndex & (SIZE - 1)));
           }
         }
       }
@@ -764,8 +739,8 @@ public:
     return masks;
   }
 
-  uint64_t (&GetAxisY(Node* root, uint32_t nodeId))[4096] {
-    static thread_local uint64_t masks[4096];
+  uint64_t (&GetAxisY(Reader& session, uint32_t nodeId))[SIZE * SIZE] {
+    static thread_local uint64_t masks[SIZE * SIZE];
     std::memset(masks, 0, sizeof(masks));
 
     for (uint8_t z = 0; z < SIZE; z++)
@@ -777,11 +752,11 @@ public:
           if (!m_Mask.Exists(x, y, z))
             continue;
 
-          match = Get(root, x, y, z, SIZE);
+          match = Get(session.Root, x, y, z, SIZE);
 
           if (match->Data->Id == nodeId) {
             const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
-            masks[columnIndex >> 6] |= (1ULL << (columnIndex & (SIZE - 1)));
+            masks[columnIndex >> DIV] |= (1ULL << (columnIndex & (SIZE - 1)));
           }
         }
       }
@@ -789,8 +764,8 @@ public:
     return masks;
   }
 
-  uint64_t (&GetAxisZ(Node* root, uint32_t nodeId))[4096] {
-    static thread_local uint64_t masks[4096];
+  uint64_t (&GetAxisZ(Reader& session, uint32_t nodeId))[SIZE * SIZE] {
+    static thread_local uint64_t masks[SIZE * SIZE];
     std::memset(masks, 0, sizeof(masks));
 
     for (uint8_t x = 0; x < SIZE; x++)
@@ -802,11 +777,11 @@ public:
           if (!m_Mask.Exists(x, y, z))
             continue;
 
-          match = Get(root, x, y, z, SIZE);
+          match = Get(session.Root, x, y, z, SIZE);
 
           if (match->Data->Id == nodeId) {
             const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
-            masks[layerIndex >> 6] |= (1ULL << (layerIndex & (SIZE - 1)));
+            masks[layerIndex >> DIV] |= (1ULL << (layerIndex & (SIZE - 1)));
           }
         }
       }
@@ -831,12 +806,17 @@ public:
   };
 
   /**
-   * Returns the total memory usage of the SVO in bytes.
-   * This does not include neighbours.
+   * Clear a voxel at the given x, y, z coordinates in
+   * voxel-space.
+   *
+   * This overload allows passing coordinates directly. It delegates to the
+   * internal recursive `Clear` function.
+   *
+   * @param x, y, z   Voxel-space coordinates to clear.
    */
-  size_t GetTotalMemoryUsage() {
-    Node* root = m_Root.load(std::memory_order::acquire);
-    return sizeof(SparseOctree) + GetMemoryUsage(root);
+  void Clear(Writer& session, uint8_t x, uint8_t y, uint8_t z) {
+    session.Root = Clear(session.Root, x, y, z, SIZE);
+    m_Mask.Clear(x, y, z);
   };
 
   /**
@@ -968,7 +948,12 @@ public:
    * @brief Quick raymarch
    */
   Hit Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
-    return Raymarch(m_Root, origin, direction, glm::vec3(0.), SIZE);
+    Node* root = m_Root.load(std::memory_order::acquire);
+    return Raymarch(root, origin, direction, glm::vec3(0.), SIZE);
+  };
+
+  Hit Raymarch(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
+    return Raymarch(session.Root, origin, direction, glm::vec3(0.), SIZE);
   };
 
   /**
@@ -977,21 +962,11 @@ public:
    * @brief Slower raymarch
    */
   Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
-    return DeepRaymarch(m_Root, origin, direction, glm::vec3(0.), SIZE);
+    Node* root = m_Root.load(std::memory_order::acquire);
+    return DeepRaymarch(root, origin, direction, glm::vec3(0.), SIZE);
   };
 
-  /**
-   * RCU Sync
-   */
-  void Sync() { m_RCU.Sync(); }
-
-  /**
-   * RCU ReadLock
-   */
-  uint64_t ReadLock() { return m_RCU.ReadLock(); }
-
-  /**
-   * RCU ReadUnlock
-   */
-  void ReadUnlock(uint64_t generation) { return m_RCU.ReadUnlock(generation); }
+  Hit DeepRaymarch(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
+    return DeepRaymarch(session.Root, origin, direction, glm::vec3(0.), SIZE);
+  };
 };

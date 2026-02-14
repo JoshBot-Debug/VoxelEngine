@@ -1,7 +1,5 @@
 #include "ThreadPool.h"
 
-#include <iostream>
-
 namespace akari::thread {
 ThreadPool::ThreadPool() {
   const uint32_t SIZE = std::thread::hardware_concurrency();
@@ -47,14 +45,4 @@ ThreadPool& ThreadPool::Instance() {
   return instance;
 }
 
-ThreadPool::TaskId ThreadPool::GenerateId() {
-  ThreadPool& pool = Instance();
-
-  uint32_t id = pool.m_TasksInQueueCount.fetch_add(1, std::memory_order::relaxed);
-
-  if (id > pool.m_TasksInQueue.size())
-    throw std::runtime_error("Too many thread job ids. Maximum is 64");
-
-  return id;
-}
 } // namespace akari::thread

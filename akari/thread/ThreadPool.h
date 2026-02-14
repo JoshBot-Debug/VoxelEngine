@@ -2,7 +2,6 @@
 
 #include <condition_variable>
 #include <functional>
-#include <iostream>
 #include <mutex>
 #include <queue>
 #include <thread>
@@ -10,13 +9,7 @@
 
 namespace akari::thread {
 class ThreadPool {
-public:
-  using TaskId = uint32_t;
-
 private:
-  std::array<std::atomic<uint32_t>, 4096> m_TasksInQueue      = {};
-  std::atomic<size_t>                   m_TasksInQueueCount = 0;
-
   std::vector<std::thread>          m_Workers = {};
   std::queue<std::function<void()>> m_Tasks   = {};
 
@@ -34,8 +27,6 @@ private:
 public:
   static ThreadPool& Instance();
 
-  static TaskId GenerateId();
-
   template <typename F>
   static void Dispatch(F&& task);
 
@@ -44,9 +35,6 @@ public:
 
   template <typename T, typename F, typename C>
   static void ForEach(std::vector<T> data, F&& task, C&& onComplete);
-
-  template <typename T, typename F, typename C>
-  static void ForEach(TaskId id, std::vector<T> data, F&& task, C&& onComplete);
 };
 
 template <typename F>
@@ -98,49 +86,6 @@ inline void ThreadPool::ForEach(std::vector<T> data, F&& task, C&& onComplete) {
     }
   }
   pool.m_CV.notify_one();
-}
-
-template <typename T, typename F, typename C>
-inline void ThreadPool::ForEach(TaskId         id,
-                                std::vector<T> data,
-                                F&&            task,
-                                C&&            onComplete) {
-  ThreadPool& pool = ThreadPool::Instance();
-
-  uint32_t expected = 0;
-  if (!pool.m_TasksInQueue[id].compare_exchange_strong(
-          expected,
-          (uint32_t)data.size(),
-          std::memory_order_acq_rel)) {
-    return;
-  }
-
-  if (data.empty()) {
-    onComplete();
-    return;
-  }
-
-  auto completion = std::make_shared<std::decay_t<C>>(std::forward<C>(onComplete));
-  auto func       = std::forward<F>(task);
-
-  {
-    std::lock_guard lock(pool.m_Mutex);
-
-    for (auto& item : data) {
-      pool.m_Tasks.emplace(
-          [item       = std::move(item),
-           f          = func,
-           &remaining = pool.m_TasksInQueue[id],
-           completion]() mutable {
-            f(std::move(item));
-
-            if (remaining.fetch_sub(1, std::memory_order_acq_rel) == 1)
-              (*completion)();
-          });
-    }
-  }
-
-  pool.m_CV.notify_all();
 }
 
 } // namespace akari::thread
