@@ -10,34 +10,6 @@
 
 namespace vxen {
 
-inline glm::ivec3 getWorldChunkCoordinate(const glm::vec3& rayOrigin) {
-  return {static_cast<int>(
-              std::floor(rayOrigin.x / static_cast<float>(SparseOctree<Voxel>::SIZE))),
-          static_cast<int>(
-              std::floor(rayOrigin.y / static_cast<float>(SparseOctree<Voxel>::SIZE))),
-          static_cast<int>(
-              std::floor(rayOrigin.z / static_cast<float>(SparseOctree<Voxel>::SIZE)))};
-};
-
-inline glm::ivec3 getChunkLocalPosition(const glm::vec3& rayOrigin) {
-  float size = static_cast<float>(SparseOctree<Voxel>::SIZE);
-
-  float x = std::fmod(rayOrigin.x, size);
-  float y = std::fmod(rayOrigin.y, size);
-  float z = std::fmod(rayOrigin.z, size);
-
-  return glm::ivec3(static_cast<int>(x), static_cast<int>(y), static_cast<int>(z));
-};
-
-inline std::vector<glm::ivec3> getLocalChunkCoordinates(const glm::vec3& coord) {
-  std::vector<glm::ivec3> result;
-  // for (int dz = -ChunkManager::CHUNK_RADIUS.z; dz <= ChunkManager::CHUNK_RADIUS.z; dz++)
-  //   for (int dx = -ChunkManager::CHUNK_RADIUS.x; dx <= ChunkManager::CHUNK_RADIUS.x; dx++)
-  //     for (int dy = -ChunkManager::CHUNK_RADIUS.y; dy <= ChunkManager::CHUNK_RADIUS.y; dy++)
-  //       result.emplace_back(coord.x + dx, coord.y + dy, coord.z + dz);
-  return result;
-};
-
 World::World(uint32_t m_ChunkSize)
     : m_ChunkSize(m_ChunkSize) {
   m_ChunkManager = new WorldChunkManager();
@@ -124,14 +96,14 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
   if (ImGui::IsKeyPressed(ImGuiKey_T)) {
     SparseOctree<Voxel>::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
-    auto                     position = getChunkLocalPosition(hit.Position + hit.Normal);
+    auto                     position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
     m_ChunkManager->Set(wcc, position, hit.Data);
     akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
   }
 
   if (ImGui::IsKeyPressed(ImGuiKey_Y)) {
     SparseOctree<Voxel>::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
-    auto                     position = getChunkLocalPosition(hit.Position);
+    auto                     position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
     m_ChunkManager->Clear(wcc, position);
     akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
   }
@@ -140,13 +112,13 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     SparseOctree<Voxel>::Hit hit = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-      auto position = getChunkLocalPosition(hit.Position);
+      auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
       m_ChunkManager->Clear(wcc, position);
       akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-      auto position = getChunkLocalPosition(hit.Position + hit.Normal);
+      auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
       m_ChunkManager->Set(wcc, position, hit.Data);
       akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
@@ -177,7 +149,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
       });
     }
 
-    std::vector<glm::ivec3> lccs = getLocalChunkCoordinates(wcc);
+    // std::vector<glm::ivec3> lccs = getLocalChunkCoordinates(wcc);
 
     // for (auto& lcc : lccs)
 
@@ -205,34 +177,34 @@ void World::Clean() {
 }
 
 const void World::GenerateChunk(const glm::ivec3& wcc) {
-  auto gLush         = m_Palette.Find("Grass Lush");
-  auto lightMaterial = m_Palette.Find("Light");
+  // auto gLush         = m_Palette.Find("Grass Lush");
+  // auto lightMaterial = m_Palette.Find("Light");
 
-  auto lush  = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
-  auto light = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
+  // auto lush  = m_Voxels.emplace_back(std::make_shared<Voxel>(gLush->Id));
+  // auto light = m_Voxels.emplace_back(std::make_shared<Voxel>(lightMaterial->Id));
 
-  std::vector<glm::ivec3> lccs = getLocalChunkCoordinates(wcc);
+  // std::vector<glm::ivec3> lccs = getLocalChunkCoordinates(wcc);
 
-  for (auto& lcc : lccs)
-    if (lcc.y == 0) {
-      auto session = m_ChunkManager->BeginWrite(lcc);
+  // for (auto& lcc : lccs)
+  //   if (lcc.y == 0) {
+  //     auto session = m_ChunkManager->BeginWrite(lcc);
 
-      auto noise = m_HeightMap.Build(lcc.x, lcc.x + 1.0f, lcc.z, lcc.z + 1.0f);
+  //     auto noise = m_HeightMap.Build(lcc.x, lcc.x + 1.0f, lcc.z, lcc.z + 1.0f);
 
-      session.Root->Destroy();
+  //     session.Root->Destroy();
 
-      for (int z = 0; z < m_ChunkSize; z++)
-        for (int x = 0; x < m_ChunkSize; x++) {
-          float n      = noise.GetValue(x, z);
-          int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
-          for (int y = 0; y < height; y++)
-            m_ChunkManager->Set(lcc, session, x, y, z, lush.get());
-        }
-    }
+  //     for (int z = 0; z < m_ChunkSize; z++)
+  //       for (int x = 0; x < m_ChunkSize; x++) {
+  //         float n      = noise.GetValue(x, z);
+  //         int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
+  //         for (int y = 0; y < height; y++)
+  //           m_ChunkManager->Set(lcc, session, x, y, z, lush.get());
+  //       }
+  //   }
 
-  m_ChunkManager->Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
+  // m_ChunkManager->Set({0, 0, 0}, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
 
-  akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  // akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
 }
 
 const void World::GenerateCornellBox(const glm::u8vec3& origin) {

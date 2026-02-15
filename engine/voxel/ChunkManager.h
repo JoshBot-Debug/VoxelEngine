@@ -280,6 +280,16 @@ public:
   static inline glm::vec3 WorldToChunkCoordinateFloat(const glm::vec3& worldPosition);
 
   /**
+   * Converts world coordinates (96, 32, 32) to local coordinates (32, 32, 32)
+   */
+  static inline glm::u8vec3 WorldToLocalCoordinate(float x, float y, float z);
+
+  /**
+   * Converts world coordinates (96, 32, 32) to local coordinates (32, 32, 32)
+   */
+  static inline glm::u8vec3 WorldToLocalCoordinate(const glm::vec3& worldPosition);
+
+  /**
    * Wraps to the previous chunk coordinate.
    *  i.e -1 --> 63
    *  i.e 64 --> 0
@@ -523,6 +533,19 @@ inline glm::vec3 ChunkManager<SS, CS>::WorldToChunkCoordinateFloat(float x, floa
 template <uint32_t SS, uint8_t CS>
 inline glm::vec3 ChunkManager<SS, CS>::WorldToChunkCoordinateFloat(const glm::vec3& worldPosition) {
   return WorldToChunkCoordinateFloat(worldPosition.x, worldPosition.y, worldPosition.z);
+}
+
+template <uint32_t SS, uint8_t CS>
+inline glm::u8vec3 ChunkManager<SS, CS>::WorldToLocalCoordinate(float x, float y, float z) {
+  x = std::fmod(x, SS);
+  y = std::fmod(y, SS);
+  z = std::fmod(z, SS);
+  return glm::u8vec3(static_cast<uint8_t>(x), static_cast<uint8_t>(y), static_cast<uint8_t>(z));
+}
+
+template <uint32_t SS, uint8_t CS>
+inline glm::u8vec3 ChunkManager<SS, CS>::WorldToLocalCoordinate(const glm::vec3& worldPosition) {
+  return WorldToLocalCoordinate(worldPosition.x, worldPosition.y, worldPosition.z);
 }
 
 template <uint32_t SS, uint8_t CS>
