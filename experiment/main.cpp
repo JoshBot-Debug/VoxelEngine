@@ -129,27 +129,8 @@ int main(int argc, char** argv) {
   // GenerateChunk(chunkManager, {0, 0, 0}, brick.get());
 
   ChunkManager<64, 4> chunkManager;
-
-  // {
-  //   auto write = chunkManager.BeginWrite({0, 0, 0});
-
-  //   for (size_t z = 0; z < chunkManager.CHUNK_SIZE; z++)
-  //     for (size_t y = 0; y < chunkManager.CHUNK_SIZE; y++)
-  //       for (size_t x = 0; x < chunkManager.CHUNK_SIZE; x++)
-  //         chunkManager.Set(write, x, y, z, &m_ChunkAllocator.emplace_back());
-  // }
-
-
-  {
-    auto read = chunkManager.BeginRead();
-
-    for (size_t z = 0; z < chunkManager.CHUNK_SIZE; z++)
-      for (size_t y = 0; y < chunkManager.CHUNK_SIZE; y++)
-        for (size_t x = 0; x < chunkManager.CHUNK_SIZE; x++) {
-          auto c = chunkManager.Get(read, x, y, z);
-          std::cout << c->Data->Id << std::endl;
-        }
-  }
+  
+  std::cout << (int)chunkManager.Wrap(74) << std::endl;
 
   return EXIT_SUCCESS;
 }

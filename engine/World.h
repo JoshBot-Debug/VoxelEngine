@@ -6,11 +6,12 @@
 
 #include "camera/PerspectiveCamera.h"
 
+#include "voxel/ChunkManager.h"
 #include "voxel/HeightMap.h"
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"
 
-// #include "ChunkManager.h"
+using WorldChunkManager = ChunkManager<64, 4>;
 
 namespace vxen {
 
@@ -43,7 +44,7 @@ private:
   akari::camera::PerspectiveCamera* m_Camera = nullptr;
 
   std::vector<std::shared_ptr<Voxel>> m_Voxels;
-  // ChunkManager*                       m_ChunkManager = nullptr;
+  WorldChunkManager*                  m_ChunkManager = nullptr;
 
   std::vector<Material>                        m_Materials    = {};
   std::vector<uint32_t>                        m_MaterialsLUT = {};
@@ -54,7 +55,7 @@ private:
   glm::ivec3 m_CurrentOrigin = glm::ivec3(999);
 
 private:
-  const void GenerateCornellBox();
+  const void GenerateCornellBox(const glm::u8vec3 &origin);
 
   const void GenerateChunk(const glm::ivec3& coord);
 
@@ -74,7 +75,7 @@ public:
   const std::vector<Vertex>&                          GetVertices() { return m_Vertices; };
   const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
 
-  // ChunkManager* GetChunkManager() { return m_ChunkManager; };
+  WorldChunkManager* GetChunkManager() { return m_ChunkManager; };
 
   void Clean();
 };

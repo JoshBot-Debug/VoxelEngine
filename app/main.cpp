@@ -106,7 +106,7 @@ public:
     ImGui::Separator();
 
     ImGui::Text("Update Time: %f", m_UpdateTime);
-    ImGui::Text("render Time: %f", m_RenderTime);
+    ImGui::Text("Render Time: %f", m_RenderTime);
     ImGui::Text("FPS: %f", 1000 / m_RenderTime);
     ImGui::Text("Mouse Position %f, %f", m_ViewportMouse.x, m_ViewportMouse.y);
 
@@ -118,47 +118,47 @@ public:
 
     const auto& flat = m_World.GetSVO();
 
-    // ImGui::Text("SVO Nodes: %d", (int)flat.size());
-    // ImGui::Separator();
+    ImGui::Text("SVO Nodes: %d", (int)flat.size());
+    ImGui::Separator();
 
-    // ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Hideable | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp;
+    ImGuiTableFlags flags = ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Hideable | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp;
 
-    // if (ImGui::BeginTable("##svo_table", 5, flags)) {
-    //   ImGui::TableSetupScrollFreeze(0, 1);
-    //   ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-    //   ImGui::TableSetupColumn("Depth", ImGuiTableColumnFlags_WidthFixed, 70.0f);
-    //   ImGui::TableSetupColumn("Children", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-    //   ImGui::TableSetupColumn("Child Index", ImGuiTableColumnFlags_WidthFixed, 90.0f);
-    //   ImGui::TableSetupColumn("Child Id", ImGuiTableColumnFlags_WidthFixed, 90.0f);
-    //   ImGui::TableHeadersRow();
+    if (ImGui::BeginTable("##svo_table", 5, flags)) {
+      ImGui::TableSetupScrollFreeze(0, 1);
+      ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+      ImGui::TableSetupColumn("Depth", ImGuiTableColumnFlags_WidthFixed, 70.0f);
+      ImGui::TableSetupColumn("Children", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+      ImGui::TableSetupColumn("Child Index", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+      ImGui::TableSetupColumn("Child Id", ImGuiTableColumnFlags_WidthFixed, 90.0f);
+      ImGui::TableHeadersRow();
 
-    //   ImGuiListClipper clipper;
-    //   clipper.Begin((int)flat.size());
-    //   while (clipper.Step()) {
-    //     for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
-    //       const auto& n = flat[i];
+      ImGuiListClipper clipper;
+      clipper.Begin((int)flat.size());
+      while (clipper.Step()) {
+        for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; ++i) {
+          const auto& n = flat[i];
 
-    //       ImGui::TableNextRow();
+          ImGui::TableNextRow();
 
-    //       ImGui::TableSetColumnIndex(0);
-    //       ImGui::Text("%d", i);
+          ImGui::TableSetColumnIndex(0);
+          ImGui::Text("%d", i);
 
-    //       ImGui::TableSetColumnIndex(1);
-    //       ImGui::Text("%u", (unsigned)n.GetDepth());
+          ImGui::TableSetColumnIndex(1);
+          ImGui::Text("%u", (unsigned)n.GetDepth());
 
-    //       ImGui::TableSetColumnIndex(2);
-    //       ImGui::TextUnformatted(std::bitset<8>(n.GetChildren()).to_string().c_str());
+          ImGui::TableSetColumnIndex(2);
+          ImGui::TextUnformatted(std::bitset<8>(n.GetChildren()).to_string().c_str());
 
-    //       ImGui::TableSetColumnIndex(3);
-    //       ImGui::Text("%u", (unsigned)n.ChildIndex);
+          ImGui::TableSetColumnIndex(3);
+          ImGui::Text("%u", (unsigned)n.ChildIndex);
 
-    //       ImGui::TableSetColumnIndex(4);
-    //       ImGui::Text("%u", (unsigned)n.GetId());
-    //     }
-    //   }
+          ImGui::TableSetColumnIndex(4);
+          ImGui::Text("%u", (unsigned)n.GetId());
+        }
+      }
 
-    //   ImGui::EndTable();
-    // }
+      ImGui::EndTable();
+    }
 
     ImGui::End();
 

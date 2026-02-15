@@ -744,7 +744,7 @@ public:
 
           match = Get(session.Root, x, y, z, SIZE);
 
-          if (match->Data->Id == nodeId) {
+          if (match && match->Data->Id == nodeId) {
             const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
             masks[rowIndex >> DIV] |= (1ULL << (rowIndex & (SIZE - 1)));
           }
@@ -769,7 +769,7 @@ public:
 
           match = Get(session.Root, x, y, z, SIZE);
 
-          if (match->Data->Id == nodeId) {
+          if (match && match->Data->Id == nodeId) {
             const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
             masks[columnIndex >> DIV] |= (1ULL << (columnIndex & (SIZE - 1)));
           }
@@ -794,7 +794,7 @@ public:
 
           match = Get(session.Root, x, y, z, SIZE);
 
-          if (match->Data->Id == nodeId) {
+          if (match && match->Data->Id == nodeId) {
             const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
             masks[layerIndex >> DIV] |= (1ULL << (layerIndex & (SIZE - 1)));
           }
