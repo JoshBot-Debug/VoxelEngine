@@ -46,6 +46,7 @@ sudo perf report
 ## Greedy mesh
 
 Release mode
+
 ```bash
 LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator()): Took: 0.0680099 ms (average) over 1000 iterations
 LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator()): Took: 0.0712837 ms (average) over 1000 iterations
@@ -59,6 +60,7 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
 ```
 
 Debug mode
+
 ```bash
 LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator()): Took: 0.250019 ms (average) over 1000 iterations
 LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator()): Took: 0.239719 ms (average) over 1000 iterations
@@ -86,7 +88,7 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
   - [ ] Add a way to create prefabs
   - [ ] Add a way to scale(x,y,z), rotate(x,y,z), translate(x,y,z) a prefab
 - [x] MAJOR: Rework the archtecture of the code base in this scene. GOAL: Bring the design slightly closer to something more satisfactory.
-- [ ] Add chunking again
+- [x] Add chunking again
 - [ ] Add LOD
 - [ ] Add frustum culling of chunks
 - [ ] Add trees
@@ -109,10 +111,7 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
       They will toggle when World::Sync() is called, at the start of OnUpdate(). Hence fixes the sync problem
       Create a class to enable synchronization across the application, remove dirty flags from the SVO, palette implementations
       Create a queue in the class to handle arbatry information needed to process dirty parts efficiently, like chunk id/coord
-      API:
-        - std::atomic<uint64_t> m_Flags;
-        - std::queue<DirtyChunk> m_DirtyChunks;
-        - Signal::Set(WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) // different flags for RENDER_BIT, UPDATE_BIT
-        - Signal::Queue(DirtyChunk{0,0,0}) // The queue must be protected with a mutex
-        - Signal::Pop<DirtyChunk>();
-        - if (m_Flags & WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) atomically read & clear the flag & start popping DirtyChunks (copy the queue & clear it);
+      API: - std::atomic<uint64_t> m_Flags; - std::queue<DirtyChunk> m_DirtyChunks; - Signal::Set(WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) // different flags for RENDER_BIT, UPDATE_BIT - Signal::Queue(DirtyChunk{0,0,0}) // The queue must be protected with a mutex - Signal::Pop<DirtyChunk>(); - if (m_Flags & WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) atomically read & clear the flag & start popping DirtyChunks (copy the queue & clear it);
+- [ ] Make the world round and vast to make it seemingly infinate, like the real world and keep all coordinates positive
+- [ ] Add multithreading to chunk manager.
+- [ ] Handle a vertex buffer pool & multiple flat SVO's for raytracing. Seperate by chunk.

@@ -52,12 +52,12 @@ private:
   std::vector<Vertex>                          m_Vertices     = {};
   std::vector<SparseOctree<Voxel>::FilterNode> m_Lights       = {};
 
-  glm::ivec3 m_CurrentOrigin = glm::ivec3(999);
-
 private:
-  const void GenerateCornellBox(const glm::u8vec3 &origin);
+  const void GenerateCornellBox(const glm::u8vec3& origin);
 
   const void GenerateChunk(const glm::ivec3& coord);
+
+  const void GenerateSphere(const glm::ivec3& coord);
 
 public:
   World(uint32_t chunkSize);

@@ -461,7 +461,7 @@ inline const std::vector<Vertex>& ChunkManager<SS, CS>::GreedyMesh(const glm::u8
 
     return chunk->Data->Exists(Wrap(x), Wrap(y), Wrap(z));
   };
-
+  
   return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->GreedyMesh(coordinate, ids, neighbourExists);
 }
 
