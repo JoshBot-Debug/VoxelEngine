@@ -504,7 +504,7 @@ inline glm::u8vec3 ChunkManager<SS, CS>::WorldToChunkCoordinate(float x, float y
   auto floor = [size = SS, div = DIV_SS](int a) {
     return (a >= 0) ? (a >> div) : ((a - size + 1) >> div);
   };
-  return glm::u8vec3(floor(x), floor(y), floor(z));
+  return glm::u8vec3(floor(static_cast<int>(x)), floor(static_cast<int>(y)), floor(static_cast<int>(z)));
 }
 
 template <uint32_t SS, uint8_t CS>
@@ -514,7 +514,7 @@ inline glm::u8vec3 ChunkManager<SS, CS>::WorldToChunkCoordinate(const glm::vec3&
 
 template <uint32_t SS, uint8_t CS>
 inline glm::vec3 ChunkManager<SS, CS>::WorldToChunkCoordinateFloat(float x, float y, float z) {
-  auto floor = [size = SS, div = DIV_SS](float a) {
+  auto floor = [size = SS](float a) {
     return (a >= 0) ? (a / size) : ((a - size + 1) / size);
   };
   return glm::vec3(floor(x), floor(y), floor(z));
