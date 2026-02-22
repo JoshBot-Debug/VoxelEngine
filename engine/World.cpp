@@ -69,7 +69,7 @@ World::World(uint32_t m_ChunkSize)
   for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
     for (size_t y = 0; y < WorldChunkManager::CHUNK_SIZE; y++)
       for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
-        GenerateSphere({x, y, z});
+        GenerateNoiseSphere({x, y, z});
 }
 
 World::~World() {
@@ -295,6 +295,45 @@ const void World::GenerateSphere(const glm::ivec3& wcc) {
 
           if (dist2 <= r2)
             m_ChunkManager->Set(wcc, session, x, y, z, solid.get());
+        }
+  }
+
+  akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+}
+
+const void World::GenerateNoiseSphere(const glm::ivec3& wcc) {
+  auto solid = m_Voxels.emplace_back(std::make_shared<Voxel>(m_Palette.Find("Grass Lush")->Id));
+  auto light = m_Voxels.emplace_back(std::make_shared<Voxel>(m_Palette.Find("Light")->Id));
+  {
+    auto session = m_ChunkManager->BeginWrite(wcc);
+
+    const glm::ivec3 center      = glm::ivec3((WorldChunkManager::CHUNK_SIZE >> 1) * WorldChunkManager::SVO_SIZE);
+    const int        radius      = ((WorldChunkManager::CHUNK_SIZE >> 1) * WorldChunkManager::SVO_SIZE) - (WorldChunkManager::SVO_SIZE >> 1);
+    const int        heightScale = m_ChunkSize / 2;
+
+    glm::ivec3 min = wcc * (int)WorldChunkManager::SVO_SIZE;
+
+    auto noise = m_HeightMap.Build(wcc.x, wcc.x + 1.0f, wcc.z, wcc.z + 1.0f);
+
+    for (int z = 0; z < WorldChunkManager::SVO_SIZE; z++)
+      for (int y = 0; y < WorldChunkManager::SVO_SIZE; y++)
+        for (int x = 0; x < WorldChunkManager::SVO_SIZE; x++) {
+          glm::ivec3 worldPos = min + glm::ivec3(x, y, z);
+
+          glm::ivec3 d    = worldPos - center;
+          float      dist = glm::length(glm::vec3(d));
+
+          // Direction on sphere
+          glm::vec3 dir = glm::normalize(glm::vec3(d));
+
+          // Sample noise using spherical projection
+          float n = noise.GetValue(dir.x, dir.y); // simple version
+
+          float surfaceRadius = radius + n * heightScale;
+
+          if (dist <= surfaceRadius) {
+            m_ChunkManager->Set(wcc, session, x, y, z, solid.get());
+          }
         }
   }
 

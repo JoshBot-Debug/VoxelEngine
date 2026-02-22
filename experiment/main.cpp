@@ -1,5 +1,6 @@
 #include <iostream>
 #include <vector>
+#include <math.h>
 
 #include "Debug.h"
 #include "voxel/ChunkManager.h"
@@ -128,9 +129,17 @@ int main(int argc, char** argv) {
 
   // GenerateChunk(chunkManager, {0, 0, 0}, brick.get());
 
-  ChunkManager<64, 4> chunkManager;
+  // ChunkManager<64, 4> chunkManager;
   
-  std::cout << (int)chunkManager.Wrap(74) << std::endl;
+  // std::cout << (int)chunkManager.Wrap(74) << std::endl;
+
+  auto sphericalMap = [](uint32_t x, uint32_t y, uint32_t z) {
+    float theta = std::atan2(x, y);
+
+    std::cout << theta << std::endl;
+  };
+
+  sphericalMap(1,9,1);
 
   return EXIT_SUCCESS;
 }

@@ -33,7 +33,7 @@ private:
       64,
       TerrainSpecification{
           .Seed        = 50,
-          .OctaveCount = 3,
+          .OctaveCount = 10,
           .Frequency   = 1.0f,
           .Persistence = 0.4f,
           .Scale       = 0.3f,
@@ -58,6 +58,8 @@ private:
   const void GenerateChunk(const glm::ivec3& coord);
 
   const void GenerateSphere(const glm::ivec3& coord);
+
+  const void GenerateNoiseSphere(const glm::ivec3& coord);
 
 public:
   World(uint32_t chunkSize);
