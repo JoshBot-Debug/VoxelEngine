@@ -63,13 +63,13 @@ World::World(uint32_t m_ChunkSize)
 
   akari::thread::Signal::Set(PALETTE_FLUSH_UPDATE);
 
-  // akari::thread::ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
+  akari::thread::ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
   // akari::thread::ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}, 1.0f); });
 
-  for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
-    for (size_t y = 0; y < WorldChunkManager::CHUNK_SIZE; y++)
-      for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
-        GenerateNoiseSphere({x, y, z});
+  // for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
+  //   for (size_t y = 0; y < WorldChunkManager::CHUNK_SIZE; y++)
+  //     for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
+  //       GenerateNoiseSphere({x, y, z});
 }
 
 World::~World() {
@@ -158,9 +158,12 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     for (auto& material : m_Palette.GetMaterials())
       ids.push_back(material.Id);
 
-    for (size_t z = 0; z < 4; z++)
-      for (size_t y = 0; y < 4; y++)
-        for (size_t x = 0; x < 4; x++) {
+    // for (size_t z = 0; z < 4; z++)
+    //   for (size_t y = 0; y < 4; y++)
+    //     for (size_t x = 0; x < 4; x++) {
+    for (size_t z = 0; z < 1; z++)
+      for (size_t y = 0; y < 1; y++)
+        for (size_t x = 0; x < 1; x++) {
           auto chunkVertices = m_ChunkManager->GreedyMesh({x, y, z}, ids);
           m_Vertices.insert(m_Vertices.end(), chunkVertices.begin(), chunkVertices.end());
         }
@@ -267,6 +270,14 @@ const void World::GenerateCornellBox(const glm::u8vec3& origin) {
         }
       }
     }
+
+
+    m_ChunkManager->Set(origin, session, 16, 0, 48, wall.get());
+    m_ChunkManager->Set(origin, session, 16, 1, 48, wall.get());
+    m_ChunkManager->Set(origin, session, 16, 2, 48, leftWall.get());
+    m_ChunkManager->Set(origin, session, 16, 3, 48, leftWall.get());
+    m_ChunkManager->Set(origin, session, 16, 4, 48, rightWall.get());
+    m_ChunkManager->Set(origin, session, 16, 5, 48, rightWall.get());
   }
 
   akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);

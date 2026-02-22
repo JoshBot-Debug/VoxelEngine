@@ -718,16 +718,20 @@ public:
   }
 
   /**
-   * I only care about voxels that face the air, voxels that are under ground, or in walls,
-   * it doesn't matter what material they are
-   * what I need is
-   * 000122221000
-   * 0 - false
-   * 1 - check
-   * 2 - true
-   *
-   * This way I can skip many gets
-   * hence I will store a uint128_t mask[SIZE * SIZE]
+   * Right now I check for matching block, if something changes I try to get the voxel to figure out what it is.
+   * This creates more faces/verticies than skipping the match check but it greatly improves
+   * the speed at which the mask is created
+   * Without: if (!match) match = Get(session.Root, x, y, z, SIZE);
+   * ~50ms per change
+   * With: if (!match) match = Get(session.Root, x, y, z, SIZE);
+   * ~0.5ms per change
+   * 
+   * Get() is expensive and should only be done a few times a frame.
+   * Cannot iterate over the entire 64x64x64 volume and call Get().
+   * 
+   * However, just checking if a current match is there is not enough, I need
+   * to know if it's a border voxel. i.e, if it's the voxel that's in contact with air.
+   * i.e., possibly visible.
    */
   uint64_t (&GetAxisX(Reader& session, uint32_t nodeId))[SIZE * SIZE] {
     static thread_local uint64_t masks[SIZE * SIZE];
