@@ -271,7 +271,6 @@ const void World::GenerateCornellBox(const glm::u8vec3& origin) {
       }
     }
 
-
     m_ChunkManager->Set(origin, session, 16, 0, 48, wall.get());
     m_ChunkManager->Set(origin, session, 16, 1, 48, wall.get());
     m_ChunkManager->Set(origin, session, 16, 2, 48, leftWall.get());

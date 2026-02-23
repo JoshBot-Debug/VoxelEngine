@@ -51,24 +51,7 @@ inline void LogToFile(const char* file, int line, const char* functionName, cons
   ofs << std::endl;
 }
 
-inline void Benchmark(const char* file, int line, const char* functionName, const std::function<void()>& func, int iterations) {
-
-  for (int i = 0; i < 50; ++i)
-    func();
-
-  auto start = std::chrono::high_resolution_clock::now();
-
-  for (int i = 0; i < iterations; ++i)
-    func();
-
-  auto                                      end     = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double, std::milli> elapsed = end - start;
-
-  Log(file, line, functionName, "Took:", elapsed.count() / iterations, "ms (average) over", iterations, "iterations");
-}
-
 #define LOG(...) Log(__FILE__, __LINE__, __func__, __VA_ARGS__)
-#define BENCHMARK(...) Benchmark(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #define LOG_IVEC3(...) LogIVec3(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #define LOG_VEC3(...) LogVec3(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #define LOG_VEC4(...) LogVec4(__FILE__, __LINE__, __func__, __VA_ARGS__)
@@ -76,7 +59,6 @@ inline void Benchmark(const char* file, int line, const char* functionName, cons
 
 #else
 #define LOG(...)
-#define BENCHMARK(...)
 #define LOG_IVEC3(...)
 #define LOG_VEC3(...)
 #define LOG_VEC4(...)

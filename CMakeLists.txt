@@ -24,12 +24,12 @@ endif()
 
 # === Vulkan validation ===
 if(ENABLE_VULKAN_VALIDATION)
-    add_compile_definitions(ENABLE_VULKAN_VALIDATION)
+  add_compile_definitions(ENABLE_VULKAN_VALIDATION)
 endif()
 
 # === Log VMA stats ===
 if(ENABLE_VMA_STATS_LOG)
-    add_compile_definitions(ENABLE_VMA_STATS_LOG)
+  add_compile_definitions(ENABLE_VMA_STATS_LOG)
 endif()
 
 # === Add vendor libraries ===
@@ -51,12 +51,14 @@ add_executable(experiment ${SRC_FILES_EXPERIMENT})
 find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(TBB REQUIRED)
+find_package(benchmark REQUIRED)
 find_library(NOISE_LIB noise PATHS /usr/local/lib REQUIRED)
 find_library(NOISEUTILS_LIB noiseutils PATHS /usr/local/lib REQUIRED)
 
 target_link_libraries(akari PUBLIC
   vulkan
   glfw
+  benchmark::benchmark
 )
 
 target_link_libraries(vxengine PUBLIC
