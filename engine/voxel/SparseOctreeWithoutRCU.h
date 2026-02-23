@@ -165,9 +165,8 @@ private:
    * @param size      The size of the region represented by this node.
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
-    node = new Node(*node);
-
     if (size == 1) {
+      node       = new Node(*node);
       node->Data = data;
       return node;
     }
@@ -182,11 +181,12 @@ private:
      * If the node on this path down does not exist,
      * create a new empty one to keep traversing to size 1
      */
-    if (!node->Children[index])
+    if (!node->Children[index]) {
+      node                  = new Node(*node);
       node->Children[index] = new Node(node->Depth - 1);
+    }
 
     node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
-    node->Data            = nullptr;
 
     /**
      * Early exit
@@ -208,6 +208,11 @@ private:
     for (int i = 0; i < 8; i++)
       if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != first)
         return node;
+
+    /**
+     * Copy before modifying
+     */
+    node = new Node(*node);
 
     /**
      * Merge all children
@@ -301,13 +306,13 @@ private:
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
 
-    int mod = half - 1;
-
     if (!node->Children[index])
       return nullptr;
 
     if (node->Children[index]->Data)
       return node->Children[index];
+
+    int mod = half - 1;
 
     return Get(node->Children[index], x & mod, y & mod, z & mod, half);
   };
@@ -672,7 +677,6 @@ public:
     m_RootAtomic.store(next, std::memory_order::release);
   };
 
-
   /**
    * Sets a voxel at the given 3D world position.
    *
@@ -683,7 +687,6 @@ public:
     m_Root = SetWithoutCopy(m_Root, x, y, z, data, SIZE);
     m_Mask.Set(x, y, z);
   };
-
 
   /**
    * Sets a voxel at the given 3D world position.
@@ -697,7 +700,7 @@ public:
     m_Mask.Set(x, y, z);
     m_RootAtomic.store(next, std::memory_order::release);
   };
-  
+
   /**
    * Retrieves the node at the given 3D world position.
    *

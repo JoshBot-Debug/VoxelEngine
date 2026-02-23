@@ -201,11 +201,9 @@ private:
    * @param size      The size of the region represented by this node.
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
-    m_RCU.Retire(node, false);
-
-    node = new Node(*node);
-
     if (size == 1) {
+      m_RCU.Retire(node);
+      node       = new Node(*node);
       node->Data = data;
       return node;
     }
@@ -220,11 +218,13 @@ private:
      * If the node on this path down does not exist,
      * create a new empty one to keep traversing to size 1
      */
-    if (!node->Children[index])
+    if (!node->Children[index]) {
+      m_RCU.Retire(node, false);
+      node                  = new Node(*node);
       node->Children[index] = new Node(node->Depth - 1);
+    }
 
     node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
-    node->Data            = nullptr;
 
     /**
      * Early exit
@@ -248,13 +248,17 @@ private:
         return node;
 
     /**
+     * Copy before modifying
+     */
+    m_RCU.Retire(node);
+    node = new Node(*node);
+
+    /**
      * Merge all children
      * Retire all children, this node will represent all below
      */
-    for (int i = 0; i < 8; i++) {
-      m_RCU.Retire(node->Children[i]);
+    for (int i = 0; i < 8; i++)
       node->Children[i] = nullptr;
-    }
 
     node->Data = data;
 
@@ -277,13 +281,13 @@ private:
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
 
-    int mod = half - 1;
-
     if (!node->Children[index])
       return nullptr;
 
     if (node->Children[index]->Data)
       return node->Children[index];
+
+    int mod = half - 1;
 
     return Get(node->Children[index], x & mod, y & mod, z & mod, half);
   };
@@ -725,10 +729,10 @@ public:
    * ~50ms per change
    * With: if (!match) match = Get(session.Root, x, y, z, SIZE);
    * ~0.5ms per change
-   * 
+   *
    * Get() is expensive and should only be done a few times a frame.
    * Cannot iterate over the entire 64x64x64 volume and call Get().
-   * 
+   *
    * However, just checking if a current match is there is not enough, I need
    * to know if it's a border voxel. i.e, if it's the voxel that's in contact with air.
    * i.e., possibly visible.
