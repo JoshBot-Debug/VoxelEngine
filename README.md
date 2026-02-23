@@ -39,6 +39,11 @@ heaptrack ./build/vxen
 sudo perf record -F 999 -g --call-graph=dwarf ./build/vxen
 sudo perf record -e branch-misses -g ./build/experiment
 sudo perf report
+
+# To set all cpus to performance mode to help prevent cpu impact on all performance stuff & benchmarking
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
+sudo cpupower frequency-set -g performance
+cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 ```
 
 ---
