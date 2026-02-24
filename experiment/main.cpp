@@ -6,7 +6,7 @@
 #include "voxel/SparseOctreeWithoutRCU.h"
 #include "voxel/Voxel.h"
 
-const int ITERATIONS = 4;
+const int ITERATIONS = 1;
 
 static void BM_SVO_Set_With_RCU(benchmark::State& state) {
   SparseOctree<Voxel> svo;
@@ -108,54 +108,36 @@ static void BM_SVO_Set_Without_Copy(benchmark::State& state) {
           svo.SetWithoutCopy(x, y, z, brick.get());
 }
 
-static void BM_SVO_Set_Without_Copy_With_Atomic_Root(benchmark::State& state) {
-  SparseOctreeWithoutRCU<Voxel> svo;
-  Palette                       palette;
+BENCHMARK(BM_SVO_Set_With_RCU);
+BENCHMARK(BM_SVO_Set_With_RCU_Without_Clone_Check);
+BENCHMARK(BM_SVO_Set_With_Copy);
+BENCHMARK(BM_SVO_Set_With_Copy_With_Atomic_Root);
+BENCHMARK(BM_SVO_Set_Without_Copy);
 
-  palette.Create(Palette::Item{
-      .Name = "Brick",
-      .Mat  = std::make_shared<Material>(Material{
-           .Albedo = glm::vec4{0.63f, 0.067f, 0.051f, 1.0f}})});
+BENCHMARK_MAIN();
 
-  auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
+// int main(int argc, char** argv) {
+//   SparseOctreeWithoutRCU<Voxel> svo;
+//   Palette             palette;
 
-  for (auto _ : state)
-    for (int x = 0; x < ITERATIONS; ++x)
-      for (int y = 0; y < ITERATIONS; ++y)
-        for (int z = 0; z < ITERATIONS; ++z)
-          svo.SetWithoutCopyWithAtomicRoot(x, y, z, brick.get());
-}
+//   palette.Create(Palette::Item{
+//       .Name = "Brick",
+//       .Mat  = std::make_shared<Material>(Material{
+//            .Albedo = glm::vec4{0.63f, 0.067f, 0.051f, 1.0f}})});
 
-// BENCHMARK(BM_SVO_Set_With_RCU);
-// BENCHMARK(BM_SVO_Set_With_RCU_Without_Clone_Check);
-// BENCHMARK(BM_SVO_Set_With_Copy);
-// BENCHMARK(BM_SVO_Set_With_Copy_With_Atomic_Root);
-// BENCHMARK(BM_SVO_Set_Without_Copy);
-// BENCHMARK(BM_SVO_Set_Without_Copy_With_Atomic_Root);
+//   auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
 
-// BENCHMARK_MAIN();
+//   {
+//     // auto w = svo.BeginWrite();
 
-int main(int argc, char** argv) {
-  SparseOctree<Voxel> svo;
-  Palette             palette;
+//     for (int x = 0; x < 64; ++x)
+//       for (int y = 0; y < 64; ++y)
+//         for (int z = 0; z < 64; ++z)
+//           // svo.SetWithoutCloneCheck(w, x, y, z, brick.get());
+//           svo.SetWithoutCopy(x, y, z, brick.get());
+//   }
 
-  palette.Create(Palette::Item{
-      .Name = "Brick",
-      .Mat  = std::make_shared<Material>(Material{
-           .Albedo = glm::vec4{0.63f, 0.067f, 0.051f, 1.0f}})});
+//   // svo.Sync();
 
-  auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
-
-  {
-    auto w = svo.BeginWrite();
-
-    for (int x = 0; x < 64; ++x)
-      for (int y = 0; y < 64; ++y)
-        for (int z = 0; z < 64; ++z)
-          svo.SetWithoutCloneCheck(w, x, y, z, brick.get());
-  }
-
-  svo.Sync();
-
-  return EXIT_SUCCESS;
-}
+//   return EXIT_SUCCESS;
+// }

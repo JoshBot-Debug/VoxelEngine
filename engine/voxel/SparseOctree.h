@@ -193,9 +193,12 @@ private:
 private:
   Node* SetWithoutCloneCheck(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
 
+    m_RCU.Retire(node, false);
+    node = new Node(*node);
+
     if (size == 1) {
-      m_RCU.Retire(node);
-      node       = new Node(*node);
+      // m_RCU.Retire(node);
+      // node       = new Node(*node);
       node->Data = data;
       return node;
     }
@@ -211,8 +214,8 @@ private:
      * create a new empty one to keep traversing to size 1
      */
     if (!node->Children[index]) {
-      m_RCU.Retire(node, false);
-      node                  = new Node(*node);
+      // m_RCU.Retire(node, false);
+      // node                  = new Node(*node);
       node->Children[index] = new Node(node->Depth - 1);
     }
 
@@ -232,8 +235,8 @@ private:
     /**
      * Copy before modifying
      */
-    m_RCU.Retire(node);
-    node = new Node(*node);
+    // m_RCU.Retire(node);
+    // node = new Node(*node);
 
     /**
      * Merge all children

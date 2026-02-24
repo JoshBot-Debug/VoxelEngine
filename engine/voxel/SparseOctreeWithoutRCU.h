@@ -60,15 +60,12 @@ public:
     bool operator==(const Node& other) const { return Data.Id == other.Data.Id; };
     bool operator!=(const Node& other) const { return Data.Id != other.Data.Id; };
 
-    void Destroy() {
+    ~Node() {
       Data = nullptr;
 
       for (int i = 0; i < 8; i++)
-        if (Children[i]) {
-          Children[i]->Destroy();
+        if (Children[i])
           delete Children[i];
-          Children[i] = nullptr;
-        }
     };
   };
 
@@ -166,7 +163,9 @@ private:
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
     if (size == 1) {
-      node       = new Node(*node);
+      auto old = node;
+      node     = new Node(*node);
+      delete old;
       node->Data = data;
       return node;
     }
@@ -182,44 +181,37 @@ private:
      * create a new empty one to keep traversing to size 1
      */
     if (!node->Children[index]) {
-      node                  = new Node(*node);
+      auto old = node;
+      node     = new Node(*node);
+      delete old;
       node->Children[index] = new Node(node->Depth - 1);
     }
 
     node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
 
     /**
-     * Early exit
-     * If there are no children, no merging will be required
-     */
-    if (!node->Children[0] || !node->Children[0]->Data)
-      return node;
-
-    /**
-     * If all 8 children exist and are of the same voxel type.
-     * Delete all 8 children and set the parent voxel as their type.
-     */
-    T* first = node->Children[0]->Data;
-
-    /**
      * If any child is different or does not exist,
      * no merging required, return
      */
     for (int i = 0; i < 8; i++)
-      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != first)
+      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != data)
         return node;
 
     /**
      * Copy before modifying
      */
-    node = new Node(*node);
+    auto old = node;
+    node     = new Node(*node);
+    delete old;
 
     /**
      * Merge all children
      * Retire all children, this node will represent all below
      */
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 8; i++) {
+      delete node->Children[i];
       node->Children[i] = nullptr;
+    }
 
     node->Data = data;
 
@@ -255,27 +247,13 @@ private:
       node->Children[index] = new Node(node->Depth - 1);
 
     node->Children[index] = SetWithoutCopy(node->Children[index], x & mod, y & mod, z & mod, data, half);
-    node->Data            = nullptr;
-
-    /**
-     * Early exit
-     * If there are no children, no merging will be required
-     */
-    if (!node->Children[0] || !node->Children[0]->Data)
-      return node;
-
-    /**
-     * If all 8 children exist and are of the same voxel type.
-     * Delete all 8 children and set the parent voxel as their type.
-     */
-    T* first = node->Children[0]->Data;
 
     /**
      * If any child is different or does not exist,
      * no merging required, return
      */
     for (int i = 0; i < 8; i++)
-      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != first)
+      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != data)
         return node;
 
     /**
@@ -283,7 +261,7 @@ private:
      * Retire all children, this node will represent all below
      */
     for (int i = 0; i < 8; i++)
-      node->Children[i] = nullptr;
+      delete node->Children[i];
 
     node->Data = data;
 
@@ -649,7 +627,6 @@ public:
    * Destroys the Sparse Voxel Octree and frees all allocated nodes.
    */
   ~SparseOctreeWithoutRCU() {
-    m_Root->Destroy();
     delete m_Root;
   };
 
@@ -684,21 +661,8 @@ public:
    * @param data      The data to insert.
    */
   void SetWithoutCopy(uint8_t x, uint8_t y, uint8_t z, T* data) {
-    m_Root = SetWithoutCopy(m_Root, x, y, z, data, SIZE);
+    SetWithoutCopy(m_Root, x, y, z, data, SIZE);
     m_Mask.Set(x, y, z);
-  };
-
-  /**
-   * Sets a voxel at the given 3D world position.
-   *
-   * @param x, y, z   The world-space position to place the voxel at.
-   * @param data      The data to insert.
-   */
-  void SetWithoutCopyWithAtomicRoot(uint8_t x, uint8_t y, uint8_t z, T* data) {
-    Node* root = m_RootAtomic.load(std::memory_order::acquire);
-    Node* next = SetWithoutCopy(root, x, y, z, data, SIZE);
-    m_Mask.Set(x, y, z);
-    m_RootAtomic.store(next, std::memory_order::release);
   };
 
   /**
