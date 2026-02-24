@@ -191,16 +191,8 @@ private:
   Mask m_Mask;
 
 private:
-  /**
-   * Internal recursive setter that traverses and builds the tree as needed.
-   * Called by the public `set(x, y, z, voxel)` and `set(vec3, voxel)` methods.
-   *
-   * @param node      Current node in the octree.
-   * @param x,y,z     Local voxel-space coordinates at this level.
-   * @tparam T        The datatype to set at the marked positions.
-   * @param size      The size of the region represented by this node.
-   */
-  Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
+  Node* SetWithoutCloneCheck(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
+
     if (size == 1) {
       m_RCU.Retire(node);
       node       = new Node(*node);
@@ -224,27 +216,17 @@ private:
       node->Children[index] = new Node(node->Depth - 1);
     }
 
-    node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
-
-    /**
-     * Early exit
-     * If there are no children, no merging will be required
-     */
-    if (!node->Children[0] || !node->Children[0]->Data)
-      return node;
+    node->Children[index] = SetWithoutCloneCheck(node->Children[index], x & mod, y & mod, z & mod, data, half);
 
     /**
      * If all 8 children exist and are of the same voxel type.
      * Delete all 8 children and set the parent voxel as their type.
-     */
-    T* first = node->Children[0]->Data;
-
-    /**
+     *
      * If any child is different or does not exist,
      * no merging required, return
      */
     for (int i = 0; i < 8; i++)
-      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != first)
+      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != data)
         return node;
 
     /**
@@ -260,6 +242,82 @@ private:
     for (int i = 0; i < 8; i++)
       node->Children[i] = nullptr;
 
+    node->Data = data;
+
+    return node;
+  };
+
+  /**
+   * Internal recursive setter that traverses and builds the tree as needed.
+   * Called by the public `set(x, y, z, voxel)` and `set(vec3, voxel)` methods.
+   *
+   * @param node      Current node in the octree.
+   * @param x,y,z     Local voxel-space coordinates at this level.
+   * @tparam T        The datatype to set at the marked positions.
+   * @param size      The size of the region represented by this node.
+   */
+  Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size, bool copied = false) {
+    if (size == 1) {
+      if (!copied) {
+        m_RCU.Retire(node);
+        node = new Node(*node);
+      }
+      node->Data = data;
+      return node;
+    }
+
+    int half = size >> 1;
+
+    int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
+
+    int mod = half - 1;
+
+    /**
+     * If the node on this path down does not exist,
+     * create a new empty one to keep traversing to size 1
+     */
+    if (!node->Children[index]) {
+      if (!copied) {
+        m_RCU.Retire(node, false);
+        node   = new Node(*node);
+        copied = true;
+      }
+      node->Children[index] = new Node(node->Depth - 1);
+    }
+
+    node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half, copied);
+
+    /**
+     * If all 8 children exist and are of the same voxel type.
+     * Delete all 8 children and set the parent voxel as their type.
+     *
+     * If any child is different or does not exist,
+     * no merging required, return
+     */
+    for (int i = 0; i < 8; i++)
+      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != data)
+        return node;
+
+    /**
+     * Copy before modifying
+     */
+    if (!copied) {
+      m_RCU.Retire(node);
+      node = new Node(*node);
+
+      /**
+       * Merge all children
+       * Retire all children, this node will represent all below
+       */
+      for (int i = 0; i < 8; i++)
+        node->Children[i] = nullptr;
+
+      node->Data = data;
+
+      return node;
+    }
+
+    node->Destroy();
     node->Data = data;
 
     return node;
@@ -683,6 +741,11 @@ public:
    */
   void Set(Writer& session, uint8_t x, uint8_t y, uint8_t z, T* data) {
     session.Root = Set(session.Root, x, y, z, data, SIZE);
+    m_Mask.Set(x, y, z);
+  };
+
+  void SetWithoutCloneCheck(Writer& session, uint8_t x, uint8_t y, uint8_t z, T* data) {
+    session.Root = SetWithoutCloneCheck(session.Root, x, y, z, data, SIZE);
     m_Mask.Set(x, y, z);
   };
 
