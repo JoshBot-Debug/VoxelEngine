@@ -60,7 +60,7 @@ public:
     bool operator==(const Node& other) const { return Data.Id == other.Data.Id; };
     bool operator!=(const Node& other) const { return Data.Id != other.Data.Id; };
 
-    ~Node() {
+    void Destroy() {
       Data = nullptr;
 
       for (int i = 0; i < 8; i++)
@@ -142,9 +142,9 @@ private:
   /**
    * Pointer to the root node of the Sparse Voxel Octree.
    */
-  Node* m_Root = new Node(6);
+  Node* m_Root = new Node(DIV);
 
-  std::atomic<Node*> m_RootAtomic = new Node(6);
+  std::atomic<Node*> m_RootAtomic = new Node(DIV);
 
   /**
    * A mask that can tell you if a voxel exists at x,y,z or if a voxel at x,y,z is hidden
@@ -163,10 +163,10 @@ private:
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
     if (size == 1) {
-      auto old = node;
-      node     = new Node(*node);
-      delete old;
+      Node* old  = node;
+      node       = new Node(*node);
       node->Data = data;
+      delete old;
       return node;
     }
 
@@ -181,10 +181,10 @@ private:
      * create a new empty one to keep traversing to size 1
      */
     if (!node->Children[index]) {
-      auto old = node;
-      node     = new Node(*node);
-      delete old;
+      Node* old             = node;
+      node                  = new Node(*node);
       node->Children[index] = new Node(node->Depth - 1);
+      delete old;
     }
 
     node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
@@ -200,21 +200,22 @@ private:
     /**
      * Copy before modifying
      */
-    auto old = node;
-    node     = new Node(*node);
-    delete old;
+    Node* old = node;
+    node      = new Node(*node);
 
     /**
      * Merge all children
      * Retire all children, this node will represent all below
      */
     for (int i = 0; i < 8; i++) {
+      node->Children[i]->Destroy();
       delete node->Children[i];
       node->Children[i] = nullptr;
     }
 
     node->Data = data;
 
+    delete old;
     return node;
   };
 
@@ -261,7 +262,7 @@ private:
      * Retire all children, this node will represent all below
      */
     for (int i = 0; i < 8; i++)
-      delete node->Children[i];
+      node->Children[i] = nullptr;
 
     node->Data = data;
 
@@ -627,6 +628,7 @@ public:
    * Destroys the Sparse Voxel Octree and frees all allocated nodes.
    */
   ~SparseOctreeWithoutRCU() {
+    m_Root->Destroy();
     delete m_Root;
   };
 

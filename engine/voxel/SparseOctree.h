@@ -183,7 +183,7 @@ private:
   /**
    * Pointer to the root node of the Sparse Voxel Octree.
    */
-  std::atomic<Node*> m_Root = new Node(6);
+  std::atomic<Node*> m_Root = new Node(DIV);
 
   /**
    * A mask that can tell you if a voxel exists at x,y,z or if a voxel at x,y,z is hidden
@@ -192,13 +192,9 @@ private:
 
 private:
   Node* SetWithoutCloneCheck(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
-
-    m_RCU.Retire(node, false);
-    node = new Node(*node);
-
     if (size == 1) {
-      // m_RCU.Retire(node);
-      // node       = new Node(*node);
+      m_RCU.Retire(node);
+      node       = new Node(*node);
       node->Data = data;
       return node;
     }
@@ -214,8 +210,8 @@ private:
      * create a new empty one to keep traversing to size 1
      */
     if (!node->Children[index]) {
-      // m_RCU.Retire(node, false);
-      // node                  = new Node(*node);
+      m_RCU.Retire(node, false);
+      node                  = new Node(*node);
       node->Children[index] = new Node(node->Depth - 1);
     }
 
@@ -235,8 +231,8 @@ private:
     /**
      * Copy before modifying
      */
-    // m_RCU.Retire(node);
-    // node = new Node(*node);
+    m_RCU.Retire(node);
+    node = new Node(*node);
 
     /**
      * Merge all children
