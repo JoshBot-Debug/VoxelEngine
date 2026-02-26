@@ -362,7 +362,7 @@ private:
    * @param x, y, z   Local voxel-space coordinates at this level.
    * @param size      The size of the region represented by this node.
    */
-  Node* Clear(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size) {
+  Node* Clear(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size, bool copied = false) {
     if (!node)
       return nullptr;
 
@@ -370,10 +370,6 @@ private:
       m_RCU.Retire(node);
       return nullptr;
     }
-
-    m_RCU.Retire(node, false);
-
-    node = new Node(*node);
 
     int half = size >> 1;
 
@@ -385,64 +381,32 @@ private:
      * If this node has data, it's children were merged
      * Create all children with the same data & clear the parent
      */
-    if (node->Data)
+    if (node->Data) {
+      if (!copied) {
+        m_RCU.Retire(node, false);
+        node   = new Node(*node);
+        copied = true;
+      }
+
       for (int i = 0; i < 8; i++) {
         node->Children[i]       = new Node(node->Depth - 1);
         node->Children[i]->Data = node->Data;
       }
-
-    node->Data            = nullptr;
-    node->Children[index] = Clear(node->Children[index], x & mod, y & mod, z & mod, half);
-
-    /**
-     * If all children do not exist, this node must be retired
-     */
-    bool children = false;
-
-    for (int i = 0; i < 8; i++)
-      if (node->Children[i]) {
-        children = true;
-        break;
-      }
-
-    if (!children) {
-      m_RCU.Retire(node);
-      return nullptr;
+      
+      node->Data = nullptr;
     }
 
-    /**
-     * Early exit
-     * If all children are not set, no merging will be required
-     */
-    if (!node->Children[0] || !node->Children[0]->Data)
+    node->Children[index] = Clear(node->Children[index], x & mod, y & mod, z & mod, half, copied);
+
+    if (size == SIZE)
       return node;
 
-    /**
-     * If all 8 children exist and are of the same voxel type.
-     * Delete all 8 children and set the parent voxel as their type.
-     */
-    T* first = node->Children[0]->Data;
-
-    /**
-     * If any child is different or does not exist,
-     * no merging required, return
-     */
-    for (int i = 0; i < 8; i++)
-      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != first)
+    for (int i = 0; i < 8; ++i)
+      if (node->Children[i])
         return node;
 
-    /**
-     * Merge all children
-     * Retire all children, this node will represent all below
-     */
-    for (int i = 0; i < 8; i++) {
-      m_RCU.Retire(node->Children[i]);
-      node->Children[i] = nullptr;
-    }
-
-    node->Data = first;
-
-    return node;
+    m_RCU.Retire(node);
+    return nullptr;
   };
 
   /**
