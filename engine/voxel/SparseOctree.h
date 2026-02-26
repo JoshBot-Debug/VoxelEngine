@@ -497,7 +497,6 @@ private:
   bool intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const glm::vec3& min, const glm::vec3& max, float& tMin, float& tMax, glm::vec3& outNormal) {
     tMin      = 0.0f;
     tMax      = 1e30f;
-    outNormal = glm::vec3(0.0f);
 
     for (int i = 0; i < 3; i++)
       if (direction[i] != 0.0f) {
