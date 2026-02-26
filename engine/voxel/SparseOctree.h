@@ -392,7 +392,7 @@ private:
         node->Children[i]       = new Node(node->Depth - 1);
         node->Children[i]->Data = node->Data;
       }
-      
+
       node->Data = nullptr;
     }
 
@@ -483,7 +483,7 @@ private:
       if (!node->Children[i])
         continue;
 
-      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, (i >> 0) & 1);
+      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, i & 1);
 
       glm::vec3 childMin = position + offset * static_cast<float>(half);
 
@@ -576,7 +576,7 @@ private:
       if (!child)
         continue;
 
-      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, (i >> 0) & 1);
+      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, i & 1);
 
       glm::vec3 childMin = nodeMin + offset * half;
 
@@ -632,7 +632,7 @@ private:
 
       Node* child = node ? node->Children[i] : nullptr;
 
-      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, (i >> 0) & 1);
+      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, i & 1);
 
       glm::vec3 childMin = nodeMin + offset * half;
 
@@ -905,7 +905,7 @@ public:
    * // Where i is the index of the child (0 - 7)
    * uint8_t x = (i >> 2) & 1;
    * uint8_t y = (i >> 1) & 1;
-   * uint8_t z = (i >> 0) & 1;
+   * uint8_t z = i & 1;
    *
    * You need to calculate the sum of (offset * size) until the child.
    *
