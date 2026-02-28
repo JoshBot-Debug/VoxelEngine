@@ -96,11 +96,14 @@ template <Destroyable T>
 inline void RCU<T>::Sync() {
   uint64_t previous = m_Generation.Current.load(std::memory_order::relaxed);
 
+  // Switch (or increment) the generation
   m_Generation.Current.store(previous ^ 1, std::memory_order::release);
 
+  // Wait for all readers of the previous generation to finish
   while (m_References[previous].Ref.load(std::memory_order::acquire) != 0)
     std::this_thread::yield();
 
+  // Reclaim memory from the previous generation
   for (Retired& r : m_Retired[previous]) {
     if (r.Destroy)
       r.Ptr->Destroy();
