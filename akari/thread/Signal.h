@@ -8,7 +8,7 @@ namespace akari::thread {
 
 class alignas(64) Signal {
 private:
-  std::atomic<uint64_t> m_Flags = 0;
+  std::atomic<uint64_t> m_Flags {0};
 
 private:
   static Signal& Instance();

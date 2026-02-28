@@ -1,10 +1,10 @@
 #pragma once
 
 #include <atomic>
+#include <concepts>
 #include <cstdint>
 #include <thread>
 #include <vector>
-#include <concepts>
 
 template <typename T>
 concept Destroyable = requires(T& t) {
@@ -15,11 +15,11 @@ template <Destroyable T>
 class RCU {
 private:
   struct alignas(64) Generation {
-    std::atomic<uint64_t> Current = 0;
+    std::atomic<uint64_t> Current {0};
   };
 
   struct alignas(64) Reference {
-    std::atomic<uint64_t> Ref = 0;
+    std::atomic<uint64_t> Ref {0};
   };
 
   struct Retired {

@@ -9,37 +9,37 @@ namespace akari::camera {
 
 class PerspectiveCamera {
 private:
-  glm::mat4 m_View                  = glm::mat4(1.0f);
-  glm::mat4 m_Projection            = glm::mat4(0.0f);
-  glm::mat4 m_ViewProjection        = glm::mat4(0.0f);
-  glm::mat4 m_InverseView           = glm::mat4(0.0f);
-  glm::mat4 m_InverseProjection     = glm::mat4(0.0f);
-  glm::mat4 m_InverseViewProjection = glm::mat4(0.0f);
+  glm::mat4 m_View {glm::mat4(1.0f)};
+  glm::mat4 m_Projection {glm::mat4(0.0f)};
+  glm::mat4 m_ViewProjection {glm::mat4(0.0f)};
+  glm::mat4 m_InverseView {glm::mat4(0.0f)};
+  glm::mat4 m_InverseProjection {glm::mat4(0.0f)};
+  glm::mat4 m_InverseViewProjection {glm::mat4(0.0f)};
 
-  glm::mat4 m_pView                  = glm::mat4(1.0f);
-  glm::mat4 m_pProjection            = glm::mat4(0.0f);
-  glm::mat4 m_pViewProjection        = glm::mat4(0.0f);
-  glm::mat4 m_pInverseView           = glm::mat4(0.0f);
-  glm::mat4 m_pInverseProjection     = glm::mat4(0.0f);
-  glm::mat4 m_pInverseViewProjection = glm::mat4(0.0f);
+  glm::mat4 m_pView {glm::mat4(1.0f)};
+  glm::mat4 m_pProjection {glm::mat4(0.0f)};
+  glm::mat4 m_pViewProjection {glm::mat4(0.0f)};
+  glm::mat4 m_pInverseView {glm::mat4(0.0f)};
+  glm::mat4 m_pInverseProjection {glm::mat4(0.0f)};
+  glm::mat4 m_pInverseViewProjection {glm::mat4(0.0f)};
 
-  glm::vec3 m_Front = glm::vec3(0.0f);
-  glm::vec3 m_Right = glm::vec3(0.0f);
-  glm::vec3 m_Up    = glm::vec3(0.0f);
-  glm::mat4 m_Roll  = glm::mat4(0.0f);
+  glm::vec3 m_Front {glm::vec3(0.0f)};
+  glm::vec3 m_Right {glm::vec3(0.0f)};
+  glm::vec3 m_Up {glm::vec3(0.0f)};
+  glm::mat4 m_Roll {glm::mat4(0.0f)};
 
   bool m_Dirty = true;
 
 public:
-  uint32_t ViewportWidth  = 0;
-  uint32_t ViewportHeight = 0;
+  uint32_t ViewportWidth {0};
+  uint32_t ViewportHeight {0};
 
-  glm::vec3 Rotation = glm::vec3(0.0f);
-  glm::vec3 Position = glm::vec3(0.0f);
+  glm::vec3 Rotation {glm::vec3(0.0f)};
+  glm::vec3 Position {glm::vec3(0.0f)};
 
-  float FOV       = 45.0f;
-  float FarPlane  = 1000.0f;
-  float NearPlane = 0.01f;
+  float FOV {45.0f};
+  float FarPlane {1000.0f};
+  float NearPlane {0.01f};
 
   void Update();
 

@@ -8,9 +8,9 @@ namespace vxen {
 
 class Controller {
 private:
-  glm::vec2 m_Mouse;
-  bool      m_Focus;
-  float     m_MovementSpeed = 30.0f;
+  glm::vec2 m_Mouse {glm::vec2(-1.0f)};
+  bool      m_Focus {false};
+  float     m_MovementSpeed {30.0f};
 
 public:
   Controller();

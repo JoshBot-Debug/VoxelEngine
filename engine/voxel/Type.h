@@ -2,19 +2,19 @@
 #include <glm/glm.hpp>
 
 struct Material {
-  uint32_t  Id        = 0;
-  float     Metallic  = 0.0f;
-  float     Roughness = 1.0f;
-  uint32_t  Padding   = 0;
-  glm::vec4 Albedo    = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
-  glm::vec4 Emissive  = glm::vec4(0.0f);
+  uint32_t  Id {0};
+  float     Metallic {0.0f};
+  float     Roughness {1.0f};
+  uint32_t  Padding {0};
+  glm::vec4 Albedo {glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)};
+  glm::vec4 Emissive {glm::vec4(0.0f)};
 };
 
 struct Vertex {
   uint32_t  Id;
   glm::vec3 Position;
   glm::vec3 Normal;
-  
+
   Vertex() = default;
 
   Vertex(float x, float y, float z, float nx, float ny, float nz) {

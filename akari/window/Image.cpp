@@ -21,49 +21,51 @@ void Image::Initialize(const Specification& specification) {
 
   // Create the Image
   {
-    VkImageCreateInfo info = {
-        .sType     = VkStructureType::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
-        .flags     = specification.Flags,
-        .imageType = specification.ImageType,
-        .format    = specification.Format,
-        .extent =
-            {
-                .width  = specification.Width,
-                .height = specification.Height,
-                .depth  = specification.Depth,
-            },
-        .mipLevels     = specification.MipLevels,
-        .arrayLayers   = specification.ArrayLayers,
-        .samples       = VK_SAMPLE_COUNT_1_BIT,
-        .tiling        = VK_IMAGE_TILING_OPTIMAL,
-        .usage         = specification.Usage,
-        .sharingMode   = VK_SHARING_MODE_EXCLUSIVE,
-        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-    };
+    VkImageCreateInfo info {};
+
+    info.sType     = VkStructureType::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    info.flags     = specification.Flags;
+    info.imageType = specification.ImageType;
+    info.format    = specification.Format;
+
+    VkExtent3D extent {};
+    extent.width  = specification.Width;
+    extent.height = specification.Height;
+    extent.depth  = specification.Depth;
+    info.extent   = extent;
+
+    info.mipLevels     = specification.MipLevels;
+    info.arrayLayers   = specification.ArrayLayers;
+    info.samples       = VK_SAMPLE_COUNT_1_BIT;
+    info.tiling        = VK_IMAGE_TILING_OPTIMAL;
+    info.usage         = specification.Usage;
+    info.sharingMode   = VK_SHARING_MODE_EXCLUSIVE;
+    info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
     m_CurrentLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    VmaAllocationCreateInfo allocInfo = {.usage = VMA_MEMORY_USAGE_AUTO};
-    err                               = vmaCreateImage(allocator, &info, &allocInfo, &m_Image, &m_ImageAllocation, nullptr);
+    VmaAllocationCreateInfo allocInfo {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    err             = vmaCreateImage(allocator, &info, &allocInfo, &m_Image, &m_ImageAllocation, nullptr);
     CheckVkResult(err);
   }
 
   // Create the Image View:
   {
-    VkImageViewCreateInfo info = {
-        .sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-        .image    = m_Image,
-        .viewType = specification.ViewType,
-        .format   = specification.Format,
-        .subresourceRange =
-            {
-                .aspectMask     = specification.AspectMask,
-                .baseMipLevel   = 0,
-                .levelCount     = specification.MipLevels,
-                .baseArrayLayer = 0,
-                .layerCount     = specification.ArrayLayers,
-            },
-    };
+    VkImageViewCreateInfo info {};
+
+    info.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    info.image    = m_Image;
+    info.viewType = specification.ViewType;
+    info.format   = specification.Format;
+
+    VkImageSubresourceRange subresourceRange {};
+    subresourceRange.aspectMask     = specification.AspectMask,
+    subresourceRange.baseMipLevel   = 0,
+    subresourceRange.levelCount     = specification.MipLevels,
+    subresourceRange.baseArrayLayer = 0,
+    subresourceRange.layerCount     = specification.ArrayLayers,
+    info.subresourceRange           = subresourceRange;
 
     err = vkCreateImageView(device, &info, nullptr, &m_ImageView);
     CheckVkResult(err);
@@ -71,20 +73,19 @@ void Image::Initialize(const Specification& specification) {
 
   // Create the Image Sampler
   {
-    VkSamplerCreateInfo info = {
-        .sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
-        .magFilter        = specification.MagFilter,
-        .minFilter        = specification.MinFilter,
-        .mipmapMode       = specification.MipmapMode,
-        .addressModeU     = specification.AddressModeU,
-        .addressModeV     = specification.AddressModeV,
-        .addressModeW     = specification.AddressModeW,
-        .anisotropyEnable = specification.AnisotropyEnable,
-        .maxAnisotropy    = 1.0f,
-        .minLod           = specification.MinLOD,
-        .maxLod           = specification.MaxLOD,
-    };
-    VkResult err = vkCreateSampler(device, &info, nullptr, &m_Sampler);
+    VkSamplerCreateInfo info {};
+    info.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    info.magFilter        = specification.MagFilter;
+    info.minFilter        = specification.MinFilter;
+    info.mipmapMode       = specification.MipmapMode;
+    info.addressModeU     = specification.AddressModeU;
+    info.addressModeV     = specification.AddressModeV;
+    info.addressModeW     = specification.AddressModeW;
+    info.anisotropyEnable = specification.AnisotropyEnable;
+    info.maxAnisotropy    = 1.0f;
+    info.minLod           = specification.MinLOD;
+    info.maxLod           = specification.MaxLOD;
+    VkResult err          = vkCreateSampler(device, &info, nullptr, &m_Sampler);
     CheckVkResult(err);
   }
 
@@ -154,17 +155,15 @@ void Image::SetData(const void* data, uint32_t mipLevel, uint32_t currentLayer) 
         totalSize += ImageSizeBytes(w, h, d, m_Specification.Format);
       }
 
-    VkBufferCreateInfo bufferInfo{
-        .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size        = totalSize,
-        .usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
+    VkBufferCreateInfo bufferInfo {};
+    bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size        = totalSize;
+    bufferInfo.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VmaAllocationCreateInfo allocCreateInfo{
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO,
-    };
+    VmaAllocationCreateInfo allocCreateInfo {};
+    allocCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
     CheckVkResult(vmaCreateBuffer(allocator, &bufferInfo, &allocCreateInfo, &m_StagingBuffer, &m_StagingBufferAllocation, nullptr));
   }
@@ -208,7 +207,7 @@ void Image::CopyToImage(VkCommandBuffer commandBuffer) {
 
   size_t offset = 0;
 
-  std::vector<VkBufferImageCopy> regions = {};
+  std::vector<VkBufferImageCopy> regions {};
 
   for (uint32_t layer = 0; layer < m_Specification.ArrayLayers; ++layer) {
     for (uint32_t mip = 0; mip < m_Specification.MipLevels; ++mip) {
@@ -217,7 +216,7 @@ void Image::CopyToImage(VkCommandBuffer commandBuffer) {
       uint32_t mipHeight = std::max(1u, m_Specification.Height >> mip);
       uint32_t mipDepth  = std::max(1u, m_Specification.Depth >> mip);
 
-      regions.emplace_back(VkBufferImageCopy{
+      regions.emplace_back(VkBufferImageCopy {
           .bufferOffset = offset,
           .imageSubresource =
               {
@@ -247,47 +246,45 @@ void Image::Clear(VkCommandBuffer commandBuffer, float r, float g, float b, floa
 
   Transition(commandBuffer, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_ACCESS_TRANSFER_WRITE_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT);
 
-  VkImageSubresourceRange range = {
-      .aspectMask     = m_Specification.AspectMask,
-      .baseMipLevel   = 0,
-      .levelCount     = m_Specification.MipLevels,
-      .baseArrayLayer = 0,
-      .layerCount     = 1,
-  };
+  VkImageSubresourceRange range {};
+  range.aspectMask     = m_Specification.AspectMask;
+  range.baseMipLevel   = 0;
+  range.levelCount     = m_Specification.MipLevels;
+  range.baseArrayLayer = 0;
+  range.layerCount     = 1;
 
-  VkClearColorValue clearColor = {{r, g, b, a}};
+  VkClearColorValue clearColor {{r, g, b, a}};
 
   vkCmdClearColorImage(commandBuffer, m_Image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
 }
 
 void Image::Transition(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, VkImageLayout newLayout, VkAccessFlags2 srcAccessMask, VkAccessFlags2 dstAccessMask, VkPipelineStageFlags2 srcStageMask, VkPipelineStageFlags2 dstStageMask, uint32_t baseMipLevel, uint32_t levelCount, uint32_t baseArrayLayer, uint32_t layerCount) {
 
-  VkImageMemoryBarrier2 barrier{
-      .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-      .srcStageMask        = srcStageMask,
-      .srcAccessMask       = srcAccessMask,
-      .dstStageMask        = dstStageMask,
-      .dstAccessMask       = dstAccessMask,
-      .oldLayout           = oldLayout,
-      .newLayout           = newLayout,
-      .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .image               = m_Image,
-      .subresourceRange =
-          {
-              .aspectMask     = m_Specification.AspectMask,
-              .baseMipLevel   = baseMipLevel,
-              .levelCount     = levelCount,
-              .baseArrayLayer = baseArrayLayer,
-              .layerCount     = layerCount,
-          },
-  };
+  VkImageMemoryBarrier2 barrier {};
 
-  VkDependencyInfo depInfo{
-      .sType                   = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-      .imageMemoryBarrierCount = 1,
-      .pImageMemoryBarriers    = &barrier,
-  };
+  barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  barrier.srcStageMask        = srcStageMask;
+  barrier.srcAccessMask       = srcAccessMask;
+  barrier.dstStageMask        = dstStageMask;
+  barrier.dstAccessMask       = dstAccessMask;
+  barrier.oldLayout           = oldLayout;
+  barrier.newLayout           = newLayout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image               = m_Image;
+
+  VkImageSubresourceRange subresourceRange {};
+  subresourceRange.aspectMask     = m_Specification.AspectMask;
+  subresourceRange.baseMipLevel   = baseMipLevel;
+  subresourceRange.levelCount     = levelCount;
+  subresourceRange.baseArrayLayer = baseArrayLayer;
+  subresourceRange.layerCount     = layerCount;
+  barrier.subresourceRange        = subresourceRange;
+
+  VkDependencyInfo depInfo {};
+  depInfo.sType                   = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.imageMemoryBarrierCount = 1;
+  depInfo.pImageMemoryBarriers    = &barrier;
 
   vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 
@@ -298,32 +295,30 @@ void Image::Transition(VkCommandBuffer commandBuffer, VkImageLayout oldLayout, V
 
 void Image::Transition(VkCommandBuffer commandBuffer, VkImageLayout newLayout, VkAccessFlags2 dstAccessMask, VkPipelineStageFlags2 dstStageMask, uint32_t baseMipLevel, uint32_t levelCount, uint32_t baseArrayLayer, uint32_t layerCount) {
 
-  VkImageMemoryBarrier2 barrier{
-      .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
-      .srcStageMask        = m_CurrentStageMask,
-      .srcAccessMask       = m_CurrentAccesssMask,
-      .dstStageMask        = dstStageMask,
-      .dstAccessMask       = dstAccessMask,
-      .oldLayout           = m_CurrentLayout,
-      .newLayout           = newLayout,
-      .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .image               = m_Image,
-      .subresourceRange =
-          {
-              .aspectMask     = m_Specification.AspectMask,
-              .baseMipLevel   = baseMipLevel,
-              .levelCount     = levelCount,
-              .baseArrayLayer = baseArrayLayer,
-              .layerCount     = layerCount,
-          },
-  };
+  VkImageMemoryBarrier2 barrier {};
+  barrier.sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2;
+  barrier.srcStageMask        = m_CurrentStageMask;
+  barrier.srcAccessMask       = m_CurrentAccesssMask;
+  barrier.dstStageMask        = dstStageMask;
+  barrier.dstAccessMask       = dstAccessMask;
+  barrier.oldLayout           = m_CurrentLayout;
+  barrier.newLayout           = newLayout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image               = m_Image;
 
-  VkDependencyInfo depInfo{
-      .sType                   = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-      .imageMemoryBarrierCount = 1,
-      .pImageMemoryBarriers    = &barrier,
-  };
+  VkImageSubresourceRange subresourceRange {};
+  subresourceRange.aspectMask     = m_Specification.AspectMask;
+  subresourceRange.baseMipLevel   = baseMipLevel;
+  subresourceRange.levelCount     = levelCount;
+  subresourceRange.baseArrayLayer = baseArrayLayer;
+  subresourceRange.layerCount     = layerCount;
+  barrier.subresourceRange        = subresourceRange;
+
+  VkDependencyInfo depInfo {};
+  depInfo.sType                   = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+  depInfo.imageMemoryBarrierCount = 1;
+  depInfo.pImageMemoryBarriers    = &barrier;
 
   vkCmdPipelineBarrier2(commandBuffer, &depInfo);
 

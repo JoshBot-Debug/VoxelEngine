@@ -25,13 +25,13 @@ public:
   };
 
 private:
-  uint32_t m_ChunkSize = 0;
+  uint32_t m_ChunkSize {0};
 
   Palette   m_Palette;
-  HeightMap m_HeightMap = {
+  HeightMap m_HeightMap {
       64,
       64,
-      TerrainSpecification{
+      TerrainSpecification {
           .Seed        = 50,
           .OctaveCount = 10,
           .Frequency   = 1.0f,
@@ -41,16 +41,16 @@ private:
       },
   };
 
-  akari::camera::PerspectiveCamera* m_Camera = nullptr;
+  akari::camera::PerspectiveCamera* m_Camera {nullptr};
 
-  std::vector<std::shared_ptr<Voxel>> m_Voxels;
-  WorldChunkManager*                  m_ChunkManager = nullptr;
+  std::vector<std::shared_ptr<Voxel>> m_Voxels {};
+  WorldChunkManager*                  m_ChunkManager {nullptr};
 
-  std::vector<Material>                        m_Materials    = {};
-  std::vector<uint32_t>                        m_MaterialsLUT = {};
-  std::vector<SparseOctree<Voxel>::FlatNode>   m_FlatSVO      = {};
-  std::vector<Vertex>                          m_Vertices     = {};
-  std::vector<SparseOctree<Voxel>::FilterNode> m_Lights       = {};
+  std::vector<Material>                        m_Materials {};
+  std::vector<uint32_t>                        m_MaterialsLUT {};
+  std::vector<SparseOctree<Voxel>::FlatNode>   m_FlatSVO {};
+  std::vector<Vertex>                          m_Vertices {};
+  std::vector<SparseOctree<Voxel>::FilterNode> m_Lights {};
 
 private:
   const void GenerateCornellBox(const glm::u8vec3& origin);

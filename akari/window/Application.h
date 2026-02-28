@@ -22,26 +22,26 @@
 namespace akari::window {
 
 struct ApplicationSpecification {
-  std::string Name   = "akari";
-  uint32_t    Width  = 1600;
-  uint32_t    Height = 900;
+  std::string Name {"akari"};
+  uint32_t    Width {1600};
+  uint32_t    Height {900};
 
-  bool EnableKeyboardNavigation = true;
-  bool EnableDocking            = false;
+  bool EnableKeyboardNavigation {true};
+  bool EnableDocking {false};
 
-  bool DarkMode  = true;
-  bool Maximized = false;
-  bool Centered  = true;
+  bool DarkMode {true};
+  bool Maximized {false};
+  bool Centered {true};
 
-  float FontSize = 20.0f;
+  float FontSize {20.0f};
 };
 
 class Application {
 
 private:
   struct CommandBufferSpecification {
-    bool     Begin = true;
-    uint32_t Count = 1;
+    bool     Begin {true};
+    uint32_t Count {1};
   };
 
 private:

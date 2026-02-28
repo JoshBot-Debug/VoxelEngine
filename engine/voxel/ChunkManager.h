@@ -15,15 +15,15 @@ class ChunkManager {
   static_assert(CS != 0 && (CS & (CS - 1)) == 0, "CS must be a power of two");
 
 public:
-  static constexpr uint32_t SVO_SIZE   = SS;
-  static constexpr uint32_t CHUNK_SIZE = CS;
+  static constexpr uint32_t SVO_SIZE {SS};
+  static constexpr uint32_t CHUNK_SIZE {CS};
 
 private:
-  static constexpr uint32_t DIV_SS = std::countr_zero(SS);
-  static constexpr uint32_t MOD_SS = SS - 1;
+  static constexpr uint32_t DIV_SS {std::countr_zero(SS)};
+  static constexpr uint32_t MOD_SS {SS - 1};
 
-  std::deque<Chunk<SS>>        m_ChunkAllocator{};
-  SparseOctree<Chunk<SS>, CS>* m_Chunks = nullptr;
+  std::deque<Chunk<SS>>        m_ChunkAllocator {};
+  SparseOctree<Chunk<SS>, CS>* m_Chunks {nullptr};
 
 private:
   /**
@@ -461,7 +461,7 @@ inline const std::vector<Vertex>& ChunkManager<SS, CS>::GreedyMesh(const glm::u8
 
     return chunk->Data->Exists(Wrap(x), Wrap(y), Wrap(z));
   };
-  
+
   return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->GreedyMesh(coordinate, ids, neighbourExists);
 }
 

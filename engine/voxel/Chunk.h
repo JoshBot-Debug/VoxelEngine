@@ -19,20 +19,20 @@ public:
   static constexpr uint32_t SIZE = SS;
 
 private:
-  SparseOctree<Voxel, SS>*                                m_SVO            = nullptr;
-  std::vector<typename SparseOctree<Voxel, SS>::FlatNode> m_FlatNodes      = {};
-  std::vector<Vertex>                                     m_Vertices       = {};
-  std::vector<std::vector<Vertex>>                        m_ThreadVertices = {};
+  SparseOctree<Voxel, SS>*                                m_SVO {nullptr};
+  std::vector<typename SparseOctree<Voxel, SS>::FlatNode> m_FlatNodes {};
+  std::vector<Vertex>                                     m_Vertices {};
+  std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
 
   static uint32_t UID();
 
 public:
-  uint32_t Id = 0;
+  uint32_t Id {0};
 
 public:
   Chunk()
       : m_SVO(new SparseOctree<Voxel, SS>())
-      , Id(UID()){};
+      , Id(UID()) {};
   ~Chunk() { delete m_SVO; };
 
   SparseOctree<Voxel, SS>::Reader BeginRead();

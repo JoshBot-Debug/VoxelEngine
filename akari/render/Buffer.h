@@ -17,9 +17,8 @@ private:
 
 public:
   struct Specification {
-    size_t             Size  = 16;
-    VkBufferUsageFlags Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                               VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    size_t             Size {16};
+    VkBufferUsageFlags Usage {VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
   };
 
 private:
@@ -27,11 +26,11 @@ private:
   VkPhysicalDevice m_PhysicalDevice;
   Specification    m_Specification;
 
-  VkBuffer m_Buffer        = VK_NULL_HANDLE;
-  VkBuffer m_StagingBuffer = VK_NULL_HANDLE;
+  VkBuffer m_Buffer {VK_NULL_HANDLE};
+  VkBuffer m_StagingBuffer {VK_NULL_HANDLE};
 
-  VmaAllocation m_BufferAllocation        = VK_NULL_HANDLE;
-  VmaAllocation m_StagingBufferAllocation = VK_NULL_HANDLE;
+  VmaAllocation m_BufferAllocation {VK_NULL_HANDLE};
+  VmaAllocation m_StagingBufferAllocation {VK_NULL_HANDLE};
 
   VkDeviceSize m_Size = 0;
 

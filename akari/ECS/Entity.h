@@ -7,7 +7,7 @@
 
 namespace ECS {
 
-constexpr size_t MAX_COMPONENTS = 1024;
+constexpr size_t MAX_COMPONENTS {1024};
 
 using EntityId = size_t;
 
@@ -22,8 +22,8 @@ class Registry;
  */
 class Entity {
 private:
-  EntityTypeId m_TId = 0;
-  EntityId     m_Id  = 0;
+  EntityTypeId m_TId {0};
+  EntityId     m_Id {0};
 
   Registry* m_Registry = nullptr;
 
@@ -62,7 +62,7 @@ public:
   Entity(EntityTypeId tid, EntityId id, Registry* registry)
       : m_TId(tid)
       , m_Id(id)
-      , m_Registry(registry){};
+      , m_Registry(registry) {};
 
   ~Entity() {
     m_TId      = 0;

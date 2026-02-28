@@ -144,7 +144,7 @@ private:
    */
   Node* m_Root = new Node(DIV);
 
-  std::atomic<Node*> m_RootAtomic = new Node(DIV);
+  std::atomic<Node*> m_RootAtomic{new Node(DIV)};
 
   /**
    * A mask that can tell you if a voxel exists at x,y,z or if a voxel at x,y,z is hidden
@@ -196,7 +196,7 @@ private:
     /**
      * Copy before modifying
      */
-    node      = new Node(*node);
+    node = new Node(*node);
 
     /**
      * Merge all children

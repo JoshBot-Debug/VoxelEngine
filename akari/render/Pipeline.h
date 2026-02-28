@@ -32,8 +32,8 @@ public:
   };
 
   struct PipelineInfo {
-    VkPrimitiveTopology                              topology    = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
-    VkPolygonMode                                    polygonMode = VK_POLYGON_MODE_FILL;
+    VkPrimitiveTopology                              topology {VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST};
+    VkPolygonMode                                    polygonMode {VK_POLYGON_MODE_FILL};
     uint32_t                                         vertexStride;
     std::vector<VkVertexInputAttributeDescription>   attribs;
     VkRenderPass                                     renderPass;
@@ -42,10 +42,10 @@ public:
     std::vector<VkPipelineColorBlendAttachmentState> colorBlendAttachments;
     VkBool32                                         depthTestEnable;
     VkBool32                                         depthWriteEnable;
-    VkCompareOp                                      depthCompareOp       = VK_COMPARE_OP_GREATER;
-    VkBool32                                         depthBias            = VK_FALSE;
-    float                                            depthBiasSlopeFactor = 0.0f;
-    VkCullModeFlags                                  cullMode             = VK_CULL_MODE_BACK_BIT;
+    VkCompareOp                                      depthCompareOp {VK_COMPARE_OP_GREATER};
+    VkBool32                                         depthBias {VK_FALSE};
+    float                                            depthBiasSlopeFactor {0.0f};
+    VkCullModeFlags                                  cullMode {VK_CULL_MODE_BACK_BIT};
   };
 
   struct ComputePipelineInfo {
@@ -62,18 +62,18 @@ public:
 
   struct DispatchComputeInfo {
     VkCommandBuffer              commandBuffer;
-    uint32_t                     groupCountX = 1;
-    uint32_t                     groupCountY = 1;
-    uint32_t                     groupCountZ = 1;
+    uint32_t                     groupCountX {1};
+    uint32_t                     groupCountY {1};
+    uint32_t                     groupCountZ {1};
     std::vector<VkDescriptorSet> descriptorSets;
   };
 
 private:
-  std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts = {};
-  VkPipelineLayout                   m_PipelineLayout       = nullptr;
-  VkPipeline                         m_Pipeline             = nullptr;
+  std::vector<VkDescriptorSetLayout> m_DescriptorSetLayouts {};
+  VkPipelineLayout                   m_PipelineLayout {nullptr};
+  VkPipeline                         m_Pipeline {nullptr};
 
-  std::unordered_map<uint32_t, std::vector<VkDescriptorSet>> m_DescriptorSets = {};
+  std::unordered_map<uint32_t, std::vector<VkDescriptorSet>> m_DescriptorSets {};
 
   VkShaderModule CreateShaderModule(const std::string& filename);
 

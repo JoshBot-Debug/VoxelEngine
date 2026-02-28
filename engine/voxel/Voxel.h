@@ -2,7 +2,7 @@
 #include <glm/glm.hpp>
 
 struct Voxel {
-  uint32_t Id = 0;
+  uint32_t Id {0};
 
   Voxel() = default;
   Voxel(uint32_t id);

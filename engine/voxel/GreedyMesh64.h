@@ -15,8 +15,8 @@ concept ExistsCallback =
 
 class GreedyMesh64 {
 public:
-  static constexpr uint8_t      CHUNK_SIZE  = 64;
-  static constexpr unsigned int MASK_LENGTH = CHUNK_SIZE * CHUNK_SIZE;
+  static constexpr uint8_t      CHUNK_SIZE {64};
+  static constexpr unsigned int MASK_LENGTH {CHUNK_SIZE * CHUNK_SIZE};
 
 private:
   static inline uint64_t ClearLowestBits(uint64_t bits, int n) {
@@ -119,10 +119,10 @@ public:
       uint64_t (&layers)[MASK_LENGTH],
       uint8_t (&padding)[MASK_LENGTH]) {
 
-    uint64_t widthStart[MASK_LENGTH]  = {};
-    uint64_t heightStart[MASK_LENGTH] = {};
-    uint64_t widthEnd[MASK_LENGTH]    = {};
-    uint64_t heightEnd[MASK_LENGTH]   = {};
+    uint64_t widthStart[MASK_LENGTH] {};
+    uint64_t heightStart[MASK_LENGTH] {};
+    uint64_t widthEnd[MASK_LENGTH] {};
+    uint64_t heightEnd[MASK_LENGTH] {};
 
     PrepareWidthHeightMasks(rows, 0, padding, widthStart, heightStart, widthEnd, heightEnd);
     GreedyMeshAxis(coord, rows, widthStart, heightStart, widthEnd, heightEnd, vertices, FaceType::LEFT, FaceType::RIGHT, id);

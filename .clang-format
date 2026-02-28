@@ -24,3 +24,5 @@ BreakBeforeTernaryOperators: false
 PenaltyBreakAssignment: 10000
 PenaltyBreakBeforeFirstCallParameter: 10000
 PenaltyBreakComment: 10000
+
+SpaceBeforeCpp11BracedList: true

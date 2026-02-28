@@ -10,12 +10,12 @@
 namespace akari::thread {
 class ThreadPool {
 private:
-  std::vector<std::thread>          m_Workers = {};
-  std::queue<std::function<void()>> m_Tasks   = {};
+  std::vector<std::thread>          m_Workers {};
+  std::queue<std::function<void()>> m_Tasks {};
 
   std::mutex              m_Mutex;
   std::condition_variable m_CV;
-  bool                    m_Stop = false;
+  bool                    m_Stop {false};
 
 private:
   ThreadPool();

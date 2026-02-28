@@ -28,19 +28,19 @@ class SparseOctree {
   static_assert(S != 0 && (S & (S - 1)) == 0, "S must be a power of two");
 
 public:
-  static inline constexpr uint8_t SIZE = S;
-  static inline constexpr uint8_t MOD  = SIZE - 1;
-  static inline constexpr uint8_t DIV  = std::log2(SIZE);
+  static inline constexpr uint8_t SIZE {S};
+  static inline constexpr uint8_t MOD {SIZE - 1};
+  static inline constexpr uint8_t DIV = std::log2(SIZE);
 
   /**
    * The hit struct for raymarching
    * @tparam T The datatype of the pointer stored
    */
   struct Hit {
-    glm::vec3 Position = glm::vec3(0.);
-    glm::vec3 Normal   = glm::vec3(0.);
-    T*        Data     = nullptr;
-    uint32_t  Size     = 0;
+    glm::vec3 Position {glm::vec3(0.0f)};
+    glm::vec3 Normal {glm::vec3(0.0f)};
+    T*        Data {nullptr};
+    uint32_t  Size {0};
   };
 
   /**
@@ -48,15 +48,15 @@ public:
    * @tparam T The datatype of the pointer stored
    */
   struct Node {
-    uint8_t Depth       = 0;
-    T*      Data        = nullptr;
-    Node*   Children[8] = {nullptr};
+    uint8_t Depth {0};
+    T*      Data {nullptr};
+    Node*   Children[8] {nullptr};
 
     Node() = default;
 
     Node(uint8_t depth, T* data = nullptr)
         : Depth(depth)
-        , Data(data){};
+        , Data(data) {};
 
     bool operator==(const Node& other) const { return Data.Id == other.Data.Id; };
     bool operator!=(const Node& other) const { return Data.Id != other.Data.Id; };
@@ -75,8 +75,8 @@ public:
 
   struct FlatNode {
     // 16bit Id, 8bit Depth & Children
-    uint32_t PackedIDC  = 0;
-    uint32_t ChildIndex = 0;
+    uint32_t PackedIDC {0};
+    uint32_t ChildIndex {0};
 
     inline void SetId(uint16_t id) {
       PackedIDC = (PackedIDC & 0x0000FFFFu) | (uint32_t(id) << 16);
@@ -104,16 +104,16 @@ public:
   };
 
   struct FilterNode {
-    uint32_t  Id    = 0;
-    uint32_t  Depth = 0;
+    uint32_t  Id {0};
+    uint32_t  Depth {0};
     uint32_t  P1[2];
-    glm::vec3 Position = glm::vec3(0.0f);
+    glm::vec3 Position {glm::vec3(0.0f)};
     uint32_t  P2[1];
   };
 
   class Writer {
   private:
-    std::atomic<SparseOctree<T, S>::Node*>* m_Atomic = nullptr;
+    std::atomic<SparseOctree<T, S>::Node*>* m_Atomic {nullptr};
 
   public:
     SparseOctree<T, S>::Node* Root = nullptr;
@@ -129,11 +129,11 @@ public:
 
   class Reader {
   private:
-    RCU<Node>* m_RCU        = nullptr;
-    uint64_t   m_Generation = 0;
+    RCU<Node>* m_RCU {nullptr};
+    uint64_t   m_Generation {0};
 
   public:
-    SparseOctree<T, S>::Node* Root = nullptr;
+    SparseOctree<T, S>::Node* Root {nullptr};
 
     Reader(std::atomic<SparseOctree<T, S>::Node*>* atomic, RCU<Node>* rcu)
         : m_RCU(rcu)
@@ -149,7 +149,7 @@ public:
 private:
   class alignas(64) Mask {
   private:
-    uint64_t m_Present[SIZE * SIZE] = {};
+    uint64_t m_Present[SIZE * SIZE] {};
 
   public:
     Mask() = default;
@@ -183,7 +183,7 @@ private:
   /**
    * Pointer to the root node of the Sparse Voxel Octree.
    */
-  std::atomic<Node*> m_Root = new Node(DIV);
+  std::atomic<Node*> m_Root {new Node(DIV)};
 
   /**
    * A mask that can tell you if a voxel exists at x,y,z or if a voxel at x,y,z is hidden
@@ -427,7 +427,7 @@ private:
 
       uint32_t index = static_cast<uint32_t>(out.size());
 
-      out.emplace_back(FlatNode{.PackedIDC = 0, .ChildIndex = 0});
+      out.emplace_back(FlatNode {.PackedIDC = 0, .ChildIndex = 0});
       out[index].SetDepth(child->Depth);
 
       if (child->Data)
@@ -469,7 +469,7 @@ private:
       return;
 
     if (node->Data && filter(node)) {
-      out.emplace_back(FilterNode{
+      out.emplace_back(FilterNode {
           .Id       = node->Data->Id,
           .Depth    = node->Depth,
           .Position = position,
@@ -495,8 +495,8 @@ private:
    * Perform an AABB intersection test
    */
   bool intersectAABB(const glm::vec3& origin, const glm::vec3& direction, const glm::vec3& min, const glm::vec3& max, float& tMin, float& tMax, glm::vec3& outNormal) {
-    tMin      = 0.0f;
-    tMax      = 1e30f;
+    tMin = 0.0f;
+    tMax = 1e30f;
 
     for (int i = 0; i < 3; i++)
       if (direction[i] != 0.0f) {
@@ -540,7 +540,7 @@ private:
       return Hit();
 
     if (node->Data)
-      return Hit{
+      return Hit {
           .Position = nodeMin,
           .Normal   = normal,
           .Data     = node->Data,
@@ -602,7 +602,7 @@ private:
     data = (node && node->Data) ? node->Data : data;
 
     if (size == 1)
-      return Hit{
+      return Hit {
           .Position = nodeMin,
           .Normal   = normal,
           .Data     = data,
@@ -938,7 +938,7 @@ public:
 
     uint32_t index = static_cast<uint32_t>(out.size());
 
-    out.emplace_back(FlatNode{.PackedIDC = 0, .ChildIndex = 1});
+    out.emplace_back(FlatNode {.PackedIDC = 0, .ChildIndex = 1});
     out[index].SetDepth(root->Depth);
 
     if (root->Data)
@@ -959,7 +959,7 @@ public:
 
     uint32_t index = static_cast<uint32_t>(out.size());
 
-    out.emplace_back(FlatNode{.PackedIDC = 0, .ChildIndex = 1});
+    out.emplace_back(FlatNode {.PackedIDC = 0, .ChildIndex = 1});
     out[index].SetDepth(session.Root->Depth);
 
     if (session.Root->Data)

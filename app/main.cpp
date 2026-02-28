@@ -21,7 +21,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-const int WORLD_SIZE = 64;
+const int WORLD_SIZE {64};
 
 using namespace akari::window;
 
@@ -30,15 +30,15 @@ class ViewportLayer : public Layer {
 private:
   akari::camera::PerspectiveCamera m_Camera;
   vxen::Controller                 m_Controller;
-  vxen::World                      m_World{WORLD_SIZE};
+  vxen::World                      m_World {WORLD_SIZE};
   vxen::UI                         m_UI;
   Scene                            m_Scene;
 
-  glm::vec2 m_ViewportSize{1080.0f, 720.0f};
-  glm::vec2 m_ViewportMouse{0.0f};
+  glm::vec2 m_ViewportSize {1080.0f, 720.0f};
+  glm::vec2 m_ViewportMouse {0.0f};
 
-  float m_RenderTime = 0.0f;
-  float m_UpdateTime = 0.0f;
+  float m_RenderTime {0.0f};
+  float m_UpdateTime {0.0f};
 
 public:
   bool ViewportLock = true;
@@ -162,7 +162,7 @@ public:
 
     ImGui::End();
 
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2{0.0f, 0.0f});
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2 {0.0f, 0.0f});
     ImGui::Begin("Viewport", nullptr, ViewportLock ? (ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse) : ImGuiWindowFlags_None);
 
     GetViewportInfo(m_ViewportMouse.x, m_ViewportMouse.y, m_ViewportSize.x, m_ViewportSize.y);
@@ -185,11 +185,11 @@ public:
 Application* akari::window::CreateApplication(int argc, char** argv) {
 
   const ApplicationSpecification applicationSpecification = {
-      .Width         = 1440,
-      .Height        = 300,
-      .EnableDocking = true,
-      .Maximized     = true,
-      .Centered      = true,
+      .Width {1440},
+      .Height {300},
+      .EnableDocking {true},
+      .Maximized {true},
+      .Centered {true},
   };
 
   Application* app = new Application(applicationSpecification);

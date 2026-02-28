@@ -3,7 +3,7 @@
 #include "window/Application.h"
 
 extern akari::window::Application* akari::window::CreateApplication(int argc, char** argv);
-bool                               g_ApplicationRunning = true;
+bool                               g_ApplicationRunning {true};
 
 namespace akari::window {
 

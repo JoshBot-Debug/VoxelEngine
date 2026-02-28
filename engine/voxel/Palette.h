@@ -4,21 +4,21 @@
 #include <string>
 #include <vector>
 
-#include "Type.h"
 #include "Debug.h"
+#include "Type.h"
 #include "Voxel.h"
 
 class Palette {
 public:
   struct Item {
-    uint32_t                  Id = 0;
+    uint32_t                  Id {0};
     std::string               Name;
     std::shared_ptr<Material> Mat;
   };
 
 private:
-  uint32_t              m_SelectedItem = 0;
-  std::vector<Item>     m_Items        = {};
+  uint32_t          m_SelectedItem {0};
+  std::vector<Item> m_Items {};
 
 private:
   void RenderPalette();

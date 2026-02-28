@@ -4,14 +4,14 @@
 #include <noise/noiseutils.h>
 
 struct TerrainSpecification {
-  int Seed        = 50;
-  int OctaveCount = 3;
+  int Seed {50};
+  int OctaveCount {3};
 
-  float Frequency   = 1.0f;
-  float Persistence = 0.4f;
+  float Frequency {1.0f};
+  float Persistence {0.4f};
 
-  float Scale = 0.6f;
-  float Bias  = -0.4f;
+  float Scale {0.6f};
+  float Bias {-0.4f};
 };
 
 class HeightMap {

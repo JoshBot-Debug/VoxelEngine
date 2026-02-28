@@ -3,23 +3,23 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+#include "World.h"
 #include "camera/PerspectiveCamera.h"
 #include "voxel/Type.h"
-#include "World.h"
 
 namespace vxen {
 
 struct HighlightVertex {
-  glm::vec3 Position;
-  glm::vec3 Color;
+  glm::vec3 Position {glm::vec3(0.0f)};
+  glm::vec3 Color {glm::vec3(0.0f)};
 };
 
 class UI {
 private:
-  akari::camera::PerspectiveCamera* m_Camera = nullptr;
-  World*             m_World  = nullptr;
+  akari::camera::PerspectiveCamera* m_Camera {nullptr};
+  World*                            m_World {nullptr};
 
-  std::vector<HighlightVertex> m_HighlightVertices = {};
+  std::vector<HighlightVertex> m_HighlightVertices {};
 
 private:
   void ConstructHighlightVertices(const glm::vec3& voxelMin, const glm::vec3& hitNormal, const glm::vec3& color, float size);
