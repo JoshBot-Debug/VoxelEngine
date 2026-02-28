@@ -49,6 +49,8 @@ public:
    */
   struct Node {
     uint8_t Depth {0};
+    /// NOTE: For allignment, sizeof(Node) = 80; Feel free (or rather, remember) to use up these 7 bytes.
+    uint8_t Padding[7] {};
     T*      Data {nullptr};
     Node*   Children[8] {nullptr};
 
