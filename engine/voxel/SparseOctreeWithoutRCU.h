@@ -163,10 +163,8 @@ private:
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
     if (size == 1) {
-      Node* old  = node;
       node       = new Node(*node);
       node->Data = data;
-      delete old;
       return node;
     }
 
@@ -181,10 +179,8 @@ private:
      * create a new empty one to keep traversing to size 1
      */
     if (!node->Children[index]) {
-      Node* old             = node;
       node                  = new Node(*node);
       node->Children[index] = new Node(node->Depth - 1);
-      delete old;
     }
 
     node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half);
@@ -200,7 +196,6 @@ private:
     /**
      * Copy before modifying
      */
-    Node* old = node;
     node      = new Node(*node);
 
     /**
@@ -208,14 +203,11 @@ private:
      * Retire all children, this node will represent all below
      */
     for (int i = 0; i < 8; i++) {
-      node->Children[i]->Destroy();
-      delete node->Children[i];
       node->Children[i] = nullptr;
     }
 
     node->Data = data;
 
-    delete old;
     return node;
   };
 
