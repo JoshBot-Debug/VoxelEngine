@@ -17,7 +17,7 @@ private:
 
 public:
   struct Specification {
-    size_t             Size {16};
+    size_t             Size {1024};
     VkBufferUsageFlags Usage {VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
   };
 
