@@ -200,6 +200,15 @@ float random(uvec2 pixel,uint a,uint b){
   return float(wangHash(seed))/4294967296.;// divide by 2^32
 }
 
+float randomSeedF(ivec3 position,uint seed){
+  uint s=
+  uint(position.x)*1973u^
+  uint(position.y)*9277u^
+  uint(position.z)*2663u^
+  seed*8887u;
+  return float(wangHash(s))/4294967296.;
+}
+
 // ----- PBR helpers -----
 
 // Schlick Fresnel approximation

@@ -106,5 +106,9 @@ void main(){
   
   Lo+=reflected*F*specularWeight;
   
+  ivec3 VP = ivec3(floor(P + 0.001));
+  float variation = randomSeedF(VP,material.Id) * 0.5 + 0.95;
+  Lo *= variation;
+
   imageStore(directLightTexture,pixel,vec4(Lo,1.));
 }
