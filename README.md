@@ -132,3 +132,18 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
 
 - Retire & copy only when modified
 - Retire & copy only if parent trail is not copied
+
+1. Chunk should now use threads to greedy mesh
+2. Chunk manager does not need a GreedyMesh function, rather it needs a "Prepare function". Prepare should mesh all dirty chunks
+3. Once all chunks are prepared we need to set the CHUNK_MANAGER_FLUSH_RENDER
+4. CreateDescriptorSets() is called in Scene when the screen resizes or a buffer resizes, I need to also call it once Chunks are prepared, need to only set the chunks that are avaliable / have data.
+5. Need to use draw indirect to draw chunks that have data. Then use gl_DrawID in the shader to access the correct SVOBuffer (Will be writing many buffers here, one for each chunk that has data. MUST MATCH THE draw indirect vertex buffer set. I.e, the vertex buffer and svo buffer need to be from the same chunk so gl_DrawID can be used to index into the SVO storage buffer)
+```glsl
+layout(set = 0, binding = 0) readonly buffer SVOBuffers {
+    uint data[];
+} svoBuffers[MAX_CHUNKS];
+```
+
+NOTE: Prepare() is just a quick idea. Ideally, we don't want to check a dirty flag for all chunks to find out which ones to prepare,
+There will mostly only ever be 1(edited voxel's chunk) + lod chunk changes(in the future)
+
