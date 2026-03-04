@@ -14,8 +14,8 @@ public:
   struct DescriptorWriteInfo {
     VkDescriptorType                      type;
     uint32_t                              binding;
-    std::optional<VkDescriptorBufferInfo> buffer;
-    std::optional<VkDescriptorImageInfo>  image;
+    std::optional<std::vector<VkDescriptorBufferInfo>> buffer;
+    std::optional<std::vector<VkDescriptorImageInfo>>  image;
   };
 
   struct DescriptorSetInfo {

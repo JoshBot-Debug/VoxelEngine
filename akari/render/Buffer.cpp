@@ -2,6 +2,7 @@
 
 #include "window/Application.h"
 
+#include "BufferPool.h"
 #include <iostream>
 
 namespace akari::render {
@@ -9,7 +10,6 @@ namespace akari::render {
 Buffer::Buffer() {
   m_Device         = akari::window::Application::GetDevice();
   m_PhysicalDevice = akari::window::Application::GetPhysicalDevice();
-  CreateBuffer(m_Specification.Size);
 }
 
 Buffer::Buffer(const Specification& specification)
@@ -18,7 +18,9 @@ Buffer::Buffer(const Specification& specification)
   m_PhysicalDevice = akari::window::Application::GetPhysicalDevice();
 }
 
-Buffer::~Buffer() { DestroyBuffer(); }
+Buffer::~Buffer() {
+  DestroyBuffer();
+}
 
 bool Buffer::Upload(VkCommandBuffer commandBuffer, size_t size, const void* data) {
   if (!size)
@@ -29,10 +31,10 @@ bool Buffer::Upload(VkCommandBuffer commandBuffer, size_t size, const void* data
     return false;
   }
 
-  VkBuffer      oBuffer                  = m_Buffer;
-  VkBuffer      oStagingBuffer           = m_StagingBuffer;
-  VmaAllocation oBufferAllocation        = m_BufferAllocation;
-  VmaAllocation oStagingBufferAllocation = m_StagingBufferAllocation;
+  VkBuffer      oBuffer                  = m_DeviceBuffer;
+  VkBuffer      oStagingBuffer           = m_HostBuffer;
+  VmaAllocation oBufferAllocation        = m_DeviceBufferAllocation;
+  VmaAllocation oStagingBufferAllocation = m_HostBufferAllocation;
 
   CreateBuffer(size);
 
@@ -44,9 +46,8 @@ bool Buffer::Upload(VkCommandBuffer commandBuffer, size_t size, const void* data
   return true;
 }
 
-VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask,
-                                          VkAccessFlags2        dstAccessMask) {
-  return VkBufferMemoryBarrier2{
+VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) {
+  return VkBufferMemoryBarrier2 {
       .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
       .srcStageMask        = VK_PIPELINE_STAGE_2_COPY_BIT,
       .srcAccessMask       = VK_ACCESS_2_TRANSFER_WRITE_BIT,
@@ -54,18 +55,16 @@ VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask,
       .dstAccessMask       = dstAccessMask,
       .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
       .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
-      .buffer              = m_Buffer,
+      .buffer              = m_DeviceBuffer,
       .offset              = 0,
       .size                = VK_WHOLE_SIZE,
   };
 }
 
 VkDeviceAddress Buffer::GetDeviceAddress() const {
-  VkBufferDeviceAddressInfo addressInfo{
-      .sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO,
-      .buffer = m_Buffer,
-  };
-
+  VkBufferDeviceAddressInfo addressInfo {};
+  addressInfo.sType  = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+  addressInfo.buffer = m_DeviceBuffer;
   return vkGetBufferDeviceAddress(m_Device, &addressInfo);
 }
 
@@ -75,52 +74,55 @@ void Buffer::CreateBuffer(VkDeviceSize size) {
 
   // Staging Buffer
   {
-    VkBufferCreateInfo bufferInfo{
-        .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size        = m_Size,
-        .usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
+    VkBufferCreateInfo bufferInfo {};
+    bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size        = m_Size;
+    bufferInfo.usage       = VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VmaAllocationCreateInfo allocInfo = {
-        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT,
-        .usage = VMA_MEMORY_USAGE_AUTO,
-    };
+    VmaAllocationCreateInfo allocInfo {};
+    allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
 
-    vmaCreateBuffer(akari::window::Application::GetVmaAllocator(), &bufferInfo, &allocInfo, &m_StagingBuffer, &m_StagingBufferAllocation, nullptr);
+    if (m_Specification.Pool)
+      allocInfo.pool = m_Specification.Pool->GetHostPool();
+
+    vmaCreateBuffer(akari::window::Application::GetVmaAllocator(), &bufferInfo, &allocInfo, &m_HostBuffer, &m_HostBufferAllocation, nullptr);
   }
 
   // GPU Buffer
   {
-    VkBufferCreateInfo bufferInfo{
-        .sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-        .size        = m_Size,
-        .usage       = m_Specification.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-        .sharingMode = VK_SHARING_MODE_EXCLUSIVE,
-    };
+    VkBufferCreateInfo bufferInfo {};
+    bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size        = m_Size;
+    bufferInfo.usage       = m_Specification.Usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VmaAllocationCreateInfo allocInfo = {.usage = VMA_MEMORY_USAGE_AUTO};
+    VmaAllocationCreateInfo allocInfo {};
+    allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
 
-    vmaCreateBuffer(akari::window::Application::GetVmaAllocator(), &bufferInfo, &allocInfo, &m_Buffer, &m_BufferAllocation, nullptr);
+    if (m_Specification.Pool)
+      allocInfo.pool = m_Specification.Pool->GetDevicePool();
+
+    vmaCreateBuffer(akari::window::Application::GetVmaAllocator(), &bufferInfo, &allocInfo, &m_DeviceBuffer, &m_DeviceBufferAllocation, nullptr);
   }
 }
 
 void Buffer::DestroyBuffer() {
-  vmaDestroyBuffer(akari::window::Application::GetVmaAllocator(), m_Buffer, m_BufferAllocation);
-  vmaDestroyBuffer(akari::window::Application::GetVmaAllocator(), m_StagingBuffer, m_StagingBufferAllocation);
+  vmaDestroyBuffer(akari::window::Application::GetVmaAllocator(), m_DeviceBuffer, m_DeviceBufferAllocation);
+  vmaDestroyBuffer(akari::window::Application::GetVmaAllocator(), m_HostBuffer, m_HostBufferAllocation);
 
   m_Size = 0;
 }
 
 void Buffer::CopyToGPU(VkCommandBuffer commandBuffer, size_t size, const void* data) {
-  vmaCopyMemoryToAllocation(akari::window::Application::GetVmaAllocator(), data, m_StagingBufferAllocation, 0, size);
+  vmaCopyMemoryToAllocation(akari::window::Application::GetVmaAllocator(), data, m_HostBufferAllocation, 0, size);
 
-  VkBufferCopy copyRegion{
-      .srcOffset = 0,
-      .dstOffset = 0,
-      .size      = size,
-  };
+  VkBufferCopy copyRegion {};
+  copyRegion.srcOffset = 0;
+  copyRegion.dstOffset = 0;
+  copyRegion.size      = size;
 
-  vkCmdCopyBuffer(commandBuffer, m_StagingBuffer, m_Buffer, 1, &copyRegion);
+  vkCmdCopyBuffer(commandBuffer, m_HostBuffer, m_DeviceBuffer, 1, &copyRegion);
 }
 } // namespace akari::render

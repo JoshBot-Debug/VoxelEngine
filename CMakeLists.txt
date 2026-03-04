@@ -5,7 +5,7 @@ project(vxen)
 option(ENABLE_AVX256 "Enable AVX-256 instructions" OFF)
 option(ENABLE_STL_DEBUG "Enable STL debug mode and DEBUG macro." OFF)
 option(ENABLE_THREAD_SANITIZER "Enable ThreadSanitizer (disables AddressSanitizer)" OFF)
-option(ENABLE_VULKAN_VALIDATION "Enable vulkan validation & debug extension" OFF)
+option(ENABLE_VULKAN_VALIDATION "Enable vulkan validation & debug extension" ON)
 option(ENABLE_VMA_STATS_LOG "Log out vulkan memory allocator stats when the application exits" OFF)
 
 # === Compiler Flags ===
@@ -25,11 +25,17 @@ endif()
 # === Vulkan validation ===
 if(ENABLE_VULKAN_VALIDATION)
   add_compile_definitions(ENABLE_VULKAN_VALIDATION)
+  message(STATUS "Vulkan validation ENABLED.")
+else()
+  message(STATUS "Vulkan validation DISABLED.")
 endif()
 
 # === Log VMA stats ===
 if(ENABLE_VMA_STATS_LOG)
   add_compile_definitions(ENABLE_VMA_STATS_LOG)
+  message(STATUS "VMA stats ENABLED.")
+else()
+  message(STATUS "VMA stats DISABLED.")
 endif()
 
 # === Add vendor libraries ===

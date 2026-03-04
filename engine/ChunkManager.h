@@ -4,10 +4,17 @@
 #include <deque>
 #include <glm/glm.hpp>
 
+#include <vk_mem_alloc.h>
+#include <vulkan/vulkan.h>
+
 #include "Chunk.h"
-#include "SparseOctree.h"
-#include "Type.h"
-#include "Voxel.h"
+
+#include "voxel/SparseOctree.h"
+#include "voxel/Type.h"
+#include "voxel/Voxel.h"
+
+#include "render/BufferPool.h"
+#include "window/Application.h"
 
 template <uint32_t SS, uint8_t CS>
 class ChunkManager {
@@ -21,6 +28,14 @@ public:
 private:
   static constexpr uint32_t DIV_SS {std::countr_zero(SS)};
   static constexpr uint32_t MOD_SS {SS - 1};
+
+  akari::render::BufferPool m_SVOPool {{
+      .Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
+  }};
+
+  akari::render::BufferPool m_VertexPool {{
+      .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+  }};
 
   std::deque<Chunk<SS>>        m_ChunkAllocator {};
   SparseOctree<Chunk<SS>, CS>* m_Chunks {nullptr};
@@ -304,7 +319,12 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(
   typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(x, y, z);
   if (chunk)
     return chunk;
-  m_Chunks->Set(x, y, z, &m_ChunkAllocator.emplace_back());
+
+  auto* c = &m_ChunkAllocator.emplace_back();
+  c->SetSVOPool(&m_SVOPool);
+  c->SetVertexPool(&m_VertexPool);
+
+  m_Chunks->Set(x, y, z, c);
   return m_Chunks->Get(x, y, z);
 }
 

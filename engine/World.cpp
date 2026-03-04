@@ -1,7 +1,5 @@
 #include "World.h"
 
-#include <execution>
-
 #include "Utility.h"
 #include "thread/Signal.h"
 #include "thread/ThreadPool.h"

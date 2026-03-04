@@ -21,7 +21,7 @@ VkShaderModule Pipeline::CreateShaderModule(const std::string& filename) {
   file.read(buffer.data(), fileSize);
   file.close();
 
-  VkShaderModuleCreateInfo createInfo{
+  VkShaderModuleCreateInfo createInfo {
       .sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
       .codeSize = buffer.size(),
       .pCode    = reinterpret_cast<const uint32_t*>(buffer.data()),
@@ -54,7 +54,7 @@ void Pipeline::CreateDescriptorSetLayout(const DescriptorSetLayoutInfo& info) {
   if (m_DescriptorSetLayouts.size() <= info.index)
     m_DescriptorSetLayouts.resize(info.index + 1);
 
-  VkDescriptorSetLayoutCreateInfo layoutInfo{
+  VkDescriptorSetLayoutCreateInfo layoutInfo {
       .sType        = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
       .bindingCount = static_cast<uint32_t>(info.layoutBindings.size()),
       .pBindings    = info.layoutBindings.data(),
@@ -76,7 +76,7 @@ void Pipeline::CreateDescriptorSet(const DescriptorSetInfo& info) {
   if (descriptorSets.size() == 0) {
     std::vector<VkDescriptorSetLayout> layouts(info.descriptorSetCount, layout);
 
-    VkDescriptorSetAllocateInfo allocInfo{
+    VkDescriptorSetAllocateInfo allocInfo {
         .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .descriptorPool     = info.descriptorPool,
         .descriptorSetCount = info.descriptorSetCount,
@@ -97,18 +97,25 @@ void Pipeline::CreateDescriptorSet(const DescriptorSetInfo& info) {
       std::vector<VkWriteDescriptorSet> writes;
 
       for (auto& w : info.writes) {
-        VkWriteDescriptorSet write = {
-            .sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-            .dstSet          = descriptorSets[i],
-            .dstBinding      = w.binding,
-            .dstArrayElement = 0,
-            .descriptorCount = 1,
-            .descriptorType  = w.type,
-        };
-        if (w.buffer.has_value())
-          write.pBufferInfo = &*w.buffer;
-        if (w.image.has_value())
-          write.pImageInfo = &*w.image;
+        VkWriteDescriptorSet write {};
+        write.sType           = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        write.dstSet          = descriptorSets[i];
+        write.dstBinding      = w.binding;
+        write.dstArrayElement = 0;
+        write.descriptorType  = w.type;
+
+        if (w.buffer.has_value()) {
+          auto value            = &w.buffer.value();
+          write.pBufferInfo     = value->data();
+          write.descriptorCount = static_cast<uint32_t>(value->size());
+        }
+
+        if (w.image.has_value()) {
+          auto value            = &w.image.value();
+          write.pImageInfo      = value->data();
+          write.descriptorCount = static_cast<uint32_t>(value->size());
+        }
+
         writes.push_back(write);
       }
 
@@ -122,7 +129,7 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
 
   VkResult result = VK_ERROR_UNKNOWN;
 
-  VkPipelineLayoutCreateInfo pipelineLayoutInfo{
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo {
       .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
       .setLayoutCount = static_cast<uint32_t>(m_DescriptorSetLayouts.size()),
       .pSetLayouts    = m_DescriptorSetLayouts.data(),
@@ -136,13 +143,13 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
   VkShaderModule vertModule = CreateShaderModule(info.vertexShaderFile);
   VkShaderModule fragModule = CreateShaderModule(info.fragmentShaderFile);
 
-  VkPipelineShaderStageCreateInfo vertStage{
+  VkPipelineShaderStageCreateInfo vertStage {
       .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
       .stage  = VK_SHADER_STAGE_VERTEX_BIT,
       .module = vertModule,
       .pName  = "main",
   };
-  VkPipelineShaderStageCreateInfo fragStage{
+  VkPipelineShaderStageCreateInfo fragStage {
       .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
       .stage  = VK_SHADER_STAGE_FRAGMENT_BIT,
       .module = fragModule,
@@ -150,13 +157,13 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
   };
   VkPipelineShaderStageCreateInfo shaderStages[] = {vertStage, fragStage};
 
-  VkVertexInputBindingDescription bindingDesc{
+  VkVertexInputBindingDescription bindingDesc {
       .binding   = 0,
       .stride    = info.vertexStride,
       .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
   };
 
-  VkPipelineVertexInputStateCreateInfo vertexInputInfo{
+  VkPipelineVertexInputStateCreateInfo vertexInputInfo {
       .sType                           = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
       .vertexBindingDescriptionCount   = 1,
       .pVertexBindingDescriptions      = &bindingDesc,
@@ -164,13 +171,13 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
       .pVertexAttributeDescriptions    = info.attribs.data(),
   };
 
-  VkPipelineInputAssemblyStateCreateInfo inputAssembly{
+  VkPipelineInputAssemblyStateCreateInfo inputAssembly {
       .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
       .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
       .primitiveRestartEnable = VK_FALSE,
   };
 
-  VkPipelineViewportStateCreateInfo viewportState{
+  VkPipelineViewportStateCreateInfo viewportState {
       .sType         = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
       .viewportCount = 1,
       .pViewports    = nullptr,
@@ -183,13 +190,13 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
       VK_DYNAMIC_STATE_SCISSOR,
   };
 
-  VkPipelineDynamicStateCreateInfo dynamicStateInfo{
+  VkPipelineDynamicStateCreateInfo dynamicStateInfo {
       .sType             = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
       .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
       .pDynamicStates    = dynamicStates.data(),
   };
 
-  VkPipelineRasterizationStateCreateInfo rasterizer{
+  VkPipelineRasterizationStateCreateInfo rasterizer {
       .sType                   = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
       .depthClampEnable        = VK_FALSE,
       .rasterizerDiscardEnable = VK_FALSE,
@@ -201,13 +208,13 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
       .lineWidth               = 1.0f,
   };
 
-  VkPipelineMultisampleStateCreateInfo multisampling{
+  VkPipelineMultisampleStateCreateInfo multisampling {
       .sType                = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
       .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
       .sampleShadingEnable  = VK_FALSE,
   };
 
-  VkPipelineDepthStencilStateCreateInfo depthStencil{
+  VkPipelineDepthStencilStateCreateInfo depthStencil {
       .sType                 = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
       .depthTestEnable       = info.depthTestEnable,
       .depthWriteEnable      = info.depthWriteEnable,
@@ -216,14 +223,14 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
       .stencilTestEnable     = VK_FALSE,
   };
 
-  VkPipelineColorBlendStateCreateInfo colorBlending{
+  VkPipelineColorBlendStateCreateInfo colorBlending {
       .sType           = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
       .logicOpEnable   = VK_FALSE,
       .attachmentCount = static_cast<uint32_t>(info.colorBlendAttachments.size()),
       .pAttachments    = info.colorBlendAttachments.data(),
   };
 
-  VkGraphicsPipelineCreateInfo pipelineInfo{
+  VkGraphicsPipelineCreateInfo pipelineInfo {
       .sType               = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
       .stageCount          = 2,
       .pStages             = shaderStages,
@@ -253,7 +260,7 @@ void Pipeline::CreateComputePipeline(const ComputePipelineInfo& info) {
   VkDevice device = akari::window::Application::GetDevice();
   VkResult result = VK_ERROR_UNKNOWN;
 
-  VkPipelineLayoutCreateInfo pipelineLayoutInfo{
+  VkPipelineLayoutCreateInfo pipelineLayoutInfo {
       .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
       .setLayoutCount = static_cast<uint32_t>(m_DescriptorSetLayouts.size()),
       .pSetLayouts    = m_DescriptorSetLayouts.data(),
@@ -265,14 +272,14 @@ void Pipeline::CreateComputePipeline(const ComputePipelineInfo& info) {
 
   VkShaderModule shaderModule = CreateShaderModule(info.computeShaderFile);
 
-  VkPipelineShaderStageCreateInfo computeStage{
+  VkPipelineShaderStageCreateInfo computeStage {
       .sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
       .stage  = VK_SHADER_STAGE_COMPUTE_BIT,
       .module = shaderModule,
       .pName  = "main",
   };
 
-  VkComputePipelineCreateInfo pipelineInfo{
+  VkComputePipelineCreateInfo pipelineInfo {
       .sType  = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO,
       .stage  = computeStage,
       .layout = m_PipelineLayout,

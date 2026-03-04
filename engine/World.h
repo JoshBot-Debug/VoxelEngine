@@ -6,7 +6,7 @@
 
 #include "camera/PerspectiveCamera.h"
 
-#include "voxel/ChunkManager.h"
+#include "ChunkManager.h"
 #include "voxel/HeightMap.h"
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"

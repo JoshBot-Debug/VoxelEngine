@@ -26,10 +26,10 @@ private:
 
   VkDescriptorPool m_DescriptorPool;
 
-  akari::render::Buffer m_SVOBuffer;
-  akari::render::Buffer m_LightBuffer;
-  akari::render::Buffer m_MaterialBuffer;
-  akari::render::Buffer m_MaterialLUTBuffer;
+  akari::render::Buffer m_SVOBuffer {};
+  akari::render::Buffer m_LightBuffer {};
+  akari::render::Buffer m_MaterialBuffer {};
+  akari::render::Buffer m_MaterialLUTBuffer {};
   akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
   akari::render::Buffer m_OverlayVertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
 

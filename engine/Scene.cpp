@@ -1,9 +1,9 @@
 #include "Scene.h"
 
-#include "window/Application.h"
 #include "Binding.h"
-#include "thread/Signal.h"
 #include "Utility.h"
+#include "thread/Signal.h"
+#include "window/Application.h"
 
 #include "stb/stb.h"
 #include "stb/stb_image.h"
@@ -16,6 +16,13 @@ Scene::Scene() {
       m_MotionVector,
       m_DirectLight,
   };
+
+  m_SVOBuffer.CreateBuffer(1024);
+  m_LightBuffer.CreateBuffer(1024);
+  m_MaterialBuffer.CreateBuffer(1024);
+  m_MaterialLUTBuffer.CreateBuffer(1024);
+  m_VertexBuffer.CreateBuffer(1024);
+  m_OverlayVertexBuffer.CreateBuffer(1024);
 }
 
 Scene::~Scene() {
@@ -41,7 +48,7 @@ void Scene::Initialize(const InitializeInfo& init) {
       {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4},
   };
 
-  VkDescriptorPoolCreateInfo poolInfo{
+  VkDescriptorPoolCreateInfo poolInfo {
       .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
       .maxSets       = 3 + (framesInFlight * 4),
       .poolSizeCount = static_cast<uint32_t>(std::size(sizes)),
@@ -54,7 +61,7 @@ void Scene::Initialize(const InitializeInfo& init) {
     throw std::runtime_error("Failed to create descriptor pool");
 
   m_GBufferPass.CreateRenderPass({
-      .attachments = std::vector<RenderPass::AttachmentDescription2>{
+      .attachments = std::vector<RenderPass::AttachmentDescription2> {
           {
               .format      = m_Normal->GetSpecification().Format,
               .finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -78,7 +85,7 @@ void Scene::Initialize(const InitializeInfo& init) {
   m_GeometryPipeline.CreateDescriptorSetLayout({
       .index          = 0,
       .layoutBindings = {
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::U_CAMERA,
               .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
               .descriptorCount = 1,
@@ -90,7 +97,7 @@ void Scene::Initialize(const InitializeInfo& init) {
   m_LightingPipeline.CreateDescriptorSetLayout({
       .index          = 0,
       .layoutBindings = {
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::U_CAMERA,
               .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
               .descriptorCount = 1,
@@ -103,35 +110,35 @@ void Scene::Initialize(const InitializeInfo& init) {
       .index          = 1,
       .layoutBindings = {
           // m_Depth
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::T_DEPTH,
               .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
           // m_Normal
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::T_NORMAL,
               .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
           // m_Material
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::T_MATERIAL,
               .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
           // m_DirectLight
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::T_DIRECT_LIGHT,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
           // m_Skybox
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::T_SKYBOX,
               .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
               .descriptorCount = 1,
@@ -139,28 +146,28 @@ void Scene::Initialize(const InitializeInfo& init) {
           },
 
           // m_MaterialBuffer
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::S_MATERIALS,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
           // m_MaterialLUTBuffer
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::S_MATERIALS_LUT,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
           // m_LightBuffer
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::S_LIGHTS,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
           // m_SVOBuffer
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::S_SVO,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
@@ -173,7 +180,7 @@ void Scene::Initialize(const InitializeInfo& init) {
       .index          = 0,
       .layoutBindings = {
           // m_DirectLight
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::T_DIRECT_LIGHT,
               .descriptorType  = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
               .descriptorCount = 1,
@@ -181,7 +188,7 @@ void Scene::Initialize(const InitializeInfo& init) {
           },
 
           // m_Shading
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::T_SHADING,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
               .descriptorCount = 1,
@@ -191,7 +198,7 @@ void Scene::Initialize(const InitializeInfo& init) {
   });
 
   m_OverlayPass.CreateRenderPass({
-      .attachments = std::vector<RenderPass::AttachmentDescription2>{
+      .attachments = std::vector<RenderPass::AttachmentDescription2> {
           {
               .format        = m_OutputImage->GetSpecification().Format,
               .loadOp        = VK_ATTACHMENT_LOAD_OP_LOAD,
@@ -212,7 +219,7 @@ void Scene::Initialize(const InitializeInfo& init) {
       .index          = 0,
       .layoutBindings = {
           // m_Camera
-          VkDescriptorSetLayoutBinding{
+          VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::U_CAMERA,
               .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
               .descriptorCount = 1,
@@ -353,7 +360,7 @@ void Scene::Render() {
 
   // Wait for buffer barriers
   if (bufferBarriers.size()) {
-    VkDependencyInfo depInfo{
+    VkDependencyInfo depInfo {
         .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
         .bufferMemoryBarrierCount = static_cast<uint32_t>(bufferBarriers.size()),
         .pBufferMemoryBarriers    = bufferBarriers.data(),
@@ -458,7 +465,7 @@ void Scene::Render() {
 
   m_OutputImage->Transition(commandBuffer, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_ACCESS_2_SHADER_READ_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT);
   akari::window::Application::FlushCommandBuffer(commandBuffer);
-  ImGui::Image(m_OutputImage->m_DescriptorSet, ImVec2{(float)m_OutputImage->GetWidth(), (float)m_OutputImage->GetHeight()});
+  ImGui::Image(m_OutputImage->m_DescriptorSet, ImVec2 {(float)m_OutputImage->GetWidth(), (float)m_OutputImage->GetHeight()});
 }
 
 void Scene::RenderUI() {
@@ -492,13 +499,15 @@ void Scene::CreateDescriptorSets() {
   std::vector<Pipeline::DescriptorWriteInfo> cameraWrites(framesInFlight);
 
   for (size_t i = 0; i < framesInFlight; i++)
-    cameraWrites[i] = Pipeline::DescriptorWriteInfo{
+    cameraWrites[i] = Pipeline::DescriptorWriteInfo {
         .type    = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
         .binding = vxen::Binding::U_CAMERA,
-        .buffer  = VkDescriptorBufferInfo{
-             .buffer = m_CameraBuffer.GetBuffer(i),
-             .offset = 0,
-             .range  = sizeof(vxen::CameraBuffer::Camera),
+        .buffer  = std::vector {
+            VkDescriptorBufferInfo {
+                 .buffer = m_CameraBuffer.GetBuffer(i),
+                 .offset = 0,
+                 .range  = sizeof(vxen::CameraBuffer::Camera),
+            },
         },
     };
 
@@ -525,25 +534,29 @@ void Scene::CreateDescriptorSets() {
       .descriptorSetCount = 1,
       .writes             = {
           // m_DirectLight
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                           .binding = vxen::Binding::T_DIRECT_LIGHT,
-                          .image   = VkDescriptorImageInfo{
-                                .sampler     = m_DirectLight->m_Sampler,
-                                .imageView   = m_DirectLight->m_ImageView,
-                                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          .image   = std::vector {
+                  VkDescriptorImageInfo {
+                                    .sampler     = m_DirectLight->m_Sampler,
+                                    .imageView   = m_DirectLight->m_ImageView,
+                                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                  },
               },
           },
 
           // --- Storage Images ---
           // m_OutputImage
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                           .binding = vxen::Binding::T_SHADING,
-                          .image   = VkDescriptorImageInfo{
-                                .sampler     = VK_NULL_HANDLE,
-                                .imageView   = m_OutputImage->m_ImageView,
-                                .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                          .image   = std::vector {
+                  VkDescriptorImageInfo {
+                                    .sampler     = VK_NULL_HANDLE,
+                                    .imageView   = m_OutputImage->m_ImageView,
+                                    .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                  },
               },
           },
       },
@@ -557,98 +570,116 @@ void Scene::CreateDescriptorSets() {
       .writes             = {
           // --- Sampler Images ---
           // m_Depth
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                           .binding = vxen::Binding::T_DEPTH,
-                          .image   = VkDescriptorImageInfo{
-                                .sampler     = m_Depth->m_Sampler,
-                                .imageView   = m_Depth->m_ImageView,
-                                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          .image   = std::vector {
+                  VkDescriptorImageInfo {
+                                    .sampler     = m_Depth->m_Sampler,
+                                    .imageView   = m_Depth->m_ImageView,
+                                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                  },
               },
           },
           // m_Normal
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                           .binding = vxen::Binding::T_NORMAL,
-                          .image   = VkDescriptorImageInfo{
-                                .sampler     = m_Normal->m_Sampler,
-                                .imageView   = m_Normal->m_ImageView,
-                                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          .image   = std::vector {
+                  VkDescriptorImageInfo {
+                                    .sampler     = m_Normal->m_Sampler,
+                                    .imageView   = m_Normal->m_ImageView,
+                                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                  },
               },
           },
           // m_Material
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                           .binding = vxen::Binding::T_MATERIAL,
-                          .image   = VkDescriptorImageInfo{
-                                .sampler     = m_Material->m_Sampler,
-                                .imageView   = m_Material->m_ImageView,
-                                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          .image   = std::vector {
+                  VkDescriptorImageInfo {
+                                    .sampler     = m_Material->m_Sampler,
+                                    .imageView   = m_Material->m_ImageView,
+                                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                  },
               },
           },
           // m_Skybox
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                           .binding = vxen::Binding::T_SKYBOX,
-                          .image   = VkDescriptorImageInfo{
-                                .sampler     = m_Skybox->m_Sampler,
-                                .imageView   = m_Skybox->m_ImageView,
-                                .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                          .image   = std::vector {
+                  VkDescriptorImageInfo {
+                                    .sampler     = m_Skybox->m_Sampler,
+                                    .imageView   = m_Skybox->m_ImageView,
+                                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                  },
               },
           },
 
           // --- Storage Images ---
           // m_DirectLight
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
                           .binding = vxen::Binding::T_DIRECT_LIGHT,
-                          .image   = VkDescriptorImageInfo{
-                                .sampler     = VK_NULL_HANDLE,
-                                .imageView   = m_DirectLight->m_ImageView,
-                                .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                          .image   = std::vector {
+                  VkDescriptorImageInfo {
+                                    .sampler     = VK_NULL_HANDLE,
+                                    .imageView   = m_DirectLight->m_ImageView,
+                                    .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                  },
               },
           },
 
           // --- Storage Buffers ---
           // m_MaterialBuffer
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                           .binding = vxen::Binding::S_MATERIALS,
-                          .buffer  = VkDescriptorBufferInfo{
-                               .buffer = m_MaterialBuffer.GetBuffer(),
-                               .offset = 0,
-                               .range  = VK_WHOLE_SIZE,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_MaterialBuffer.GetBuffer(),
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
               },
           },
 
           // m_MaterialLUTBuffer
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                           .binding = vxen::Binding::S_MATERIALS_LUT,
-                          .buffer  = VkDescriptorBufferInfo{
-                               .buffer = m_MaterialLUTBuffer.GetBuffer(),
-                               .offset = 0,
-                               .range  = VK_WHOLE_SIZE,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_MaterialLUTBuffer.GetBuffer(),
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
               },
           },
           // m_LightBuffer
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                           .binding = vxen::Binding::S_LIGHTS,
-                          .buffer  = VkDescriptorBufferInfo{
-                               .buffer = m_LightBuffer.GetBuffer(),
-                               .offset = 0,
-                               .range  = VK_WHOLE_SIZE,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_LightBuffer.GetBuffer(),
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
               },
           },
           // m_SVOBuffer
-          Pipeline::DescriptorWriteInfo{
+          Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                           .binding = vxen::Binding::S_SVO,
-                          .buffer  = VkDescriptorBufferInfo{
-                               .buffer = m_SVOBuffer.GetBuffer(),
-                               .offset = 0,
-                               .range  = VK_WHOLE_SIZE,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_SVOBuffer.GetBuffer(),
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
               },
           },
       },

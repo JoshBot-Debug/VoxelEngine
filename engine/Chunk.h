@@ -6,6 +6,11 @@
 #include "voxel/SparseOctree.h"
 #include "voxel/Voxel.h"
 
+#include "thread/ThreadPool.h"
+
+#include "render/Buffer.h"
+#include "render/BufferPool.h"
+
 template <typename F>
 concept NeighbourExists = requires(F& f, int x, int y, int z) {
   { f(x, y, z) } -> std::same_as<bool>;
@@ -24,6 +29,9 @@ private:
   std::vector<Vertex>                                     m_Vertices {};
   std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
 
+  akari::render::Buffer m_SVOBuffer {};
+  akari::render::Buffer m_VertexBuffer {};
+
   static uint32_t UID();
 
 public:
@@ -33,7 +41,13 @@ public:
   Chunk()
       : m_SVO(new SparseOctree<Voxel, SS>())
       , Id(UID()) {};
-  ~Chunk() { delete m_SVO; };
+  ~Chunk() { 
+    delete m_SVO;
+   };
+
+  void SetSVOPool(akari::render::BufferPool* pool);
+
+  void SetVertexPool(akari::render::BufferPool* pool);
 
   SparseOctree<Voxel, SS>::Reader BeginRead();
 
@@ -81,6 +95,18 @@ template <uint32_t SS>
 inline uint32_t Chunk<SS>::UID() {
   static uint32_t uid = 1;
   return uid++;
+}
+
+template <uint32_t SS>
+inline void Chunk<SS>::SetSVOPool(akari::render::BufferPool* pool) {
+  m_SVOBuffer.SetPool(pool);
+  m_SVOBuffer.CreateBuffer(1024);
+}
+
+template <uint32_t SS>
+inline void Chunk<SS>::SetVertexPool(akari::render::BufferPool* pool) {
+  m_VertexBuffer.SetPool(pool);
+  m_VertexBuffer.CreateBuffer(1024);
 }
 
 template <uint32_t SS>
@@ -188,6 +214,8 @@ inline const std::vector<Vertex>& Chunk<SS>::GreedyMesh(const glm::ivec3& offset
       v.clear();
   };
 
+  // akari::thread::ThreadPool::ForEach(ids, generateVerticies, onComplete);
+  
   for (size_t i = 0; i < ids.size(); i++)
     generateVerticies(i, ids[i]);
 
