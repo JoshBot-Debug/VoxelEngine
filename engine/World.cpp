@@ -61,7 +61,7 @@ World::World(uint32_t m_ChunkSize)
       .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(1.0f), .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
   });
 
-  TSignal::Set(0, SignalZero::PALETTE_FLUSH_UPDATE);
+  TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
   ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}, 1.0f); });
@@ -143,22 +143,23 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_UPDATE)) {
-    m_ChunkManager->Flush();
-    //   {
-    //     auto session = m_ChunkManager->BeginRead(wcc);
+    std::vector<uint32_t> materialIds;
 
-    //     m_FlatSVO = m_ChunkManager->Flatten(wcc, session);
+    for (auto& material : m_Palette.GetMaterials())
+      materialIds.push_back(material.Id);
 
-    //     m_ChunkManager->Filter(wcc, session, m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
-    //       auto material = m_Palette.GetMaterial(node->Data->Id);
-    //       return material && material->Emissive.a > 0.0f;
-    //     });
-    //   }
+    m_ChunkManager->Flush(materialIds);
 
-    //   std::vector<uint32_t> ids;
+    {
+      auto session = m_ChunkManager->BeginRead(wcc);
 
-    //   for (auto& material : m_Palette.GetMaterials())
-    //     ids.push_back(material.Id);
+      // m_FlatSVO = m_ChunkManager->Flatten(wcc, session);
+
+      m_ChunkManager->Filter(wcc, session, m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
+        auto material = m_Palette.GetMaterial(node->Data->Id);
+        return material && material->Emissive.a > 0.0f;
+      });
+    }
 
     //   // for (size_t z = 0; z < 4; z++)
     //   //   for (size_t y = 0; y < 4; y++)

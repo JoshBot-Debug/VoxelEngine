@@ -6,10 +6,14 @@
 #include "voxel/SparseOctree.h"
 #include "voxel/Voxel.h"
 
+#include "thread/Signal.h"
 #include "thread/ThreadPool.h"
 
 #include "render/Buffer.h"
 #include "render/BufferPool.h"
+#include "state/StateMachine.h"
+
+namespace vxen {
 
 template <typename F>
 concept NeighbourExists = requires(F& f, int x, int y, int z) {
@@ -32,20 +36,24 @@ private:
   akari::render::Buffer m_SVOBuffer {};
   akari::render::Buffer m_VertexBuffer {};
 
+  akari::state::StateMachine* m_StateMachine;
+
   static uint32_t UID();
 
 public:
   uint32_t Id {0};
 
 public:
-  Chunk(akari::render::BufferPool* svoPool, akari::render::BufferPool* vertexPool)
+  Chunk(akari::render::BufferPool* svoPool, akari::render::BufferPool* vertexPool, akari::state::StateMachine* stateMachine)
       : m_SVO(new SparseOctree<Voxel, SS>())
       , Id(UID()) {
     m_SVOBuffer.SetPool(svoPool);
     m_VertexBuffer.SetPool(vertexPool);
-    
+
     m_SVOBuffer.CreateBuffer(1024);
     m_VertexBuffer.CreateBuffer(1024);
+
+    m_StateMachine = stateMachine;
   };
 
   ~Chunk() {
@@ -92,6 +100,9 @@ public:
   SparseOctree<Voxel, SS>::Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction);
 
   SparseOctree<Voxel, SS>::Hit DeepRaymarch(SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
+
+  template <NeighbourExists E>
+  void Flush(const glm::ivec3& offset, const std::vector<uint32_t>& ids, E& exists);
 };
 
 template <uint32_t SS>
@@ -173,6 +184,8 @@ inline const std::vector<Vertex>& Chunk<SS>::GreedyMesh(const glm::ivec3& offset
   m_ThreadVertices.resize(ids.size());
 
   auto generateVerticies = [&](size_t i, uint32_t id) {
+    m_StateMachine->Lock();
+
     auto session = m_SVO->BeginRead();
 
     uint8_t padding[SIZE * SIZE] = {};
@@ -203,14 +216,12 @@ inline const std::vector<Vertex>& Chunk<SS>::GreedyMesh(const glm::ivec3& offset
 
     for (auto& v : m_ThreadVertices)
       v.clear();
+
+    if (m_StateMachine->TrySet(0))
+      akari::thread::Signal::Set(0, World::SignalZero::CHUNK_MANAGER_FLUSH_RENDER);
   };
 
-  // akari::thread::ThreadPool::ForEach(ids, generateVerticies, onComplete);
-
-  for (size_t i = 0; i < ids.size(); i++)
-    generateVerticies(i, ids[i]);
-
-  onComplete();
+  akari::thread::ThreadPool::ForEach(ids, generateVerticies, onComplete);
 
   return m_Vertices;
 }
@@ -237,4 +248,14 @@ inline SparseOctree<Voxel, SS>::Hit Chunk<SS>::DeepRaymarch(const glm::vec3& ori
 template <uint32_t SS>
 inline SparseOctree<Voxel, SS>::Hit Chunk<SS>::DeepRaymarch(SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
   return m_SVO->DeepRaymarch(session, origin, direction);
-};
+}
+
+template <uint32_t SS>
+template <NeighbourExists E>
+inline void Chunk<SS>::Flush(const glm::ivec3& offset, const std::vector<uint32_t>& ids, E& exists) {
+  /// TODO: Need to prepare the vertices & flat nodes
+  GreedyMesh(offset, ids, exists);
+  Flatten();
+}
+
+} // namespace vxen

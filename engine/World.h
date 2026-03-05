@@ -13,7 +13,7 @@
 
 #include "thread/Signal.h"
 
-using WorldChunkManager = ChunkManager<64, 4>;
+using WorldChunkManager = vxen::ChunkManager<64, 4>;
 using TSignal           = akari::thread::Signal<8>;
 
 namespace vxen {

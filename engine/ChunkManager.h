@@ -14,7 +14,10 @@
 #include "voxel/Voxel.h"
 
 #include "render/BufferPool.h"
+#include "state/StateMachine.h"
 #include "window/Application.h"
+
+namespace vxen {
 
 template <uint32_t SS, uint8_t CS>
 class ChunkManager {
@@ -39,6 +42,8 @@ private:
 
   std::deque<Chunk<SS>>        m_ChunkAllocator {};
   SparseOctree<Chunk<SS>, CS>* m_Chunks {nullptr};
+
+  akari::state::StateMachine m_StateMachine {};
 
 private:
   /**
@@ -274,9 +279,8 @@ public:
    */
   typename SparseOctree<Voxel, SS>::Hit DeepRaymarch(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
 
-  
-  void Flush();
-  
+  void Flush(const std::vector<uint32_t>& ids);
+
   /**
    * Converts world coordinates (96, 32, 32) to chunk coordinates (1, 0, 0)
    */
@@ -322,7 +326,7 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(
   typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(x, y, z);
   if (chunk)
     return chunk;
-  m_Chunks->Set(x, y, z, &m_ChunkAllocator.emplace_back(&m_SVOPool, &m_VertexPool));
+  m_Chunks->Set(x, y, z, &m_ChunkAllocator.emplace_back(&m_SVOPool, &m_VertexPool, &m_StateMachine));
   return m_Chunks->Get(x, y, z);
 }
 
@@ -528,10 +532,39 @@ inline typename SparseOctree<Voxel, SS>::Hit ChunkManager<SS, CS>::DeepRaymarch(
 }
 
 template <uint32_t SS, uint8_t CS>
-inline void ChunkManager<SS, CS>::Flush() {
+inline void ChunkManager<SS, CS>::Flush(const std::vector<uint32_t>& ids) {
   /// TODO: When flush is done, TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER);
+  m_StateMachine.Set(1);
 
-  
+  /// TODO: Need to Flush() only chunks that are dirty
+  for (size_t z = 0; z < CS; z++)
+    for (size_t y = 0; y < CS; y++)
+      for (size_t x = 0; x < CS; x++) {
+        auto* chunk = m_Chunks->Get(x, y, z);
+        if (chunk) {
+          glm::ivec3 coordinate      = glm::ivec3 {x, y, z};
+          auto       neighbourExists = [&](int x, int y, int z) -> bool {
+            glm::ivec3 cp = glm::ivec3(coordinate) * int(SS);
+            glm::ivec3 wp = cp + glm::ivec3(x, y, z);
+
+            if (wp.x < 0 || wp.y < 0 || wp.z < 0)
+              return true;
+
+            glm::u8vec3 nc = WorldToChunkCoordinate(wp.x, wp.y, wp.z);
+
+            typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(nc.x, nc.y, nc.z);
+
+            if (!chunk)
+              return false;
+
+            return chunk->Data->Exists(Wrap(x), Wrap(y), Wrap(z));
+          };
+
+          chunk->Data->Flush(coordinate, ids, neighbourExists);
+        }
+      }
+
+  // akari::thread::ThreadPool::ForEach(ids, )
 }
 
 template <uint32_t SS, uint8_t CS>
@@ -578,3 +611,5 @@ inline uint8_t ChunkManager<SS, CS>::Wrap(int i) {
   int m = i & MOD_SS;
   return (m < 0) ? m + int(SS) : m;
 }
+
+} // namespace vxen
