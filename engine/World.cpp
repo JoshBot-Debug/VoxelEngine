@@ -6,6 +6,8 @@
 #include "voxel/GreedyMesh64.h"
 #include "window/Application.h"
 
+using namespace akari::thread;
+
 namespace vxen {
 
 World::World(uint32_t m_ChunkSize)
@@ -14,55 +16,55 @@ World::World(uint32_t m_ChunkSize)
 
   m_HeightMap.Initialize(m_ChunkSize, m_ChunkSize);
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Left Wall",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4{0.63f, 0.067f, 0.051f, 1.0f}}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4 {0.63f, 0.067f, 0.051f, 1.0f}}),
   });
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Right Wall",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4{0.14f, 0.45f, 0.090f, 1.0f}}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4 {0.14f, 0.45f, 0.090f, 1.0f}}),
   });
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Wall",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4{0.73f, 0.73f, 0.73f, 1.0f}}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4 {0.73f, 0.73f, 0.73f, 1.0f}}),
   });
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Cube",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f)}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(1.0f)}),
   });
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Sphere",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f)}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(1.0f)}),
   });
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Grass Lush",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(0.30f, 0.60f, 0.25f, 1.0f)}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(0.30f, 0.60f, 0.25f, 1.0f)}),
   });
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Grass Dry",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(0.55f, 0.60f, 0.30f, 1.0f)}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(0.55f, 0.60f, 0.30f, 1.0f)}),
   });
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Grass Forest",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(0.22f, 0.42f, 0.18f, 1.0f)}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(0.22f, 0.42f, 0.18f, 1.0f)}),
   });
 
-  m_Palette.Create(Palette::Item{
+  m_Palette.Create(Palette::Item {
       .Name = "Light",
-      .Mat  = std::make_shared<Material>(Material{.Albedo = glm::vec4(1.0f), .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
+      .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(1.0f), .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
   });
 
-  akari::thread::Signal::Set(PALETTE_FLUSH_UPDATE);
+  TSignal::Set(0, SignalZero::PALETTE_FLUSH_UPDATE);
 
-  akari::thread::ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
-  // akari::thread::ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}, 1.0f); });
+  ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
+  // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}, 1.0f); });
 
   // for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
   //   for (size_t y = 0; y < WorldChunkManager::CHUNK_SIZE; y++)
@@ -86,28 +88,25 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   // glm::ivec3 wcc = getWorldChunkCoordinate(rayOrigin);
   glm::ivec3 wcc = {0, 0, 0};
 
-  /// TODO: We are syncing here, only one chunk?? Need to sync all dirty chunks :|
-  if (akari::thread::Signal::Consume(CHUNK_MANAGER_SYNC_UPDATE))
-    m_ChunkManager->Sync(wcc);
-
   bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
   bool isActing      = ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Left);
 
-  if (ImGui::IsKeyPressed(ImGuiKey_F5))
-    akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE | PALETTE_FLUSH_UPDATE);
+  if (ImGui::IsKeyPressed(ImGuiKey_F5)) {
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE | PALETTE_FLUSH_UPDATE);
+  }
 
   if (ImGui::IsKeyPressed(ImGuiKey_T)) {
     SparseOctree<Voxel>::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
     auto                     position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
     m_ChunkManager->Set(wcc, position, hit.Data);
-    akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
   }
 
   if (ImGui::IsKeyPressed(ImGuiKey_Y)) {
     SparseOctree<Voxel>::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
     auto                     position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
     m_ChunkManager->Clear(wcc, position);
-    akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
   }
 
   if (isCtrlPressed && isActing) {
@@ -116,17 +115,21 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
       auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
       m_ChunkManager->Clear(wcc, position);
-      akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+      TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
       auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
       m_ChunkManager->Set(wcc, position, hit.Data);
-      akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+      TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
     }
   }
 
-  if (akari::thread::Signal::Consume(PALETTE_FLUSH_UPDATE)) {
+  /// TODO: We are syncing here, only one chunk?? Need to sync all dirty chunks :|
+  if (TSignal::Consume(0, CHUNK_MANAGER_SYNC_UPDATE))
+    m_ChunkManager->Sync(wcc);
+
+  if (TSignal::Consume(0, PALETTE_FLUSH_UPDATE)) {
     m_Materials            = m_Palette.GetMaterials();
     uint32_t maxMaterialId = 0;
 
@@ -139,34 +142,35 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
       m_MaterialsLUT[m_Materials[i].Id] = i + 1;
   }
 
-  if (akari::thread::Signal::Consume(CHUNK_MANAGER_FLUSH_UPDATE)) {
-    {
-      auto session = m_ChunkManager->BeginRead(wcc);
+  if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_UPDATE)) {
+    m_ChunkManager->Flush();
+    //   {
+    //     auto session = m_ChunkManager->BeginRead(wcc);
 
-      m_FlatSVO = m_ChunkManager->Flatten(wcc, session);
+    //     m_FlatSVO = m_ChunkManager->Flatten(wcc, session);
 
-      m_ChunkManager->Filter(wcc, session, m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
-        auto material = m_Palette.GetMaterial(node->Data->Id);
-        return material && material->Emissive.a > 0.0f;
-      });
-    }
+    //     m_ChunkManager->Filter(wcc, session, m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
+    //       auto material = m_Palette.GetMaterial(node->Data->Id);
+    //       return material && material->Emissive.a > 0.0f;
+    //     });
+    //   }
 
-    std::vector<uint32_t> ids;
+    //   std::vector<uint32_t> ids;
 
-    for (auto& material : m_Palette.GetMaterials())
-      ids.push_back(material.Id);
+    //   for (auto& material : m_Palette.GetMaterials())
+    //     ids.push_back(material.Id);
 
-    // for (size_t z = 0; z < 4; z++)
-    //   for (size_t y = 0; y < 4; y++)
-    //     for (size_t x = 0; x < 4; x++) {
-    for (size_t z = 0; z < 1; z++)
-      for (size_t y = 0; y < 1; y++)
-        for (size_t x = 0; x < 1; x++) {
-          auto chunkVertices = m_ChunkManager->GreedyMesh({x, y, z}, ids);
-          m_Vertices.insert(m_Vertices.end(), chunkVertices.begin(), chunkVertices.end());
-        }
+    //   // for (size_t z = 0; z < 4; z++)
+    //   //   for (size_t y = 0; y < 4; y++)
+    //   //     for (size_t x = 0; x < 4; x++) {
+    //   for (size_t z = 0; z < 1; z++)
+    //     for (size_t y = 0; y < 1; y++)
+    //       for (size_t x = 0; x < 1; x++) {
+    //         auto chunkVertices = m_ChunkManager->GreedyMesh({x, y, z}, ids);
+    //         m_Vertices.insert(m_Vertices.end(), chunkVertices.begin(), chunkVertices.end());
+    //       }
 
-    akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_RENDER);
+    //   TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER);
   }
 }
 
@@ -202,7 +206,7 @@ const void World::GenerateChunk(const glm::ivec3& wcc) {
     m_ChunkManager->Set(wcc, session, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
   }
 
-  akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
 }
 
 const void World::GenerateCornellBox(const glm::u8vec3& origin) {
@@ -277,7 +281,7 @@ const void World::GenerateCornellBox(const glm::u8vec3& origin) {
     m_ChunkManager->Set(origin, session, 16, 5, 48, rightWall.get());
   }
 
-  akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
 }
 
 const void World::GenerateSphere(const glm::ivec3& wcc) {
@@ -306,7 +310,7 @@ const void World::GenerateSphere(const glm::ivec3& wcc) {
         }
   }
 
-  akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
 }
 
 const void World::GenerateNoiseSphere(const glm::ivec3& wcc) {
@@ -345,7 +349,7 @@ const void World::GenerateNoiseSphere(const glm::ivec3& wcc) {
         }
   }
 
-  akari::thread::Signal::Set(CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
 }
 
 } // namespace vxen

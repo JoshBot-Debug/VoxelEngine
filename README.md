@@ -147,3 +147,12 @@ layout(set = 0, binding = 0) readonly buffer SVOBuffers {
 NOTE: Prepare() is just a quick idea. Ideally, we don't want to check a dirty flag for all chunks to find out which ones to prepare,
 There will mostly only ever be 1(edited voxel's chunk) + lod chunk changes(in the future)
 
+NOTE: May want to look into Quiescent State-Based Reclamation
+
+When TSignal::Consume(0, CHUNK_MANAGER_FLUSH_UPDATE) is called, start processing dirty chunks
+m_World->Flush()
+Once flush is called, set an std::atomic<uint64_t> to the maximum number of threads we will be using.
+Once each thread is finished, aquire the atomic and check if it's 1,
+If it's 1, TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER)
+In Scene.h, if the signal is on, update the descriptor sets for all dirty chunks & for each chunk, add an indirect draw command.
+Use the svoBuffers mentioned in point 5 above.

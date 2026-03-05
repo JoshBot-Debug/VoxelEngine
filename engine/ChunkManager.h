@@ -274,6 +274,9 @@ public:
    */
   typename SparseOctree<Voxel, SS>::Hit DeepRaymarch(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
 
+  
+  void Flush();
+  
   /**
    * Converts world coordinates (96, 32, 32) to chunk coordinates (1, 0, 0)
    */
@@ -319,12 +322,7 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(
   typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(x, y, z);
   if (chunk)
     return chunk;
-
-  auto* c = &m_ChunkAllocator.emplace_back();
-  c->SetSVOPool(&m_SVOPool);
-  c->SetVertexPool(&m_VertexPool);
-
-  m_Chunks->Set(x, y, z, c);
+  m_Chunks->Set(x, y, z, &m_ChunkAllocator.emplace_back(&m_SVOPool, &m_VertexPool));
   return m_Chunks->Get(x, y, z);
 }
 
@@ -527,6 +525,13 @@ inline typename SparseOctree<Voxel, SS>::Hit ChunkManager<SS, CS>::DeepRaymarch(
 template <uint32_t SS, uint8_t CS>
 inline typename SparseOctree<Voxel, SS>::Hit ChunkManager<SS, CS>::DeepRaymarch(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
   return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->DeepRaymarch(session, origin, direction);
+}
+
+template <uint32_t SS, uint8_t CS>
+inline void ChunkManager<SS, CS>::Flush() {
+  /// TODO: When flush is done, TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER);
+
+  
 }
 
 template <uint32_t SS, uint8_t CS>

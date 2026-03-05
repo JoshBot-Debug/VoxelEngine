@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "Debug.h"
-#include "RCU/RCU.h"
+#include "thread/RCU.h"
 
 template <typename T>
 concept Data = requires(T t) {
@@ -131,13 +131,13 @@ public:
 
   class Reader {
   private:
-    RCU<Node>* m_RCU {nullptr};
+    akari::thread::RCU<Node>* m_RCU {nullptr};
     uint64_t   m_Generation {0};
 
   public:
     SparseOctree<T, S>::Node* Root {nullptr};
 
-    Reader(std::atomic<SparseOctree<T, S>::Node*>* atomic, RCU<Node>* rcu)
+    Reader(std::atomic<SparseOctree<T, S>::Node*>* atomic, akari::thread::RCU<Node>* rcu)
         : m_RCU(rcu)
         , Root(atomic->load(std::memory_order::acquire)) {
       m_Generation = m_RCU->ReadLock();
@@ -180,7 +180,7 @@ private:
     }
   };
 
-  RCU<Node> m_RCU;
+  akari::thread::RCU<Node> m_RCU;
 
   /**
    * Pointer to the root node of the Sparse Voxel Octree.

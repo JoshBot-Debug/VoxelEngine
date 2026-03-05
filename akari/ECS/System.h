@@ -4,7 +4,7 @@
 #include <typeindex>
 #include <unordered_map>
 
-namespace ECS {
+namespace akari::ecs {
 class System {
 public:
   virtual ~System()               = default;
@@ -33,4 +33,4 @@ public:
       system->Free();
   }
 };
-} // namespace ECS
+} // namespace akari::ecs

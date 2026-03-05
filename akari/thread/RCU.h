@@ -6,6 +6,8 @@
 #include <thread>
 #include <vector>
 
+namespace akari::thread {
+
 template <typename T>
 concept Destroyable = requires(T& t) {
   { t.Destroy() };
@@ -118,3 +120,5 @@ inline void RCU<T>::Retire(T* data, bool destroy) {
   uint64_t g = m_Generation.Current.load(std::memory_order::relaxed);
   m_Retired[g].emplace_back(data, destroy);
 }
+
+} // namespace akari::thread

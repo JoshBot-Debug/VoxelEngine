@@ -2,13 +2,13 @@
 
 #include "Binding.h"
 #include "Utility.h"
-#include "thread/Signal.h"
 #include "window/Application.h"
 
 #include "stb/stb.h"
 #include "stb/stb_image.h"
 
 using namespace akari::render;
+using namespace vxen;
 
 Scene::Scene() {
   m_DisplayImages = {
@@ -312,7 +312,7 @@ void Scene::Render() {
   std::vector<VkBufferMemoryBarrier2> bufferBarriers = {};
   bool                                bufferResized  = false;
 
-  if (akari::thread::Signal::Consume(vxen::World::Flags::CHUNK_MANAGER_FLUSH_RENDER)) {
+  if (TSignal::Consume(0, World::SignalZero::CHUNK_MANAGER_FLUSH_RENDER)) {
     const std::vector<Material>&                        materials   = m_World->GetMaterials();
     const std::vector<uint32_t>&                        materialLUT = m_World->GetMaterialsLUT();
     const std::vector<SparseOctree<Voxel>::FlatNode>&   svo         = m_World->GetSVO();

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <memory>
 
-namespace ECS {
+namespace akari::ecs {
 
 constexpr size_t MAX_COMPONENTS {1024};
 
@@ -333,4 +333,4 @@ public:
     return m_Id;
   }
 };
-} // namespace ECS
+} // namespace akari::ecs

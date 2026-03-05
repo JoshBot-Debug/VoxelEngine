@@ -11,17 +11,21 @@
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"
 
+#include "thread/Signal.h"
+
 using WorldChunkManager = ChunkManager<64, 4>;
+using TSignal           = akari::thread::Signal<8>;
 
 namespace vxen {
 
 class World {
 public:
-  enum Flags : uint64_t {
-    CHUNK_MANAGER_SYNC_UPDATE  = 1ULL << 0,
-    CHUNK_MANAGER_FLUSH_UPDATE = 1ULL << 1,
-    CHUNK_MANAGER_FLUSH_RENDER = 1ULL << 2,
-    PALETTE_FLUSH_UPDATE       = 1ULL << 3,
+  enum SignalZero : uint64_t {
+    PALETTE_FLUSH_UPDATE = 1ULL << 0,
+
+    CHUNK_MANAGER_SYNC_UPDATE  = 1ULL << 1,
+    CHUNK_MANAGER_FLUSH_UPDATE = 1ULL << 2,
+    CHUNK_MANAGER_FLUSH_RENDER = 1ULL << 3,
   };
 
 private:

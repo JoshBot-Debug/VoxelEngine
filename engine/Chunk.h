@@ -38,16 +38,19 @@ public:
   uint32_t Id {0};
 
 public:
-  Chunk()
+  Chunk(akari::render::BufferPool* svoPool, akari::render::BufferPool* vertexPool)
       : m_SVO(new SparseOctree<Voxel, SS>())
-      , Id(UID()) {};
-  ~Chunk() { 
+      , Id(UID()) {
+    m_SVOBuffer.SetPool(svoPool);
+    m_VertexBuffer.SetPool(vertexPool);
+    
+    m_SVOBuffer.CreateBuffer(1024);
+    m_VertexBuffer.CreateBuffer(1024);
+  };
+
+  ~Chunk() {
     delete m_SVO;
-   };
-
-  void SetSVOPool(akari::render::BufferPool* pool);
-
-  void SetVertexPool(akari::render::BufferPool* pool);
+  };
 
   SparseOctree<Voxel, SS>::Reader BeginRead();
 
@@ -95,18 +98,6 @@ template <uint32_t SS>
 inline uint32_t Chunk<SS>::UID() {
   static uint32_t uid = 1;
   return uid++;
-}
-
-template <uint32_t SS>
-inline void Chunk<SS>::SetSVOPool(akari::render::BufferPool* pool) {
-  m_SVOBuffer.SetPool(pool);
-  m_SVOBuffer.CreateBuffer(1024);
-}
-
-template <uint32_t SS>
-inline void Chunk<SS>::SetVertexPool(akari::render::BufferPool* pool) {
-  m_VertexBuffer.SetPool(pool);
-  m_VertexBuffer.CreateBuffer(1024);
 }
 
 template <uint32_t SS>
@@ -215,7 +206,7 @@ inline const std::vector<Vertex>& Chunk<SS>::GreedyMesh(const glm::ivec3& offset
   };
 
   // akari::thread::ThreadPool::ForEach(ids, generateVerticies, onComplete);
-  
+
   for (size_t i = 0; i < ids.size(); i++)
     generateVerticies(i, ids[i]);
 

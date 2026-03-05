@@ -2,7 +2,7 @@
 
 #include "Entity.h"
 
-namespace ECS {
+namespace akari::ecs {
 
 /**
  * @brief Mutates a component value and marks it as changed in the ECS registry.
@@ -34,4 +34,4 @@ inline bool Mutate(ECS::Entity* entity, T& current, const T& next) {
   }
   return !mutated;
 }
-} // namespace ECS
+} // namespace akari::ecs

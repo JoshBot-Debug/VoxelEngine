@@ -4,7 +4,7 @@
 
 #include "Entity.h"
 
-namespace ECS {
+namespace akari::ecs {
 
 /**
  * Registry is a container for managing entities and their associated
@@ -86,9 +86,9 @@ public:
     auto [id, reused] = GetEntityId<E>();
 
     if (reused)
-      m_EntitiesByETID[tid][id] = new Entity{tid, id + 1, this};
+      m_EntitiesByETID[tid][id] = new Entity {tid, id + 1, this};
     else
-      m_EntitiesByETID[tid].emplace_back(new Entity{tid, id + 1, this});
+      m_EntitiesByETID[tid].emplace_back(new Entity {tid, id + 1, this});
 
     return m_EntitiesByETID[tid][id];
   }
@@ -545,4 +545,4 @@ public:
     entity->ClearChanged<C...>();
   }
 };
-} // namespace ECS
+} // namespace akari::ecs
