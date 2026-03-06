@@ -45,4 +45,10 @@ ThreadPool& ThreadPool::Instance() {
   return instance;
 }
 
+std::shared_ptr<ThreadPool::Group> ThreadPool::CreateGroup(const std::function<void()>& fn) {
+  auto group = std::make_shared<ThreadPool::Group>();
+  group->OnComplete(fn);
+  return group;
+}
+
 } // namespace akari::thread

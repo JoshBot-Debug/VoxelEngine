@@ -1,3 +1,5 @@
+const uint MAX_CHUNKS=1;
+
 struct FlatNode{
   uint PackedIDC;
   uint ChildIndex;
@@ -7,7 +9,7 @@ layout(std430,set=1,binding=50)readonly buffer SparseVoxelOctree{
   uint count;
   uint padding[3];
   FlatNode data[];
-}voxels;
+}voxels[MAX_CHUNKS];
 
 struct StackEntry{
   float TMin;
@@ -33,7 +35,8 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
   while(stackPtr>0){
     StackEntry entry=stack[--stackPtr];
     
-    FlatNode voxel=voxels.data[entry.Index];
+    /// TODO: Need to find a way to index voxel svos here
+    FlatNode voxel=voxels[0].data[entry.Index];
     
     uint depth=0xFFu&(voxel.PackedIDC>>8);
     

@@ -143,41 +143,34 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_UPDATE)) {
-    std::vector<uint32_t> materialIds;
+    std::vector<uint32_t> ids;
 
     for (auto& material : m_Palette.GetMaterials())
-      materialIds.push_back(material.Id);
+      ids.push_back(material.Id);
 
-    m_ChunkManager->Flush(materialIds);
+    m_ChunkManager->FlushUpdates(ids);
 
     {
       auto session = m_ChunkManager->BeginRead(wcc);
-
-      // m_FlatSVO = m_ChunkManager->Flatten(wcc, session);
 
       m_ChunkManager->Filter(wcc, session, m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
         auto material = m_Palette.GetMaterial(node->Data->Id);
         return material && material->Emissive.a > 0.0f;
       });
     }
-
-    //   // for (size_t z = 0; z < 4; z++)
-    //   //   for (size_t y = 0; y < 4; y++)
-    //   //     for (size_t x = 0; x < 4; x++) {
-    //   for (size_t z = 0; z < 1; z++)
-    //     for (size_t y = 0; y < 1; y++)
-    //       for (size_t x = 0; x < 1; x++) {
-    //         auto chunkVertices = m_ChunkManager->GreedyMesh({x, y, z}, ids);
-    //         m_Vertices.insert(m_Vertices.end(), chunkVertices.begin(), chunkVertices.end());
-    //       }
-
-    //   TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER);
   }
+}
+
+const std::vector<vxen::Chunk<64U>::FlushedChunk> World::FlushRenderer(VkCommandBuffer commandBuffer) {
+  auto flushed = m_ChunkManager->FlushRenderer(commandBuffer);
+
+  return flushed;
 }
 
 void World::Clean() {
   m_FlatSVO.clear();
   m_Materials.clear();
+  m_MaterialsLUT.clear();
   m_Vertices.clear();
   m_Lights.clear();
 }

@@ -309,10 +309,41 @@ void Scene::Render() {
 
   m_CameraBuffer.Render(m_Camera);
 
-  std::vector<VkBufferMemoryBarrier2> bufferBarriers = {};
-  bool                                bufferResized  = false;
+  std::vector<VkBufferMemoryBarrier2> bufferBarriers {};
+  bool                                bufferResized {false};
 
-  if (TSignal::Consume(0, World::SignalZero::CHUNK_MANAGER_FLUSH_RENDER)) {
+  if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_RENDER)) {
+    m_VertexBuffers.clear();
+    m_SVOBuffers.clear();
+
+    auto flushedChunks = m_World->FlushRenderer(commandBuffer);
+
+    std::vector<VkDrawIndirectCommand> indirectCommands {};
+
+    for (auto& o : flushedChunks) {
+      indirectCommands.emplace_back(VkDrawIndirectCommand {
+          .vertexCount   = o.vertexCount,
+          .instanceCount = 1,
+          .firstVertex   = 0,
+          .firstInstance = 0,
+      });
+
+      if (o.verticesResized)
+        bufferBarriers.push_back(o.vertexBarrier);
+      if (o.svoResized)
+        bufferBarriers.push_back(o.svoBarrier);
+
+      m_VertexBuffers.push_back(o.vertexBuffer);
+      m_SVOBuffers.push_back(o.svoBuffer);
+
+      std::cout << o.verticesResized << " " << o.svoResized << " " << o.vertexCount  << " "<< std::endl;
+      bufferResized = o.verticesResized || o.svoResized;
+    }
+
+    m_IndirectBuffer.Upload(commandBuffer, indirectCommands.size() * sizeof(VkDrawIndirectCommand), indirectCommands.data());
+
+    bufferBarriers.emplace_back(m_IndirectBuffer.GetBarrier(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT));
+
     const std::vector<Material>&                        materials   = m_World->GetMaterials();
     const std::vector<uint32_t>&                        materialLUT = m_World->GetMaterialsLUT();
     const std::vector<SparseOctree<Voxel>::FlatNode>&   svo         = m_World->GetSVO();
@@ -343,6 +374,7 @@ void Scene::Render() {
       bufferResized = bufferResized || resized;
       m_VertexCount = vertices.size();
       bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
+      std::cout << m_VertexCount << std::endl;
     }
 
     m_World->Clean();
@@ -388,14 +420,25 @@ void Scene::Render() {
         },
     });
 
-    m_GeometryPipeline.Draw({
+    // VkDrawIndirectCommand cmd {};
+    // cmd.vertexCount   = m_VertexCount;
+    // cmd.instanceCount = 1;
+    // cmd.firstVertex   = 0;
+    // cmd.firstInstance = 0;
+
+    // m_IndirectBuffer.Upload(commandBuffer, sizeof(VkDrawIndirectCommand), &cmd);
+
+    m_GeometryPipeline.DrawIndirect({
         .commandBuffer  = commandBuffer,
-        .vertexBuffer   = m_VertexBuffer.GetBuffer(),
-        .offsets        = {0},
+        .vertexBuffers  = m_VertexBuffers,
+        .offsets        = std::vector<VkDeviceSize>(m_VertexBuffers.size(), 0),
         .descriptorSets = {
             m_GeometryPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
         },
-        .vertexCount = m_VertexCount,
+        .indirectBuffer = m_IndirectBuffer.GetBuffer(),
+        .indirectOffset = 0,
+        .drawCount      = static_cast<uint32_t>(m_VertexBuffers.size()),
+        .stride         = sizeof(VkDrawIndirectCommand),
     });
 
     vkCmdEndRenderPass(commandBuffer);
@@ -497,6 +540,16 @@ void Scene::RenderUI() {
 void Scene::CreateDescriptorSets() {
   uint32_t                                   framesInFlight = akari::window::Application::GetMaxFramesInFlight();
   std::vector<Pipeline::DescriptorWriteInfo> cameraWrites(framesInFlight);
+
+  std::vector<VkDescriptorBufferInfo> svoBufferInfos {};
+
+  for (auto& buffer : m_SVOBuffers) {
+    svoBufferInfos.emplace_back(VkDescriptorBufferInfo {
+        .buffer = buffer,
+        .offset = 0,
+        .range  = VK_WHOLE_SIZE,
+    });
+  }
 
   for (size_t i = 0; i < framesInFlight; i++)
     cameraWrites[i] = Pipeline::DescriptorWriteInfo {
@@ -674,13 +727,14 @@ void Scene::CreateDescriptorSets() {
           Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                           .binding = vxen::Binding::S_SVO,
-                          .buffer  = std::vector {
-                  VkDescriptorBufferInfo {
-                                   .buffer = m_SVOBuffer.GetBuffer(),
-                                   .offset = 0,
-                                   .range  = VK_WHOLE_SIZE,
-                  },
-              },
+                          .buffer  = svoBufferInfos,
+              //         .buffer  = std::vector {
+              // VkDescriptorBufferInfo {
+              //                  .buffer = m_SVOBuffer.GetBuffer(),
+              //                  .offset = 0,
+              //                  .range  = VK_WHOLE_SIZE,
+              // },
+              // },
           },
       },
   });

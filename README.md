@@ -156,3 +156,9 @@ Once each thread is finished, aquire the atomic and check if it's 1,
 If it's 1, TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER)
 In Scene.h, if the signal is on, update the descriptor sets for all dirty chunks & for each chunk, add an indirect draw command.
 Use the svoBuffers mentioned in point 5 above.
+
+Dealing with the padding for greedy meshing is to hard.
+I need to query out the bit from the neighbouring engine.
+Solution:
+Each chunk keeps track of padding.
+When chunk manager sets voxels, padding should be calculated.

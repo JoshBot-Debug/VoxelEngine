@@ -13,12 +13,9 @@
 #include "render/BufferPool.h"
 #include "state/StateMachine.h"
 
-namespace vxen {
+#include "Signal.h"
 
-template <typename F>
-concept NeighbourExists = requires(F& f, int x, int y, int z) {
-  { f(x, y, z) } -> std::same_as<bool>;
-};
+namespace vxen {
 
 template <uint32_t SS>
 class Chunk {
@@ -27,8 +24,20 @@ class Chunk {
 public:
   static constexpr uint32_t SIZE = SS;
 
+  struct FlushedChunk {
+    bool                   verticesResized {0};
+    bool                   svoResized {0};
+    uint32_t               vertexCount {0};
+    VkBufferMemoryBarrier2 vertexBarrier {};
+    VkBufferMemoryBarrier2 svoBarrier {};
+    VkBuffer               svoBuffer {VK_NULL_HANDLE};
+    VkBuffer               vertexBuffer {VK_NULL_HANDLE};
+  };
+
 private:
-  SparseOctree<Voxel, SS>*                                m_SVO {nullptr};
+  SparseOctree<Voxel, SS>* m_SVO {nullptr};
+  uint8_t                  m_Padding[SIZE * SIZE] {0};
+
   std::vector<typename SparseOctree<Voxel, SS>::FlatNode> m_FlatNodes {};
   std::vector<Vertex>                                     m_Vertices {};
   std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
@@ -36,7 +45,7 @@ private:
   akari::render::Buffer m_SVOBuffer {};
   akari::render::Buffer m_VertexBuffer {};
 
-  akari::state::StateMachine* m_StateMachine;
+  FlushedChunk m_FlushedChunk;
 
   static uint32_t UID();
 
@@ -44,7 +53,7 @@ public:
   uint32_t Id {0};
 
 public:
-  Chunk(akari::render::BufferPool* svoPool, akari::render::BufferPool* vertexPool, akari::state::StateMachine* stateMachine)
+  Chunk(akari::render::BufferPool* svoPool, akari::render::BufferPool* vertexPool)
       : m_SVO(new SparseOctree<Voxel, SS>())
       , Id(UID()) {
     m_SVOBuffer.SetPool(svoPool);
@@ -52,8 +61,6 @@ public:
 
     m_SVOBuffer.CreateBuffer(1024);
     m_VertexBuffer.CreateBuffer(1024);
-
-    m_StateMachine = stateMachine;
   };
 
   ~Chunk() {
@@ -86,8 +93,7 @@ public:
 
   const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& Flatten(SparseOctree<Voxel, SS>::Reader& session);
 
-  template <NeighbourExists E>
-  const std::vector<Vertex>& GreedyMesh(const glm::ivec3& offset, const std::vector<uint32_t>& ids, E& exists);
+  const std::vector<Vertex>& GreedyMesh(const glm::ivec3& offset, const std::vector<uint32_t>& ids);
 
   template <typename F>
     requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
@@ -101,8 +107,9 @@ public:
 
   SparseOctree<Voxel, SS>::Hit DeepRaymarch(SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
 
-  template <NeighbourExists E>
-  void Flush(const glm::ivec3& offset, const std::vector<uint32_t>& ids, E& exists);
+  void FlushUpdates(const glm::ivec3& offset, const std::vector<uint32_t>& ids);
+
+  const FlushedChunk& FlushRenderer(VkCommandBuffer commandBuffer);
 };
 
 template <uint32_t SS>
@@ -179,27 +186,17 @@ inline const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& Chunk<SS>:
 }
 
 template <uint32_t SS>
-template <NeighbourExists E>
-inline const std::vector<Vertex>& Chunk<SS>::GreedyMesh(const glm::ivec3& offset, const std::vector<uint32_t>& ids, E& exists) {
+inline const std::vector<Vertex>& Chunk<SS>::GreedyMesh(const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
   m_ThreadVertices.resize(ids.size());
 
-  auto generateVerticies = [&](size_t i, uint32_t id) {
-    m_StateMachine->Lock();
-
+  auto greedyMesh = [&](size_t i, uint32_t id) {
     auto session = m_SVO->BeginRead();
 
-    uint8_t padding[SIZE * SIZE] = {};
-    auto&   rows                 = m_SVO->GetAxisX(session, id);
-    auto&   columns              = m_SVO->GetAxisY(session, id);
-    auto&   layers               = m_SVO->GetAxisZ(session, id);
+    auto& rows    = m_SVO->GetAxisX(session, id);
+    auto& columns = m_SVO->GetAxisY(session, id);
+    auto& layers  = m_SVO->GetAxisZ(session, id);
 
-    GreedyMesh64::GeneratePadding(padding, rows, columns, layers, [&svo = m_SVO, size = SIZE, &exists](int x, int y, int z) -> bool {
-      if (x < 0 || y < 0 || z < 0 || x == size || y == size || z == size)
-        return exists(x, y, z);
-      return svo->Exists(x, y, z);
-    });
-
-    GreedyMesh64::Generate(m_ThreadVertices[i], offset, id, rows, columns, layers, padding);
+    GreedyMesh64::Generate(m_ThreadVertices[i], offset, id, rows, columns, layers, m_Padding);
   };
 
   auto onComplete = [&]() {
@@ -216,12 +213,12 @@ inline const std::vector<Vertex>& Chunk<SS>::GreedyMesh(const glm::ivec3& offset
 
     for (auto& v : m_ThreadVertices)
       v.clear();
-
-    if (m_StateMachine->TrySet(0))
-      akari::thread::Signal::Set(0, World::SignalZero::CHUNK_MANAGER_FLUSH_RENDER);
   };
 
-  akari::thread::ThreadPool::ForEach(ids, generateVerticies, onComplete);
+  for (size_t i = 0; i < ids.size(); i++)
+    greedyMesh(i, ids[i]);
+
+  onComplete();
 
   return m_Vertices;
 }
@@ -251,11 +248,63 @@ inline SparseOctree<Voxel, SS>::Hit Chunk<SS>::DeepRaymarch(SparseOctree<Voxel, 
 }
 
 template <uint32_t SS>
-template <NeighbourExists E>
-inline void Chunk<SS>::Flush(const glm::ivec3& offset, const std::vector<uint32_t>& ids, E& exists) {
-  /// TODO: Need to prepare the vertices & flat nodes
-  GreedyMesh(offset, ids, exists);
-  Flatten();
+inline void Chunk<SS>::FlushUpdates(const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
+  m_ThreadVertices.resize(ids.size());
+
+  auto flatten = [&]() {
+    m_SVO->Flatten(m_FlatNodes);
+  };
+
+  auto greedyMesh = [svo = m_SVO, &padding = m_Padding, offset, &vertices = m_ThreadVertices](size_t i, uint32_t id) {
+    auto session = svo->BeginRead();
+
+    auto& rows    = svo->GetAxisX(session, id);
+    auto& columns = svo->GetAxisY(session, id);
+    auto& layers  = svo->GetAxisZ(session, id);
+
+    GreedyMesh64::Generate(vertices[i], offset, id, rows, columns, layers, padding);
+  };
+
+  auto group = akari::thread::ThreadPool::CreateGroup([&]() {
+    size_t total = 0;
+
+    for (const auto& v : m_ThreadVertices)
+      total += v.size();
+
+    m_Vertices.clear();
+    m_Vertices.reserve(total);
+
+    for (auto& v : m_ThreadVertices)
+      m_Vertices.insert(m_Vertices.end(), v.begin(), v.end());
+
+    for (auto& v : m_ThreadVertices)
+      v.clear();
+
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER);
+  });
+
+  akari::thread::ThreadPool::ForEach(group, ids, greedyMesh);
+
+  akari::thread::ThreadPool::Dispatch(group, flatten);
+}
+
+template <uint32_t SS>
+inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer commandBuffer) {
+  /// TODO: Prepare the VkBuffers
+  m_FlushedChunk.verticesResized = m_VertexBuffer.Upload(commandBuffer, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
+  m_FlushedChunk.svoResized      = m_SVOBuffer.Upload(commandBuffer, m_FlatNodes);
+  m_FlushedChunk.vertexCount     = static_cast<uint64_t>(m_Vertices.size());
+
+  if (m_FlushedChunk.verticesResized)
+    m_FlushedChunk.vertexBarrier = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT);
+
+  if (m_FlushedChunk.svoResized)
+    m_FlushedChunk.svoBarrier = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+
+  m_FlushedChunk.vertexBuffer = m_VertexBuffer.GetBuffer();
+  m_FlushedChunk.svoBuffer    = m_SVOBuffer.GetBuffer();
+
+  return m_FlushedChunk;
 }
 
 } // namespace vxen

@@ -12,8 +12,8 @@ namespace akari::render {
 class Pipeline {
 public:
   struct DescriptorWriteInfo {
-    VkDescriptorType                      type;
-    uint32_t                              binding;
+    VkDescriptorType                                   type;
+    uint32_t                                           binding;
     std::optional<std::vector<VkDescriptorBufferInfo>> buffer;
     std::optional<std::vector<VkDescriptorImageInfo>>  image;
   };
@@ -53,11 +53,25 @@ public:
   };
 
   struct DrawInfo {
-    VkCommandBuffer              commandBuffer;
-    VkBuffer                     vertexBuffer;
+    VkCommandBuffer              commandBuffer {VK_NULL_HANDLE};
+    VkBuffer                     vertexBuffer {VK_NULL_HANDLE};
     std::vector<VkDeviceSize>    offsets;
     std::vector<VkDescriptorSet> descriptorSets;
-    uint32_t                     vertexCount;
+    uint32_t                     vertexCount {0};
+  };
+
+  struct DrawIndirectInfo {
+    VkCommandBuffer commandBuffer {VK_NULL_HANDLE};
+
+    std::vector<VkBuffer>        vertexBuffers;
+    std::vector<VkDeviceSize>    offsets;
+    std::vector<VkDescriptorSet> descriptorSets;
+
+    VkBuffer     indirectBuffer {VK_NULL_HANDLE};
+    VkDeviceSize indirectOffset {0};
+
+    uint32_t drawCount {0};
+    uint32_t stride {sizeof(VkDrawIndirectCommand)};
   };
 
   struct DispatchComputeInfo {
@@ -91,6 +105,8 @@ public:
   void DispatchCompute(const DispatchComputeInfo& info);
 
   void Draw(const DrawInfo& info);
+
+  void DrawIndirect(const DrawIndirectInfo& info);
 
   VkDescriptorSet GetDescriptorSet(uint32_t id, uint32_t index);
 };

@@ -40,10 +40,9 @@ private:
       .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
   }};
 
-  std::deque<Chunk<SS>>        m_ChunkAllocator {};
-  SparseOctree<Chunk<SS>, CS>* m_Chunks {nullptr};
-
-  akari::state::StateMachine m_StateMachine {};
+  std::deque<Chunk<SS>>                         m_ChunkAllocator {};
+  SparseOctree<Chunk<SS>, CS>*                  m_Chunks {nullptr};
+  std::vector<typename Chunk<SS>::FlushedChunk> m_FlushedChunks {};
 
 private:
   /**
@@ -279,7 +278,9 @@ public:
    */
   typename SparseOctree<Voxel, SS>::Hit DeepRaymarch(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
 
-  void Flush(const std::vector<uint32_t>& ids);
+  void FlushUpdates(const std::vector<uint32_t>& ids);
+
+  const std::vector<typename Chunk<SS>::FlushedChunk>& FlushRenderer(VkCommandBuffer commandbuffer);
 
   /**
    * Converts world coordinates (96, 32, 32) to chunk coordinates (1, 0, 0)
@@ -326,7 +327,7 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(
   typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(x, y, z);
   if (chunk)
     return chunk;
-  m_Chunks->Set(x, y, z, &m_ChunkAllocator.emplace_back(&m_SVOPool, &m_VertexPool, &m_StateMachine));
+  m_Chunks->Set(x, y, z, &m_ChunkAllocator.emplace_back(&m_SVOPool, &m_VertexPool));
   return m_Chunks->Get(x, y, z);
 }
 
@@ -466,25 +467,7 @@ inline const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& ChunkManag
 
 template <uint32_t SS, uint8_t CS>
 inline const std::vector<Vertex>& ChunkManager<SS, CS>::GreedyMesh(const glm::u8vec3& coordinate, const std::vector<uint32_t>& ids) {
-
-  auto neighbourExists = [&](int x, int y, int z) -> bool {
-    glm::ivec3 cp = glm::ivec3(coordinate) * int(SS);
-    glm::ivec3 wp = cp + glm::ivec3(x, y, z);
-
-    if (wp.x < 0 || wp.y < 0 || wp.z < 0)
-      return true;
-
-    glm::u8vec3 nc = WorldToChunkCoordinate(wp.x, wp.y, wp.z);
-
-    typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(nc.x, nc.y, nc.z);
-
-    if (!chunk)
-      return false;
-
-    return chunk->Data->Exists(Wrap(x), Wrap(y), Wrap(z));
-  };
-
-  return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->GreedyMesh(coordinate, ids, neighbourExists);
+  return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->GreedyMesh(coordinate, ids);
 }
 
 template <uint32_t SS, uint8_t CS>
@@ -532,39 +515,33 @@ inline typename SparseOctree<Voxel, SS>::Hit ChunkManager<SS, CS>::DeepRaymarch(
 }
 
 template <uint32_t SS, uint8_t CS>
-inline void ChunkManager<SS, CS>::Flush(const std::vector<uint32_t>& ids) {
+inline void ChunkManager<SS, CS>::FlushUpdates(const std::vector<uint32_t>& ids) {
   /// TODO: When flush is done, TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER);
-  m_StateMachine.Set(1);
+  /// TODO: Need to FlushUpdates() only chunks that are dirty
 
-  /// TODO: Need to Flush() only chunks that are dirty
-  for (size_t z = 0; z < CS; z++)
-    for (size_t y = 0; y < CS; y++)
-      for (size_t x = 0; x < CS; x++) {
-        auto* chunk = m_Chunks->Get(x, y, z);
-        if (chunk) {
-          glm::ivec3 coordinate      = glm::ivec3 {x, y, z};
-          auto       neighbourExists = [&](int x, int y, int z) -> bool {
-            glm::ivec3 cp = glm::ivec3(coordinate) * int(SS);
-            glm::ivec3 wp = cp + glm::ivec3(x, y, z);
-
-            if (wp.x < 0 || wp.y < 0 || wp.z < 0)
-              return true;
-
-            glm::u8vec3 nc = WorldToChunkCoordinate(wp.x, wp.y, wp.z);
-
-            typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(nc.x, nc.y, nc.z);
-
-            if (!chunk)
-              return false;
-
-            return chunk->Data->Exists(Wrap(x), Wrap(y), Wrap(z));
-          };
-
-          chunk->Data->Flush(coordinate, ids, neighbourExists);
+  for (uint8_t z = 0; z < CHUNK_SIZE; z++)
+    for (uint8_t y = 0; y < CHUNK_SIZE; y++)
+      for (uint8_t x = 0; x < CHUNK_SIZE; x++)
+        if (m_Chunks->Exists(x, y, z))
+        {
+          std::cout << (int)x << " " << (int)y << " " << (int)z << std::endl;
+          m_Chunks->Get(x, y, z)->Data->FlushUpdates({x, y, z}, ids);
         }
-      }
+}
 
-  // akari::thread::ThreadPool::ForEach(ids, )
+template <uint32_t SS, uint8_t CS>
+inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>::FlushRenderer(VkCommandBuffer commandbuffer) {
+  /// TODO: Need to FlushRenderer() only chunks that are dirty
+
+  m_FlushedChunks.clear();
+
+  for (uint8_t z = 0; z < CHUNK_SIZE; z++)
+    for (uint8_t y = 0; y < CHUNK_SIZE; y++)
+      for (uint8_t x = 0; x < CHUNK_SIZE; x++)
+        if (m_Chunks->Exists(x, y, z))
+          m_FlushedChunks.emplace_back(m_Chunks->Get(x, y, z)->Data->FlushRenderer(commandbuffer));
+
+  return m_FlushedChunks;
 }
 
 template <uint32_t SS, uint8_t CS>

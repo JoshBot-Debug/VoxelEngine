@@ -32,6 +32,10 @@ private:
   akari::render::Buffer m_MaterialLUTBuffer {};
   akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
   akari::render::Buffer m_OverlayVertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+  akari::render::Buffer m_IndirectBuffer {{.Usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT}};
+
+  std::vector<VkBuffer> m_VertexBuffers {};
+  std::vector<VkBuffer> m_SVOBuffers {};
 
   uint32_t m_VertexCount {0};
   uint32_t m_OverlayVertexCount {0};

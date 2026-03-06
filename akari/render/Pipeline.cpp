@@ -308,6 +308,16 @@ void Pipeline::Draw(const DrawInfo& info) {
   vkCmdDraw(info.commandBuffer, info.vertexCount, 1, 0, 0);
 }
 
+void Pipeline::DrawIndirect(const DrawIndirectInfo& info) {
+  if (info.drawCount == 0 || info.vertexBuffers.empty() || info.indirectBuffer == VK_NULL_HANDLE)
+    return;
+
+  vkCmdBindPipeline(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
+  vkCmdBindVertexBuffers(info.commandBuffer, 0, static_cast<uint32_t>(info.vertexBuffers.size()), info.vertexBuffers.data(), info.offsets.data());
+  vkCmdBindDescriptorSets(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, static_cast<uint32_t>(info.descriptorSets.size()), info.descriptorSets.data(), 0, nullptr);
+  vkCmdDrawIndirect(info.commandBuffer, info.indirectBuffer, info.indirectOffset, info.drawCount, info.stride);
+}
+
 VkDescriptorSet Pipeline::GetDescriptorSet(uint32_t id, uint32_t index) {
   auto it = m_DescriptorSets.find(id);
   if (it == m_DescriptorSets.end() || index >= it->second.size() || it->second[index] == VK_NULL_HANDLE) {
