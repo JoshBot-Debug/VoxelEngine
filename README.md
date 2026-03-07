@@ -165,3 +165,4 @@ When chunk manager sets voxels, padding should be calculated.
 
 TODO:
 Need to create an allocator. Use one VkBuffer for verticies. Use indirect draw for drawing different offsets in that buffer.
+/// TODO: There is a glitch every time we need to resize the buffer and copy content. only when the buffer size is small

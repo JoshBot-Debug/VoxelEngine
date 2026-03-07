@@ -19,6 +19,11 @@
 
 #include "vk_mem_alloc.h"
 
+struct DeferredBufferFreeInfo {
+  VkBuffer      buffer;
+  VmaAllocation allocation;
+};
+
 namespace akari::window {
 
 struct ApplicationSpecification {
@@ -109,6 +114,7 @@ public:
   static void          FlushCommandBuffer(VkCommandBuffer commandBuffer);
 
   static void SubmitResourceFree(std::function<void()>&& func);
+  static void SubmitBufferFree(const DeferredBufferFreeInfo& info);
 
   static VkSampleCountFlagBits GetMaxUsableSampleCount();
   static uint32_t              GetGraphicsQueueFamilyIndex();

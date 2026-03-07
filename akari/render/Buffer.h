@@ -21,7 +21,9 @@ public:
   };
 
   struct Specification {
-    uint64_t           Size {1024};
+    /// TODO: There is a glitch every time we need to resize the buffer and copy content.
+    // uint64_t           Size {1024 * 1024 * 64};
+    uint64_t           Size {1024 * 1024};
     VkBufferUsageFlags Usage {VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
     BufferPool*        Pool {nullptr};
   };
@@ -39,7 +41,8 @@ private:
   VmaAllocation m_DeviceBufferAllocation {VK_NULL_HANDLE};
   VmaAllocation m_HostBufferAllocation {VK_NULL_HANDLE};
 
-  VkDeviceSize m_Size {0};
+  VkDeviceSize m_DeviceSize {0};
+  VkDeviceSize m_HostSize {0};
 
 private:
   /**
@@ -47,7 +50,7 @@ private:
    *
    * @note Implicitly destroys the previous buffer if any
    */
-  void CreateDeviceBuffer(uint64_t size);
+  void CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer);
 
   /**
    * Creates the host buffer.
@@ -55,7 +58,7 @@ private:
    *
    * @note Implicitly destroys the previous buffer if any
    */
-  void CreateHostBuffer(uint64_t size);
+  void CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer);
 
   template <typename T>
   std::vector<uint8_t> BuildStorageBufferAlignedData(const std::vector<T>& src) {
@@ -80,7 +83,7 @@ private:
   /**
    * Allocates a block & allocates more memory in the host & device buffer if needed.
    */
-  const Block& Allocate(uint64_t id, uint64_t bytes, bool &outResized);
+  const Block& Allocate(uint64_t id, uint64_t bytes, bool& outResized, VkCommandBuffer commandBuffer);
 
   void HostToDevice(VkCommandBuffer commandBuffer, const Block& block, const void* data);
 
