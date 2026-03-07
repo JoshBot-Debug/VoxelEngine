@@ -108,18 +108,19 @@ void Pipeline::CreateDescriptorSet(const DescriptorSetInfo& info) {
           auto value            = &w.buffer.value();
           write.pBufferInfo     = value->data();
           write.descriptorCount = static_cast<uint32_t>(value->size());
-        }
-
-        if (w.image.has_value()) {
+          if (write.descriptorCount)
+            writes.push_back(write);
+        } else if (w.image.has_value()) {
           auto value            = &w.image.value();
           write.pImageInfo      = value->data();
           write.descriptorCount = static_cast<uint32_t>(value->size());
+          if (write.descriptorCount)
+            writes.push_back(write);
         }
-
-        writes.push_back(write);
       }
 
-      vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
+      if (writes.size())
+        vkUpdateDescriptorSets(device, static_cast<uint32_t>(writes.size()), writes.data(), 0, nullptr);
     }
   }
 }

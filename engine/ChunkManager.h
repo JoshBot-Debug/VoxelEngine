@@ -32,13 +32,8 @@ private:
   static constexpr uint32_t DIV_SS {std::countr_zero(SS)};
   static constexpr uint32_t MOD_SS {SS - 1};
 
-  akari::render::BufferPool m_SVOPool {{
-      .Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT,
-  }};
-
-  akari::render::BufferPool m_VertexPool {{
-      .Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-  }};
+  akari::render::BufferPool m_SVOPool {};
+  akari::render::BufferPool m_VertexPool {};
 
   std::deque<Chunk<SS>>                         m_ChunkAllocator {};
   SparseOctree<Chunk<SS>, CS>*                  m_Chunks {nullptr};
@@ -523,10 +518,7 @@ inline void ChunkManager<SS, CS>::FlushUpdates(const std::vector<uint32_t>& ids)
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
         if (m_Chunks->Exists(x, y, z))
-        {
-          std::cout << (int)x << " " << (int)y << " " << (int)z << std::endl;
           m_Chunks->Get(x, y, z)->Data->FlushUpdates({x, y, z}, ids);
-        }
 }
 
 template <uint32_t SS, uint8_t CS>

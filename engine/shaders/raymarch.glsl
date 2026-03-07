@@ -1,4 +1,4 @@
-const uint MAX_CHUNKS=64;
+const uint MAX_CHUNKS=1;
 
 struct FlatNode{
   uint PackedIDC;

@@ -25,13 +25,13 @@ public:
   static constexpr uint32_t SIZE = SS;
 
   struct FlushedChunk {
-    bool                   verticesResized {0};
-    bool                   svoResized {0};
-    uint32_t               vertexCount {0};
-    VkBufferMemoryBarrier2 vertexBarrier {};
-    VkBufferMemoryBarrier2 svoBarrier {};
-    VkBuffer               svoBuffer {VK_NULL_HANDLE};
-    VkBuffer               vertexBuffer {VK_NULL_HANDLE};
+    bool                   VerticesResized {0};
+    bool                   SVOResized {0};
+    uint32_t               VertexCount {0};
+    VkBufferMemoryBarrier2 VertexBarrier {};
+    VkBufferMemoryBarrier2 SVOBarrier {};
+    VkBuffer               SVOBuffer {VK_NULL_HANDLE};
+    VkBuffer               VertexBuffer {VK_NULL_HANDLE};
   };
 
 private:
@@ -43,7 +43,7 @@ private:
   std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
 
   akari::render::Buffer m_SVOBuffer {};
-  akari::render::Buffer m_VertexBuffer {};
+  akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
 
   FlushedChunk m_FlushedChunk;
 
@@ -291,18 +291,18 @@ inline void Chunk<SS>::FlushUpdates(const glm::ivec3& offset, const std::vector<
 template <uint32_t SS>
 inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer commandBuffer) {
   /// TODO: Prepare the VkBuffers
-  m_FlushedChunk.verticesResized = m_VertexBuffer.Upload(commandBuffer, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
-  m_FlushedChunk.svoResized      = m_SVOBuffer.Upload(commandBuffer, m_FlatNodes);
-  m_FlushedChunk.vertexCount     = static_cast<uint64_t>(m_Vertices.size());
+  m_FlushedChunk.VerticesResized = m_VertexBuffer.Upload(commandBuffer, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
+  m_FlushedChunk.SVOResized      = m_SVOBuffer.Upload(commandBuffer, m_FlatNodes);
+  m_FlushedChunk.VertexCount     = static_cast<uint64_t>(m_Vertices.size());
 
-  if (m_FlushedChunk.verticesResized)
-    m_FlushedChunk.vertexBarrier = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT);
+  if (m_FlushedChunk.VerticesResized)
+    m_FlushedChunk.VertexBarrier = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT);
 
-  if (m_FlushedChunk.svoResized)
-    m_FlushedChunk.svoBarrier = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+  if (m_FlushedChunk.SVOResized)
+    m_FlushedChunk.SVOBarrier = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
-  m_FlushedChunk.vertexBuffer = m_VertexBuffer.GetBuffer();
-  m_FlushedChunk.svoBuffer    = m_SVOBuffer.GetBuffer();
+  m_FlushedChunk.VertexBuffer = m_VertexBuffer.GetBuffer();
+  m_FlushedChunk.SVOBuffer    = m_SVOBuffer.GetBuffer();
 
   return m_FlushedChunk;
 }

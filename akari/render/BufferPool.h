@@ -6,9 +6,8 @@
 namespace akari::render {
 
 class BufferPool {
-private:
+public:
   struct Specification {
-    VkBufferUsageFlags Usage;
     VmaPoolCreateFlags StagingFlags {VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT};
     VmaPoolCreateFlags DeviceFlags {VMA_POOL_CREATE_LINEAR_ALGORITHM_BIT};
   };
@@ -18,13 +17,8 @@ private:
   VmaPool       m_HostPool {nullptr};
   VmaPool       m_DevicePool {nullptr};
 
-private:
-  /**
-   * Finds the memory type index for buffers.
-   */
-  static uint32_t FindMemoryTypeIndex(VmaAllocator allocator, VmaMemoryUsage usage, VkBufferUsageFlags bufferUsage);
-
 public:
+  BufferPool();
   BufferPool(const Specification &specification);
   ~BufferPool();
 

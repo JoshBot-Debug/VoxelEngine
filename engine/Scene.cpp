@@ -322,21 +322,21 @@ void Scene::Render() {
 
     for (auto& o : flushedChunks) {
       indirectCommands.emplace_back(VkDrawIndirectCommand {
-          .vertexCount   = o.vertexCount,
+          .vertexCount   = o.VertexCount,
           .instanceCount = 1,
           .firstVertex   = 0,
           .firstInstance = 0,
       });
 
-      if (o.verticesResized)
-        bufferBarriers.push_back(o.vertexBarrier);
-      if (o.svoResized)
-        bufferBarriers.push_back(o.svoBarrier);
+      if (o.VerticesResized)
+        bufferBarriers.push_back(o.VertexBarrier);
+      if (o.SVOResized)
+        bufferBarriers.push_back(o.SVOBarrier);
 
-      m_VertexBuffers.push_back(o.vertexBuffer);
-      m_SVOBuffers.push_back(o.svoBuffer);
+      m_VertexBuffers.push_back(o.VertexBuffer);
+      m_SVOBuffers.push_back(o.SVOBuffer);
 
-      bufferResized = o.verticesResized || o.svoResized;
+      bufferResized |= o.VerticesResized || o.SVOResized;
     }
 
     m_IndirectBuffer.Upload(commandBuffer, indirectCommands.size() * sizeof(VkDrawIndirectCommand), indirectCommands.data());
@@ -373,11 +373,13 @@ void Scene::Render() {
       bufferResized = bufferResized || resized;
       m_VertexCount = vertices.size();
       bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
-      std::cout << m_VertexCount << std::endl;
     }
 
     m_World->Clean();
   }
+
+  if (!m_SVOBuffers.size())
+    return;
 
   {
     auto vertices = m_UI->GetHighlightVertices();
