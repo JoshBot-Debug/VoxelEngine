@@ -336,7 +336,6 @@ void Scene::Render() {
       m_VertexBuffers.push_back(o.vertexBuffer);
       m_SVOBuffers.push_back(o.svoBuffer);
 
-      std::cout << o.verticesResized << " " << o.svoResized << " " << o.vertexCount  << " "<< std::endl;
       bufferResized = o.verticesResized || o.svoResized;
     }
 
@@ -419,14 +418,6 @@ void Scene::Render() {
             {.depthStencil = {0.0f, 0}},
         },
     });
-
-    // VkDrawIndirectCommand cmd {};
-    // cmd.vertexCount   = m_VertexCount;
-    // cmd.instanceCount = 1;
-    // cmd.firstVertex   = 0;
-    // cmd.firstInstance = 0;
-
-    // m_IndirectBuffer.Upload(commandBuffer, sizeof(VkDrawIndirectCommand), &cmd);
 
     m_GeometryPipeline.DrawIndirect({
         .commandBuffer  = commandBuffer,
@@ -728,13 +719,6 @@ void Scene::CreateDescriptorSets() {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                           .binding = vxen::Binding::S_SVO,
                           .buffer  = svoBufferInfos,
-              //         .buffer  = std::vector {
-              // VkDescriptorBufferInfo {
-              //                  .buffer = m_SVOBuffer.GetBuffer(),
-              //                  .offset = 0,
-              //                  .range  = VK_WHOLE_SIZE,
-              // },
-              // },
           },
       },
   });

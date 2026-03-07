@@ -162,3 +162,6 @@ I need to query out the bit from the neighbouring engine.
 Solution:
 Each chunk keeps track of padding.
 When chunk manager sets voxels, padding should be calculated.
+
+TODO:
+Need to create an allocator. Use one VkBuffer for verticies. Use indirect draw for drawing different offsets in that buffer.
