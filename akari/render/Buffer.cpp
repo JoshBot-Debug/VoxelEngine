@@ -46,6 +46,10 @@ void Buffer::CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
     copyRegion.size      = previousSize;
     vkCmdCopyBuffer(commandBuffer, previousBuffer, m_DeviceBuffer, 1, &copyRegion);
 
+#ifdef DEBUG
+    std::cout << "Copying previous device buffer to new buffer: " << previousSize << " bytes" << std::endl;
+#endif
+
     {
       auto barrier = VkBufferMemoryBarrier2 {
           .sType               = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
@@ -80,9 +84,10 @@ void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
 
   auto* allocator = Application::GetVmaAllocator();
 
-  VkBuffer      previousBuffer     = m_HostBuffer;
-  VmaAllocation previousAllocation = m_HostBufferAllocation;
-  uint64_t      previousSize       = m_HostSize;
+  VkBuffer          previousBuffer         = m_HostBuffer;
+  VmaAllocation     previousAllocation     = m_HostBufferAllocation;
+  uint64_t          previousSize           = m_HostSize;
+  VmaAllocationInfo previousAllocationInfo = m_HostAllocationInfo;
 
   uint64_t grow   = size - m_HostSize;
   uint64_t blocks = (grow + m_Specification.Size - 1) / m_Specification.Size;
@@ -99,20 +104,22 @@ void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
   bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
   VmaAllocationCreateInfo allocInfo {};
-  allocInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-  allocInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+  allocInfo.flags         = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT;
+  allocInfo.usage         = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+  allocInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
   if (m_Specification.Pool)
     allocInfo.pool = m_Specification.Pool->GetHostPool();
 
-  vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &m_HostBuffer, &m_HostBufferAllocation, nullptr);
+  vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &m_HostBuffer, &m_HostBufferAllocation, &m_HostAllocationInfo);
 
   if (previousBuffer && commandBuffer && previousSize) {
-    VkBufferCopy copyRegion {};
-    copyRegion.srcOffset = 0;
-    copyRegion.dstOffset = 0;
-    copyRegion.size      = previousSize;
-    vkCmdCopyBuffer(commandBuffer, previousBuffer, m_HostBuffer, 1, &copyRegion);
+    memcpy(m_HostAllocationInfo.pMappedData, previousAllocationInfo.pMappedData, previousSize);
+
+#ifdef DEBUG
+    std::cout << "Copying previous host buffer to new buffer: " << previousSize << " bytes" << std::endl;
+#endif
 
     {
       auto barrier = VkBufferMemoryBarrier2 {
@@ -165,7 +172,7 @@ void Buffer::HostToDevice(VkCommandBuffer commandBuffer, const Buffer::Allocatio
   copyRegion.size      = allocation.Size;
 
 #ifdef DEBUG
-  std::cout << "Copying from host to device, offset: " << allocation.Offset << " bytes:" << allocation.Size << std::endl;
+  std::cout << "Copying from host to device, offset: " << allocation.Offset << ", bytes: " << allocation.Size << std::endl;
 #endif
 
   vkCmdCopyBuffer(commandBuffer, m_HostBuffer, m_DeviceBuffer, 1, &copyRegion);
@@ -230,7 +237,7 @@ VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask, Vk
 
 Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
 #ifdef DEBUG
-  std::cout << "Buffer::Blocks::Allocate(" << id << ", " << bytes << ")" << std::endl;
+  std::cout << "\nBuffer::Blocks::Allocate(" << id << ", " << bytes << ")" << std::endl;
 #endif
 
   auto mi = Id.size();
@@ -350,7 +357,6 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
 
 #ifdef DEBUG
   std::cout << "Allocating new block" << std::endl;
-  std::cout << std::endl;
 #endif
 
   return Allocation {

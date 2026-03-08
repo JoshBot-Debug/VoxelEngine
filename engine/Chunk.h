@@ -61,8 +61,8 @@ public:
     m_SVOBuffer.SetPool(svoPool);
     m_VertexBuffer.SetPool(vertexPool);
 
-    m_SVOBuffer.CreateBuffer();
-    m_VertexBuffer.CreateBuffer();
+    m_SVOBuffer.CreateBuffer(1024);
+    m_VertexBuffer.CreateBuffer(1024);
   };
 
   ~Chunk() {

@@ -53,6 +53,8 @@ private:
   VkDeviceSize m_DeviceSize {0};
   VkDeviceSize m_HostSize {0};
 
+  VmaAllocationInfo m_HostAllocationInfo;
+
 private:
   /**
    * Creates a device buffer of a specified size

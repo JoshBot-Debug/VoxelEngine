@@ -17,12 +17,12 @@ Scene::Scene() {
       m_DirectLight,
   };
 
-  m_SVOBuffer.CreateBuffer();
-  m_LightBuffer.CreateBuffer();
-  m_MaterialBuffer.CreateBuffer();
-  m_MaterialLUTBuffer.CreateBuffer();
-  m_VertexBuffer.CreateBuffer();
-  m_OverlayVertexBuffer.CreateBuffer();
+  m_SVOBuffer.CreateBuffer(1024);
+  m_LightBuffer.CreateBuffer(1024);
+  m_MaterialBuffer.CreateBuffer(1024);
+  m_MaterialLUTBuffer.CreateBuffer(1024);
+  m_VertexBuffer.CreateBuffer(1024);
+  m_OverlayVertexBuffer.CreateBuffer(1024);
 }
 
 Scene::~Scene() {
