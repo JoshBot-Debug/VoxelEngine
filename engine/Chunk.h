@@ -27,6 +27,8 @@ public:
   struct FlushedChunk {
     bool                   VerticesResized {0};
     bool                   SVOResized {0};
+    uint32_t               VertexOffset {0};
+    uint32_t               SVOOffset {0};
     uint32_t               VertexCount {0};
     VkBufferMemoryBarrier2 VertexBarrier {};
     VkBufferMemoryBarrier2 SVOBarrier {};
@@ -59,8 +61,8 @@ public:
     m_SVOBuffer.SetPool(svoPool);
     m_VertexBuffer.SetPool(vertexPool);
 
-    m_SVOBuffer.CreateBuffer(1024);
-    m_VertexBuffer.CreateBuffer(1024);
+    m_SVOBuffer.CreateBuffer();
+    m_VertexBuffer.CreateBuffer();
   };
 
   ~Chunk() {
@@ -291,15 +293,18 @@ inline void Chunk<SS>::FlushUpdates(const glm::ivec3& offset, const std::vector<
 template <uint32_t SS>
 inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer commandBuffer) {
   /// TODO: Prepare the VkBuffers
-  m_FlushedChunk.VerticesResized = m_VertexBuffer.Upload(commandBuffer, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
-  m_FlushedChunk.SVOResized      = m_SVOBuffer.Upload(commandBuffer, m_FlatNodes);
+  auto vertexAlloc = m_VertexBuffer.Upload(commandBuffer, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
+  auto svoAlloc    = m_SVOBuffer.Upload(commandBuffer, m_FlatNodes);
+
+  m_FlushedChunk.VertexOffset = vertexAlloc.Offset;
+  m_FlushedChunk.SVOOffset    = svoAlloc.Offset;
+
+  m_FlushedChunk.VerticesResized = vertexAlloc.Resized;
+  m_FlushedChunk.SVOResized      = svoAlloc.Resized;
   m_FlushedChunk.VertexCount     = static_cast<uint64_t>(m_Vertices.size());
 
-  if (m_FlushedChunk.VerticesResized)
-    m_FlushedChunk.VertexBarrier = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT);
-
-  if (m_FlushedChunk.SVOResized)
-    m_FlushedChunk.SVOBarrier = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+  m_FlushedChunk.VertexBarrier = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT);
+  m_FlushedChunk.SVOBarrier    = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
   m_FlushedChunk.VertexBuffer = m_VertexBuffer.GetBuffer();
   m_FlushedChunk.SVOBuffer    = m_SVOBuffer.GetBuffer();

@@ -125,60 +125,36 @@ void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
     Application::SubmitBufferFree({previousBuffer, previousAllocation});
 }
 
-const Buffer::Block& Buffer::Allocate(uint64_t id, uint64_t bytes, bool& outResized, VkCommandBuffer commandBuffer) {
-  // for (auto& block : m_Blocks)
-  //   if (block.Size >= bytes && block.Free) {
-  //     block.Id   = id;
-  //     block.Size = bytes;
-  //     block.Free = false;
-  //     return block;
-  //   }
+Buffer::Allocation Buffer::Allocate(uint64_t id, uint64_t bytes, VkCommandBuffer commandBuffer) {
 
-  Block last;
+  Allocation alloc = m_Blocks.Allocate(id, bytes);
 
-  // if (m_Blocks.size())
-  //   last = m_Blocks.back();
-  // else
-  last = Block {
-      .Id     = 0,
-      .Size   = 0,
-      .Offset = 0,
-      .Free   = true,
-  };
+  std::cout << alloc.Index << " " << alloc.Resized << " bytes: " << bytes << std::endl;
 
-  uint64_t nextOffset = last.Offset + last.Size;
+  uint64_t offset = m_Blocks.Offset[alloc.Index];
+  uint64_t size   = m_Blocks.Size[alloc.Index];
 
-  bool resizeHostBuffer   = nextOffset + bytes > m_HostSize;
-  bool resizeDeviceBuffer = nextOffset + bytes > m_DeviceSize;
+  if (alloc.Resized) {
+    uint64_t nSize = offset + size + bytes;
+    CreateHostBuffer(nSize, commandBuffer);
+    CreateDeviceBuffer(nSize, commandBuffer);
+  }
 
-  if (resizeHostBuffer)
-    CreateHostBuffer(nextOffset + bytes, commandBuffer);
-
-  if (resizeDeviceBuffer)
-    CreateDeviceBuffer(nextOffset + bytes, commandBuffer);
-
-  outResized = resizeHostBuffer || resizeDeviceBuffer;
-
-  if(outResized)
-    std::cout << "Resized buffer" << std::endl;
-
-  return m_Blocks.emplace_back(Block {
-      .Id     = id,
-      .Size   = bytes,
-      .Offset = nextOffset,
-      .Free   = false,
-  });
+  return alloc;
 }
 
-void Buffer::HostToDevice(VkCommandBuffer commandBuffer, const Block& block, const void* data) {
+void Buffer::HostToDevice(VkCommandBuffer commandBuffer, uint64_t block, const void* data) {
   auto* allocator = Application::GetVmaAllocator();
 
-  vmaCopyMemoryToAllocation(allocator, data, m_HostBufferAllocation, block.Offset, block.Size);
+  auto offset = m_Blocks.Offset[block];
+  auto size   = m_Blocks.Size[block];
+
+  vmaCopyMemoryToAllocation(allocator, data, m_HostBufferAllocation, offset, size);
 
   VkBufferCopy copyRegion {};
-  copyRegion.srcOffset = block.Offset;
-  copyRegion.dstOffset = block.Offset;
-  copyRegion.size      = block.Size;
+  copyRegion.srcOffset = offset;
+  copyRegion.dstOffset = offset;
+  copyRegion.size      = size;
 
   vkCmdCopyBuffer(commandBuffer, m_HostBuffer, m_DeviceBuffer, 1, &copyRegion);
 }
@@ -199,6 +175,7 @@ Buffer::~Buffer() {
 void Buffer::CreateBuffer(uint64_t size) {
   CreateHostBuffer(size, nullptr);
   CreateDeviceBuffer(size, nullptr);
+  // m_Blocks.Resize(m_DeviceSize);
 }
 
 void Buffer::DestroyBuffer() {
@@ -208,20 +185,21 @@ void Buffer::DestroyBuffer() {
   vmaDestroyBuffer(allocator, m_HostBuffer, m_HostBufferAllocation);
   m_DeviceSize = 0;
   m_HostSize   = 0;
-  m_Blocks.clear();
+  m_Blocks.Id.clear();
+  m_Blocks.Size.clear();
+  m_Blocks.Offset.clear();
+  m_Blocks.Free.clear();
 }
 
-bool Buffer::Upload(VkCommandBuffer commandBuffer, uint64_t id, size_t size, const void* data) {
+Buffer::Allocation Buffer::Upload(VkCommandBuffer commandBuffer, uint64_t id, size_t size, const void* data) {
   if (!size)
-    return false;
+    return Buffer::Allocation {};
 
-  bool resized = false;
+  Buffer::Allocation alloc = Allocate(id, size, commandBuffer);
 
-  const Block& block = Allocate(id, size, resized, commandBuffer);
+  HostToDevice(commandBuffer, alloc.Index, data);
 
-  HostToDevice(commandBuffer, block, data);
-
-  return true;
+  return alloc;
 }
 
 VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) {
@@ -237,6 +215,96 @@ VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask, Vk
       .offset              = 0,
       .size                = VK_WHOLE_SIZE,
   };
+}
+
+Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
+  auto blocks = Id.size();
+
+  auto mi = blocks;
+
+  for (size_t i = 0; i < blocks; i++)
+    if (Id[i] == id) {
+      mi = i;
+      break;
+    }
+
+  // A matching block was found
+  if (mi < blocks) {
+
+    // If there is sufficient space in the block that was found
+    // assign it and return it.
+    if (Size[mi] >= bytes) {
+      Size[mi] = bytes;
+      Free[mi] = false;
+
+      std::cout << "Reused (existing id)" << std::endl;
+      return Allocation {
+          .Index  = mi,
+          .Size   = bytes,
+          .Offset = Offset[mi],
+      };
+    }
+
+    // There was not enough space in the matching block
+    // Mark the block as free
+    Id[mi]   = UINT64_MAX;
+    Free[mi] = true;
+  }
+
+  // No matching block was found
+  for (size_t i = 0; i < blocks; i++)
+    // Look for a block that is free and has enough space
+    // If we find one, assign it and return it.
+    if (Size[i] >= bytes && Free[i]) {
+      Id[i]   = id;
+      Size[i] = bytes;
+      Free[i] = false;
+
+      std::cout << "Reused (empty block)" << std::endl;
+      return Allocation {
+          .Index  = i,
+          .Size   = bytes,
+          .Offset = Offset[i],
+      };
+    }
+
+  // There is no suitable block, create a new one
+  uint64_t offset = blocks == 0 ? 0 : Offset[blocks - 1] + Size[blocks - 1];
+
+  Id.emplace_back(id);
+  Size.emplace_back(bytes);
+  Offset.emplace_back(offset);
+  Free.emplace_back(false);
+
+  std::cout << "Created (new block)" << std::endl;
+  return Allocation {
+      .Index   = static_cast<uint64_t>(blocks),
+      .Size    = bytes,
+      .Offset  = offset,
+      .Resized = true,
+  };
+}
+
+void Buffer::Blocks::Resize(uint64_t bytes) {
+  auto blocks = Id.size();
+
+  if (blocks == 0) {
+    Id.emplace_back(UINT64_MAX);
+    Size.emplace_back(bytes);
+    Offset.emplace_back(0);
+    Free.emplace_back(true);
+    return;
+  }
+
+  auto     index  = blocks - 1;
+  uint64_t offset = Offset[index];
+  uint64_t size   = Size[index];
+  uint64_t nSize  = offset + size + bytes;
+
+  Id.emplace_back(UINT64_MAX);
+  Size.emplace_back(nSize);
+  Offset.emplace_back(offset + size);
+  Free.emplace_back(false);
 }
 
 } // namespace akari::render

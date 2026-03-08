@@ -17,12 +17,12 @@ Scene::Scene() {
       m_DirectLight,
   };
 
-  m_SVOBuffer.CreateBuffer(1024);
-  m_LightBuffer.CreateBuffer(1024);
-  m_MaterialBuffer.CreateBuffer(1024);
-  m_MaterialLUTBuffer.CreateBuffer(1024);
-  m_VertexBuffer.CreateBuffer(1024);
-  m_OverlayVertexBuffer.CreateBuffer(1024);
+  m_SVOBuffer.CreateBuffer();
+  m_LightBuffer.CreateBuffer();
+  m_MaterialBuffer.CreateBuffer();
+  m_MaterialLUTBuffer.CreateBuffer();
+  m_VertexBuffer.CreateBuffer();
+  m_OverlayVertexBuffer.CreateBuffer();
 }
 
 Scene::~Scene() {
@@ -314,7 +314,9 @@ void Scene::Render() {
 
   if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_RENDER)) {
     m_VertexBuffers.clear();
+    m_VertexOffsets.clear();
     m_SVOBuffers.clear();
+    m_SVOOffsets.clear();
 
     auto flushedChunks = m_World->FlushRenderer(commandBuffer);
 
@@ -324,17 +326,17 @@ void Scene::Render() {
       indirectCommands.emplace_back(VkDrawIndirectCommand {
           .vertexCount   = o.VertexCount,
           .instanceCount = 1,
-          .firstVertex   = 0,
+          .firstVertex   = static_cast<uint32_t>(o.VertexOffset / sizeof(Vertex)),
           .firstInstance = 0,
       });
 
-      if (o.VerticesResized)
-        bufferBarriers.push_back(o.VertexBarrier);
-      if (o.SVOResized)
-        bufferBarriers.push_back(o.SVOBarrier);
+      bufferBarriers.push_back(o.VertexBarrier);
+      bufferBarriers.push_back(o.SVOBarrier);
 
       m_VertexBuffers.push_back(o.VertexBuffer);
+      m_VertexOffsets.push_back(o.VertexOffset);
       m_SVOBuffers.push_back(o.SVOBuffer);
+      m_SVOOffsets.push_back(o.SVOOffset);
 
       bufferResized |= o.VerticesResized || o.SVOResized;
     }
@@ -349,27 +351,27 @@ void Scene::Render() {
     const std::vector<Vertex>&                          vertices    = m_World->GetVertices();
     const std::vector<SparseOctree<Voxel>::FilterNode>& lights      = m_World->GetLights();
 
-    if (bool resized = m_MaterialBuffer.Upload(commandBuffer, materials) || materials.size()) {
+    if (bool resized = m_MaterialBuffer.Upload(commandBuffer, materials).Resized || materials.size()) {
       bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_MaterialBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
     }
 
-    if (bool resized = m_MaterialLUTBuffer.Upload(commandBuffer, materialLUT) || materialLUT.size()) {
+    if (bool resized = m_MaterialLUTBuffer.Upload(commandBuffer, materialLUT).Resized || materialLUT.size()) {
       bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_MaterialLUTBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
     }
 
-    if (bool resized = m_LightBuffer.Upload(commandBuffer, lights) || lights.size()) {
+    if (bool resized = m_LightBuffer.Upload(commandBuffer, lights).Resized || lights.size()) {
       bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_LightBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
     }
 
-    if (bool resized = m_SVOBuffer.Upload(commandBuffer, svo) || svo.size()) {
+    if (bool resized = m_SVOBuffer.Upload(commandBuffer, svo).Resized || svo.size()) {
       bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
     }
 
-    if (bool resized = m_VertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Vertex), vertices.data()) || vertices.size()) {
+    if (bool resized = m_VertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Vertex), vertices.data()).Resized || vertices.size()) {
       bufferResized = bufferResized || resized;
       m_VertexCount = vertices.size();
       bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
@@ -385,7 +387,7 @@ void Scene::Render() {
     auto vertices = m_UI->GetHighlightVertices();
 
     m_OverlayVertexCount = vertices.size();
-    if (bool resized = m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(vxen::HighlightVertex), vertices.data()) || m_OverlayVertexCount) {
+    if (bool resized = m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(vxen::HighlightVertex), vertices.data()).Resized || m_OverlayVertexCount) {
       bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_OverlayVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
     }
@@ -536,10 +538,11 @@ void Scene::CreateDescriptorSets() {
 
   std::vector<VkDescriptorBufferInfo> svoBufferInfos {};
 
-  for (auto& buffer : m_SVOBuffers) {
+  for (size_t i = 0; i < m_SVOBuffers.size(); i++)
+  {
     svoBufferInfos.emplace_back(VkDescriptorBufferInfo {
-        .buffer = buffer,
-        .offset = 0,
+        .buffer = m_SVOBuffers[i],
+        .offset = m_SVOOffsets[i],
         .range  = VK_WHOLE_SIZE,
     });
   }

@@ -128,6 +128,7 @@ static void SetupVulkan(std::vector<const char*>& instanceExtensions) {
     createInfo.enabledExtensionCount   = static_cast<uint32_t>(instanceExtensions.size());
     createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
+#ifdef DEBUG
 #ifdef ENABLE_VULKAN_VALIDATION
     std::vector<VkValidationFeatureEnableEXT> enables {
         VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT,
@@ -164,6 +165,7 @@ static void SetupVulkan(std::vector<const char*>& instanceExtensions) {
     // Create Vulkan Instance without any debug feature
     err = vkCreateInstance(&createInfo, g_Allocator, &g_Instance);
     CheckVkResult(err, "Failed to at vkCreateInstance");
+#endif
 #endif
   }
 
@@ -382,12 +384,14 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window* wd,
 static void CleanupVulkan() {
   vkDestroyDescriptorPool(g_Device, g_DescriptorPool, g_Allocator);
 
+#ifdef DEBUG
 #ifdef ENABLE_VULKAN_VALIDATION
   auto vkDestroyDebugUtilsMessengerEXT =
       (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
           g_Instance,
           "vkDestroyDebugUtilsMessengerEXT");
   vkDestroyDebugUtilsMessengerEXT(g_Instance, g_DebugMessenger, g_Allocator);
+#endif
 #endif
 
 #ifdef ENABLE_VMA_STATS_LOG

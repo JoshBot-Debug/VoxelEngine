@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstring>
-#include <memory>
+#include <mutex>
 #include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -13,23 +13,34 @@ namespace akari::render {
 class Buffer {
 
 public:
-  struct Block {
-    uint64_t Id;
+  struct Allocation {
+    uint64_t Index {UINT64_MAX};
     uint64_t Size {0};
     uint64_t Offset {0};
-    bool     Free {false};
+    bool     Resized {false};
+  };
+
+  struct Blocks {
+    std::vector<uint64_t> Id {};
+    std::vector<uint64_t> Size {};
+    std::vector<uint64_t> Offset {};
+    std::vector<bool>     Free {};
+
+    Allocation Allocate(uint64_t id, uint64_t bytes);
+
+    void Resize(uint64_t bytes);
   };
 
   struct Specification {
     /// TODO: There is a glitch every time we need to resize the buffer and copy content.
     // uint64_t           Size {1024 * 1024 * 64};
-    uint64_t           Size {1024 * 1024};
+    uint64_t           Size {1024 * 1024 * 64};
     VkBufferUsageFlags Usage {VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
     BufferPool*        Pool {nullptr};
   };
 
 private:
-  std::vector<Block> m_Blocks {};
+  Blocks m_Blocks {};
 
   VkDevice         m_Device;
   VkPhysicalDevice m_PhysicalDevice;
@@ -83,9 +94,9 @@ private:
   /**
    * Allocates a block & allocates more memory in the host & device buffer if needed.
    */
-  const Block& Allocate(uint64_t id, uint64_t bytes, bool& outResized, VkCommandBuffer commandBuffer);
+  Allocation Allocate(uint64_t id, uint64_t bytes, VkCommandBuffer commandBuffer);
 
-  void HostToDevice(VkCommandBuffer commandBuffer, const Block& block, const void* data);
+  void HostToDevice(VkCommandBuffer commandBuffer, uint64_t block, const void* data);
 
 public:
   Buffer();
@@ -95,28 +106,34 @@ public:
   Buffer(const Buffer& allocator)            = delete;
   Buffer& operator=(const Buffer& allocator) = delete;
 
-  void CreateBuffer(uint64_t size);
+  void CreateBuffer(uint64_t size = 0);
 
   void DestroyBuffer();
 
   void SetPool(BufferPool* pool) { m_Specification.Pool = pool; };
 
+  /**
+   * For storage buffers & vector data only.
+   */
   template <typename T>
-  bool Upload(VkCommandBuffer commandBuffer, uint64_t id, const std::vector<T>& vector) {
+  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, uint64_t id, const std::vector<T>& vector) {
     if (!vector.size())
-      return false;
+      return Buffer::Allocation {};
     std::vector<uint8_t> buffer = BuildStorageBufferAlignedData(vector);
     return Upload(commandBuffer, id, buffer.size(), buffer.data());
   }
 
+  /**
+   * For storage buffers & vector data only.
+   */
   template <typename T>
-  bool Upload(VkCommandBuffer commandBuffer, const std::vector<T>& vector) {
+  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, const std::vector<T>& vector) {
     return Upload(commandBuffer, 0, vector);
   }
 
-  bool Upload(VkCommandBuffer commandBuffer, uint64_t id, size_t size, const void* data);
+  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, uint64_t id, size_t size, const void* data);
 
-  bool Upload(VkCommandBuffer commandBuffer, size_t size, const void* data) {
+  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, size_t size, const void* data) {
     return Upload(commandBuffer, 0, size, data);
   }
 

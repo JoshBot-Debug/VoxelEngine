@@ -35,7 +35,9 @@ private:
   akari::render::Buffer m_IndirectBuffer {{.Usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT}};
 
   std::vector<VkBuffer> m_VertexBuffers {};
+  std::vector<uint64_t> m_VertexOffsets {};
   std::vector<VkBuffer> m_SVOBuffers {};
+  std::vector<uint64_t> m_SVOOffsets {};
 
   uint32_t m_VertexCount {0};
   uint32_t m_OverlayVertexCount {0};
