@@ -32,7 +32,7 @@ public:
   struct Specification {
     /// TODO: There is a glitch every time we need to resize the buffer and copy content.
     // uint64_t           Size {1024 * 1024 * 64};
-    uint64_t           Size {1024 * 1024 * 64};
+    uint64_t           Size {1024};
     VkBufferUsageFlags Usage {VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
     BufferPool*        Pool {nullptr};
   };

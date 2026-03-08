@@ -8,8 +8,8 @@ namespace akari::render {
 
 void Buffer::CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
 
-  // if (m_DeviceSize >= size)
-  //   return;
+  if (m_DeviceSize >= size)
+    return;
 
   auto* allocator = Application::GetVmaAllocator();
 
@@ -79,8 +79,8 @@ void Buffer::CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
 
 void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
 
-  // if (m_HostSize >= size)
-  //   return;
+  if (m_HostSize >= size)
+    return;
 
   auto* allocator = Application::GetVmaAllocator();
 
@@ -248,7 +248,7 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
       break;
     }
 
-  auto insertBlock = [&](uint64_t i, uint64_t id, uint64_t bytes) {
+  auto insertBlock = [&](uint64_t i, uint64_t id, uint64_t bytes, bool resized = false) {
     // Add a free block with the remaining bytes at position i + 1
     // If there are any left over bytes
     if (Size[i] - bytes) {
@@ -264,13 +264,33 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
     Free[i] = false;
 
     return Allocation {
-        .Index  = i,
-        .Size   = bytes,
-        .Offset = Offset[i],
+        .Index   = i,
+        .Size    = bytes,
+        .Offset  = Offset[i],
+        .Resized = resized,
     };
   };
 
-  auto mergeBlocks = [&](uint64_t i) {
+  /**
+   * Merges blocks that are in front of i if they are free.
+   * If i is the last block, it grows the size to fit the required bytes.
+   *
+   * @param i The block's index
+   * @param bytes The number of bytes we need
+   * @returns True if we resized, false otherwise
+   */
+  auto growForward = [&](uint64_t i, uint64_t bytes) -> bool {
+    // If this block is at the end
+    // Just update the size
+    if (i + 1 == Id.size()) {
+      Size[i] = bytes;
+#ifdef DEBUG
+      std::cout << "Expanding block " << i << " to " << bytes << " bytes" << std::endl;
+#endif
+      // Resized
+      return true;
+    }
+
     while (i + 1 < Id.size() && Free[i + 1]) {
       Size[i] += Size[i + 1];
 
@@ -283,6 +303,9 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
       Offset.erase(Offset.begin() + i + 1);
       Free.erase(Free.begin() + i + 1);
     }
+
+    // Did not resize
+    return false;
   };
 
   // A matching block was found
@@ -300,14 +323,14 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
     }
 
     // If there is a block next to this that's free
-    mergeBlocks(mi);
+    auto resized = growForward(mi, bytes);
 
     // Try to insert the block again after merging
     if (Size[mi] >= bytes) {
 #ifdef DEBUG
-      std::cout << "Reusing existing block(" << mi << ") after merging" << std::endl;
+      std::cout << "Reusing existing block(" << mi << ") after growing" << std::endl;
 #endif
-      return insertBlock(mi, id, bytes);
+      return insertBlock(mi, id, bytes, resized);
     }
 
     // There was not enough space in the matching block
@@ -335,14 +358,14 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
     }
 
     // If there is a block next to this that's free
-    mergeBlocks(i);
+    auto resized = growForward(i, bytes);
 
     // Try to insert the block again after merging
     if (Size[i] >= bytes) {
 #ifdef DEBUG
-      std::cout << "Reusing empty block(" << i << ") after merging" << std::endl;
+      std::cout << "Reusing empty block(" << i << ") after growing" << std::endl;
 #endif
-      return insertBlock(i, id, bytes);
+      return insertBlock(i, id, bytes, resized);
     }
   }
 
