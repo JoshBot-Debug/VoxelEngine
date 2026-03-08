@@ -26,20 +26,16 @@ private:
 
   VkDescriptorPool m_DescriptorPool;
 
-  akari::render::Buffer m_SVOBuffer {};
   akari::render::Buffer m_LightBuffer {};
   akari::render::Buffer m_MaterialBuffer {};
   akari::render::Buffer m_MaterialLUTBuffer {};
-  akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
   akari::render::Buffer m_OverlayVertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
   akari::render::Buffer m_IndirectBuffer {{.Usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT}};
 
-  std::vector<VkBuffer> m_VertexBuffers {};
-  std::vector<uint64_t> m_VertexOffsets {};
-  std::vector<VkBuffer> m_SVOBuffers {};
-  std::vector<uint64_t> m_SVOOffsets {};
-
+  VkBuffer m_VertexBuffer {};
+  VkBuffer m_SVOBuffer {};
   uint32_t m_VertexCount {0};
+  uint32_t m_IndirectDrawCount {0};
   uint32_t m_OverlayVertexCount {0};
 
   akari::render::RenderPass m_GBufferPass;

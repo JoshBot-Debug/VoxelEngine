@@ -17,11 +17,9 @@ Scene::Scene() {
       m_DirectLight,
   };
 
-  m_SVOBuffer.CreateBuffer(1024);
   m_LightBuffer.CreateBuffer(1024);
   m_MaterialBuffer.CreateBuffer(1024);
   m_MaterialLUTBuffer.CreateBuffer(1024);
-  m_VertexBuffer.CreateBuffer(1024);
   m_OverlayVertexBuffer.CreateBuffer(1024);
 }
 
@@ -313,11 +311,6 @@ void Scene::Render() {
   bool                                bufferResized {false};
 
   if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_RENDER)) {
-    m_VertexBuffers.clear();
-    m_VertexOffsets.clear();
-    m_SVOBuffers.clear();
-    m_SVOOffsets.clear();
-
     auto flushedChunks = m_World->FlushRenderer(commandBuffer);
 
     std::vector<VkDrawIndirectCommand> indirectCommands {};
@@ -330,16 +323,23 @@ void Scene::Render() {
           .firstInstance = 0,
       });
 
-      bufferBarriers.push_back(o.VertexBarrier);
-      bufferBarriers.push_back(o.SVOBarrier);
-
-      m_VertexBuffers.push_back(o.VertexBuffer);
-      m_VertexOffsets.push_back(o.VertexOffset);
-      m_SVOBuffers.push_back(o.SVOBuffer);
-      m_SVOOffsets.push_back(o.SVOOffset);
-
-      std::cout << o.VertexOffset << " " << o.SVOOffset << std::endl;
       bufferResized |= o.VerticesResized || o.SVOResized;
+      m_VertexCount += o.VertexCount;
+    }
+
+    if (flushedChunks.size()) {
+      auto svoBuffer    = m_World->GetSVOBuffer();
+      auto vertexBuffer = m_World->GetVertexBuffer();
+
+      m_VertexBuffer = vertexBuffer.Buffer;
+      m_SVOBuffer    = svoBuffer.Buffer;
+
+      if (bufferResized) {
+        bufferBarriers.push_back(svoBuffer.Barrier);
+        bufferBarriers.push_back(vertexBuffer.Barrier);
+      }
+
+      m_IndirectDrawCount = static_cast<uint32_t>(flushedChunks.size());
     }
 
     m_IndirectBuffer.Upload(commandBuffer, indirectCommands.size() * sizeof(VkDrawIndirectCommand), indirectCommands.data());
@@ -348,8 +348,6 @@ void Scene::Render() {
 
     const std::vector<Material>&                        materials   = m_World->GetMaterials();
     const std::vector<uint32_t>&                        materialLUT = m_World->GetMaterialsLUT();
-    const std::vector<SparseOctree<Voxel>::FlatNode>&   svo         = m_World->GetSVO();
-    const std::vector<Vertex>&                          vertices    = m_World->GetVertices();
     const std::vector<SparseOctree<Voxel>::FilterNode>& lights      = m_World->GetLights();
 
     if (bool resized = m_MaterialBuffer.Upload(commandBuffer, materials).Resized || materials.size()) {
@@ -367,22 +365,8 @@ void Scene::Render() {
       bufferBarriers.emplace_back(m_LightBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
     }
 
-    if (bool resized = m_SVOBuffer.Upload(commandBuffer, svo).Resized || svo.size()) {
-      bufferResized = bufferResized || resized;
-      bufferBarriers.emplace_back(m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
-    }
-
-    if (bool resized = m_VertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(Vertex), vertices.data()).Resized || vertices.size()) {
-      bufferResized = bufferResized || resized;
-      m_VertexCount = vertices.size();
-      bufferBarriers.emplace_back(m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
-    }
-
     m_World->Clean();
   }
-
-  if (!m_SVOBuffers.size())
-    return;
 
   {
     auto vertices = m_UI->GetHighlightVertices();
@@ -426,14 +410,14 @@ void Scene::Render() {
 
     m_GeometryPipeline.DrawIndirect({
         .commandBuffer  = commandBuffer,
-        .vertexBuffers  = {m_VertexBuffers[m_VertexBuffers.size() - 1]},
+        .vertexBuffers  = {m_VertexBuffer},
         .offsets        = {0},
         .descriptorSets = {
             m_GeometryPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
         },
         .indirectBuffer = m_IndirectBuffer.GetBuffer(),
         .indirectOffset = 0,
-        .drawCount      = static_cast<uint32_t>(m_VertexBuffers.size()),
+        .drawCount      = m_IndirectDrawCount,
         .stride         = sizeof(VkDrawIndirectCommand),
     });
 
@@ -536,17 +520,6 @@ void Scene::RenderUI() {
 void Scene::CreateDescriptorSets() {
   uint32_t                                   framesInFlight = akari::window::Application::GetMaxFramesInFlight();
   std::vector<Pipeline::DescriptorWriteInfo> cameraWrites(framesInFlight);
-
-  std::vector<VkDescriptorBufferInfo> svoBufferInfos {};
-
-  for (size_t i = 0; i < m_SVOBuffers.size() ? 1 : 0; i++)
-  {
-    svoBufferInfos.emplace_back(VkDescriptorBufferInfo {
-        .buffer = m_SVOBuffers[i],
-        .offset = m_SVOOffsets[i],
-        .range  = VK_WHOLE_SIZE,
-    });
-  }
 
   for (size_t i = 0; i < framesInFlight; i++)
     cameraWrites[i] = Pipeline::DescriptorWriteInfo {
@@ -724,7 +697,13 @@ void Scene::CreateDescriptorSets() {
           Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                           .binding = vxen::Binding::S_SVO,
-                          .buffer  = svoBufferInfos,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_SVOBuffer,
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
+              },
           },
       },
   });

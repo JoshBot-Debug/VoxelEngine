@@ -66,9 +66,8 @@ World::World(uint32_t m_ChunkSize)
   // ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}); });
 
-  for (size_t z = 0; z < 3; z++)
-    // for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
-    for (size_t x = 0; x < 3; x++)
+  for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
+    for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
       GenerateChunk({x, 0, z});
 }
 
@@ -161,6 +160,22 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 }
 
+World::ChunkManagerBuffer World::GetSVOBuffer() {
+  auto* b = m_ChunkManager->GetSVOBuffer();
+  return ChunkManagerBuffer {
+      .Buffer  = b->GetBuffer(),
+      .Barrier = b->GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
+  };
+}
+
+World::ChunkManagerBuffer World::GetVertexBuffer() {
+  auto* b = m_ChunkManager->GetVertexBuffer();
+  return ChunkManagerBuffer {
+      .Buffer  = b->GetBuffer(),
+      .Barrier = b->GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT),
+  };
+}
+
 const std::vector<vxen::Chunk<64U>::FlushedChunk> World::FlushRenderer(VkCommandBuffer commandBuffer) {
   auto flushed = m_ChunkManager->FlushRenderer(commandBuffer);
 
@@ -168,10 +183,8 @@ const std::vector<vxen::Chunk<64U>::FlushedChunk> World::FlushRenderer(VkCommand
 }
 
 void World::Clean() {
-  m_FlatSVO.clear();
   m_Materials.clear();
   m_MaterialsLUT.clear();
-  m_Vertices.clear();
   m_Lights.clear();
 }
 

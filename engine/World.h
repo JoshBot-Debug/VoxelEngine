@@ -18,6 +18,12 @@ using WorldChunkManager = vxen::ChunkManager<64, 4>;
 namespace vxen {
 
 class World {
+public:
+  struct ChunkManagerBuffer {
+    VkBuffer               Buffer {nullptr};
+    VkBufferMemoryBarrier2 Barrier;
+  };
+
 private:
   uint32_t m_ChunkSize {0};
 
@@ -42,8 +48,6 @@ private:
 
   std::vector<Material>                        m_Materials {};
   std::vector<uint32_t>                        m_MaterialsLUT {};
-  std::vector<SparseOctree<Voxel>::FlatNode>   m_FlatSVO {};
-  std::vector<Vertex>                          m_Vertices {};
   std::vector<SparseOctree<Voxel>::FilterNode> m_Lights {};
 
 private:
@@ -67,14 +71,16 @@ public:
 
   const std::vector<Material>&                        GetMaterials() { return m_Materials; };
   const std::vector<uint32_t>&                        GetMaterialsLUT() { return m_MaterialsLUT; };
-  const std::vector<SparseOctree<Voxel>::FlatNode>&   GetSVO() { return m_FlatSVO; };
-  const std::vector<Vertex>&                          GetVertices() { return m_Vertices; };
   const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
+
+  ChunkManagerBuffer GetSVOBuffer();
+
+  ChunkManagerBuffer GetVertexBuffer();
 
   WorldChunkManager* GetChunkManager() { return m_ChunkManager; };
 
   const std::vector<vxen::Chunk<64U>::FlushedChunk> FlushRenderer(VkCommandBuffer commandBuffer);
-  
+
   void Clean();
 };
 

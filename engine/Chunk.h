@@ -25,15 +25,11 @@ public:
   static constexpr uint32_t SIZE = SS;
 
   struct FlushedChunk {
-    bool                   VerticesResized {0};
-    bool                   SVOResized {0};
-    uint32_t               VertexOffset {0};
-    uint32_t               SVOOffset {0};
-    uint32_t               VertexCount {0};
-    VkBufferMemoryBarrier2 VertexBarrier {};
-    VkBufferMemoryBarrier2 SVOBarrier {};
-    VkBuffer               SVOBuffer {VK_NULL_HANDLE};
-    VkBuffer               VertexBuffer {VK_NULL_HANDLE};
+    uint32_t VertexOffset {0};
+    uint32_t SVOOffset {0};
+    bool     VerticesResized {0};
+    bool     SVOResized {0};
+    uint32_t VertexCount {0};
   };
 
 private:
@@ -283,7 +279,6 @@ inline void Chunk<SS>::FlushUpdates(const glm::ivec3& offset, const std::vector<
 
 template <uint32_t SS>
 inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer) {
-  /// TODO: Prepare the VkBuffers
   auto vertexAlloc = vertexBuffer->Upload(commandBuffer, Id, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
   auto svoAlloc    = svoBuffer->Upload(commandBuffer, Id, m_FlatNodes);
 
@@ -292,13 +287,8 @@ inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer c
 
   m_FlushedChunk.VerticesResized = vertexAlloc.Resized;
   m_FlushedChunk.SVOResized      = svoAlloc.Resized;
-  m_FlushedChunk.VertexCount     = static_cast<uint64_t>(m_Vertices.size());
 
-  m_FlushedChunk.VertexBarrier = vertexBuffer->GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT);
-  m_FlushedChunk.SVOBarrier    = svoBuffer->GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
-
-  m_FlushedChunk.VertexBuffer = vertexBuffer->GetBuffer();
-  m_FlushedChunk.SVOBuffer    = svoBuffer->GetBuffer();
+  m_FlushedChunk.VertexCount = static_cast<uint64_t>(m_Vertices.size());
 
   return m_FlushedChunk;
 }

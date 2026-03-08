@@ -96,6 +96,10 @@ public:
    */
   SparseOctree<Chunk<SS>, CS>::Node* Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z);
 
+  akari::render::Buffer* GetSVOBuffer();
+
+  akari::render::Buffer* GetVertexBuffer();
+
   /**
    * ******************************************************************************
    * NOTE:                                                                        *
@@ -382,6 +386,16 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(Spa
 template <uint32_t SS, uint8_t CS>
 inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
   return m_Chunks->Get(session, x, y, z);
+}
+
+template <uint32_t SS, uint8_t CS>
+inline akari::render::Buffer* ChunkManager<SS, CS>::GetSVOBuffer() {
+  return &m_SVOBuffer;
+}
+
+template <uint32_t SS, uint8_t CS>
+inline akari::render::Buffer* ChunkManager<SS, CS>::GetVertexBuffer() {
+  return &m_VertexBuffer;
 }
 
 template <uint32_t SS, uint8_t CS>
