@@ -166,3 +166,4 @@ When chunk manager sets voxels, padding should be calculated.
 TODO:
 Need to create an allocator. Use one VkBuffer for verticies. Use indirect draw for drawing different offsets in that buffer.
 /// TODO: There is a glitch every time we need to resize the buffer and copy content. only when the buffer size is small
+The buffer default size in Buffer.h is 1 kb, need to increase it something more reasonably or set it whereever I create a buffer.

@@ -34,7 +34,6 @@ private:
 
   VkBuffer m_VertexBuffer {};
   VkBuffer m_SVOBuffer {};
-  uint32_t m_VertexCount {0};
   uint32_t m_IndirectDrawCount {0};
   uint32_t m_OverlayVertexCount {0};
 

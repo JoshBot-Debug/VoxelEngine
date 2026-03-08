@@ -324,7 +324,6 @@ void Scene::Render() {
       });
 
       bufferResized |= o.VerticesResized || o.SVOResized;
-      m_VertexCount += o.VertexCount;
     }
 
     if (flushedChunks.size()) {
