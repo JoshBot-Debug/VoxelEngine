@@ -426,8 +426,8 @@ void Scene::Render() {
 
     m_GeometryPipeline.DrawIndirect({
         .commandBuffer  = commandBuffer,
-        .vertexBuffers  = m_VertexBuffers,
-        .offsets        = std::vector<VkDeviceSize>(m_VertexBuffers.size(), 0),
+        .vertexBuffers  = {m_VertexBuffers[m_VertexBuffers.size() - 1]},
+        .offsets        = {0},
         .descriptorSets = {
             m_GeometryPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
         },
@@ -539,7 +539,7 @@ void Scene::CreateDescriptorSets() {
 
   std::vector<VkDescriptorBufferInfo> svoBufferInfos {};
 
-  for (size_t i = 0; i < m_SVOBuffers.size(); i++)
+  for (size_t i = 0; i < m_SVOBuffers.size() ? 1 : 0; i++)
   {
     svoBufferInfos.emplace_back(VkDescriptorBufferInfo {
         .buffer = m_SVOBuffers[i],

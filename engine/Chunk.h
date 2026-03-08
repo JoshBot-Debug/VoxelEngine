@@ -44,9 +44,6 @@ private:
   std::vector<Vertex>                                     m_Vertices {};
   std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
 
-  akari::render::Buffer m_SVOBuffer {};
-  akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
-
   FlushedChunk m_FlushedChunk;
 
   static uint32_t UID();
@@ -55,15 +52,9 @@ public:
   uint32_t Id {0};
 
 public:
-  Chunk(akari::render::BufferPool* svoPool, akari::render::BufferPool* vertexPool)
+  Chunk()
       : m_SVO(new SparseOctree<Voxel, SS>())
-      , Id(UID()) {
-    m_SVOBuffer.SetPool(svoPool);
-    m_VertexBuffer.SetPool(vertexPool);
-
-    m_SVOBuffer.CreateBuffer(1024);
-    m_VertexBuffer.CreateBuffer(1024);
-  };
+      , Id(UID()) {};
 
   ~Chunk() {
     delete m_SVO;
@@ -111,7 +102,7 @@ public:
 
   void FlushUpdates(const glm::ivec3& offset, const std::vector<uint32_t>& ids);
 
-  const FlushedChunk& FlushRenderer(VkCommandBuffer commandBuffer);
+  const FlushedChunk& FlushRenderer(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer);
 };
 
 template <uint32_t SS>
@@ -291,10 +282,10 @@ inline void Chunk<SS>::FlushUpdates(const glm::ivec3& offset, const std::vector<
 }
 
 template <uint32_t SS>
-inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer commandBuffer) {
+inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer) {
   /// TODO: Prepare the VkBuffers
-  auto vertexAlloc = m_VertexBuffer.Upload(commandBuffer, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
-  auto svoAlloc    = m_SVOBuffer.Upload(commandBuffer, m_FlatNodes);
+  auto vertexAlloc = vertexBuffer->Upload(commandBuffer, Id, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
+  auto svoAlloc    = svoBuffer->Upload(commandBuffer, Id, m_FlatNodes);
 
   m_FlushedChunk.VertexOffset = vertexAlloc.Offset;
   m_FlushedChunk.SVOOffset    = svoAlloc.Offset;
@@ -303,11 +294,11 @@ inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer c
   m_FlushedChunk.SVOResized      = svoAlloc.Resized;
   m_FlushedChunk.VertexCount     = static_cast<uint64_t>(m_Vertices.size());
 
-  m_FlushedChunk.VertexBarrier = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT);
-  m_FlushedChunk.SVOBarrier    = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
+  m_FlushedChunk.VertexBarrier = vertexBuffer->GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT);
+  m_FlushedChunk.SVOBarrier    = svoBuffer->GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT);
 
-  m_FlushedChunk.VertexBuffer = m_VertexBuffer.GetBuffer();
-  m_FlushedChunk.SVOBuffer    = m_SVOBuffer.GetBuffer();
+  m_FlushedChunk.VertexBuffer = vertexBuffer->GetBuffer();
+  m_FlushedChunk.SVOBuffer    = svoBuffer->GetBuffer();
 
   return m_FlushedChunk;
 }

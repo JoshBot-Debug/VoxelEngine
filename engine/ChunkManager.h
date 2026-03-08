@@ -39,6 +39,9 @@ private:
   SparseOctree<Chunk<SS>, CS>*                  m_Chunks {nullptr};
   std::vector<typename Chunk<SS>::FlushedChunk> m_FlushedChunks {};
 
+  akari::render::Buffer m_SVOBuffer {};
+  akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+
 private:
   /**
    * Enures that a chunk will be returned, creates one if it does not exist.
@@ -322,7 +325,7 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(
   typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(x, y, z);
   if (chunk)
     return chunk;
-  m_Chunks->Set(x, y, z, &m_ChunkAllocator.emplace_back(&m_SVOPool, &m_VertexPool));
+  m_Chunks->Set(x, y, z, &m_ChunkAllocator.emplace_back());
   return m_Chunks->Get(x, y, z);
 }
 
@@ -333,7 +336,13 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(
 
 template <uint32_t SS, uint8_t CS>
 inline ChunkManager<SS, CS>::ChunkManager()
-    : m_Chunks(new SparseOctree<Chunk<SS>, CS>()) {}
+    : m_Chunks(new SparseOctree<Chunk<SS>, CS>()) {
+  m_SVOBuffer.SetPool(&m_SVOPool);
+  m_VertexBuffer.SetPool(&m_VertexPool);
+
+  m_SVOBuffer.CreateBuffer(1024);
+  m_VertexBuffer.CreateBuffer(1024);
+}
 
 template <uint32_t SS, uint8_t CS>
 inline ChunkManager<SS, CS>::~ChunkManager() {
@@ -531,7 +540,7 @@ inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
         if (m_Chunks->Exists(x, y, z))
-          m_FlushedChunks.emplace_back(m_Chunks->Get(x, y, z)->Data->FlushRenderer(commandbuffer));
+          m_FlushedChunks.emplace_back(m_Chunks->Get(x, y, z)->Data->FlushRenderer(commandbuffer, &m_VertexBuffer, &m_SVOBuffer));
 
   return m_FlushedChunks;
 }
