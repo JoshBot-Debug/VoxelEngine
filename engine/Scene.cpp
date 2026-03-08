@@ -338,6 +338,7 @@ void Scene::Render() {
       m_SVOBuffers.push_back(o.SVOBuffer);
       m_SVOOffsets.push_back(o.SVOOffset);
 
+      std::cout << o.VertexOffset << " " << o.SVOOffset << std::endl;
       bufferResized |= o.VerticesResized || o.SVOResized;
     }
 

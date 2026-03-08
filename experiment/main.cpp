@@ -246,7 +246,8 @@ static void BM_Buffer_Block_Allocate(benchmark::State& state) {
 
     blocks.Allocate(0, 1024);
     blocks.Allocate(0, 512);
-    blocks.Allocate(0, 256);
+    blocks.Allocate(0, 1024);
+    // blocks.Allocate(0, 256);
     // blocks.Allocate(0, 2048);
 
     std::cout << blocks.Id.size() << std::endl;
@@ -263,9 +264,23 @@ static void BM_Buffer_Block_Allocate(benchmark::State& state) {
 // BENCHMARK(BM_SVO_Flatten);
 // BENCHMARK(BM_SVO_Raymarch);
 // BENCHMARK(BM_SVO_DeepRaymarch);
-BENCHMARK(BM_Buffer_Block_Allocate);
+// BENCHMARK(BM_Buffer_Block_Allocate);
 
-BENCHMARK_MAIN();
+// BENCHMARK_MAIN();
+
+int main(int argc, char** argv) {
+  akari::render::Buffer::Blocks blocks;
+
+  blocks.Allocate(0, 1024);
+  blocks.Allocate(0, 512);
+  blocks.Allocate(0, 256);
+  blocks.Allocate(0, 128);
+  blocks.Allocate(0, 2048);
+  blocks.Allocate(0, 1024);
+  blocks.Allocate(0, 2048);
+
+  std::cout << blocks.Id.size() << std::endl;
+}
 
 // int main(int argc, char** argv) {
 //   SparseOctreeWithoutRCU<Voxel> svo;

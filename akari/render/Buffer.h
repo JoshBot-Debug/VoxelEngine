@@ -27,8 +27,6 @@ public:
     std::vector<bool>     Free {};
 
     Allocation Allocate(uint64_t id, uint64_t bytes);
-
-    void Resize(uint64_t bytes);
   };
 
   struct Specification {
@@ -96,7 +94,7 @@ private:
    */
   Allocation Allocate(uint64_t id, uint64_t bytes, VkCommandBuffer commandBuffer);
 
-  void HostToDevice(VkCommandBuffer commandBuffer, uint64_t block, const void* data);
+  void HostToDevice(VkCommandBuffer commandBuffer, const Buffer::Allocation& allocation, const void* data);
 
 public:
   Buffer();
