@@ -51,14 +51,10 @@ static uint32_t                 g_MinImageCount    = 2;
 static bool                     g_SwapChainRebuild = false;
 
 // Per-frame-in-flight
-static std::vector<std::vector<VkCommandBuffer>>        s_AllocatedCommandBuffers;
-static std::vector<std::vector<std::function<void()>>>  s_ResourceFreeQueue;
-static std::vector<std::vector<DeferredBufferFreeInfo>> s_BufferFreeQueue;
+static std::vector<std::vector<VkCommandBuffer>> s_AllocatedCommandBuffers;
+static Defer                                     s_Defer;
 
-// Unlike g_MainWindowData.FrameIndex, this is not the the swapchain image index
-// and is always guaranteed to increase (eg. 0, 1, 2, 0, 1, 2)
-static uint32_t s_CurrentFrameIndex = 0;
-static uint32_t g_FrameIndex        = 0;
+static uint32_t g_FrameIndex = 0;
 
 static akari::window::Application* s_Instance = nullptr;
 static std::vector<ImFont*>        s_Fonts;
@@ -392,13 +388,13 @@ static void CleanupVulkan() {
           "vkDestroyDebugUtilsMessengerEXT");
   vkDestroyDebugUtilsMessengerEXT(g_Instance, g_DebugMessenger, g_Allocator);
 #endif
-#endif
 
 #ifdef ENABLE_VMA_STATS_LOG
   char* statsString = nullptr;
   vmaBuildStatsString(g_VmaAllocator, &statsString, VK_TRUE);
   printf("VMA Stats:\n%s\n", statsString);
   vmaFreeStatsString(g_VmaAllocator, statsString);
+#endif
 #endif
 
   vmaDestroyAllocator(g_VmaAllocator);
@@ -417,9 +413,10 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* drawData) {
   ImGui_ImplVulkanH_FrameSemaphores* fs                      = &wd->FrameSemaphores[wd->SemaphoreIndex];
   VkSemaphore                        imageAcquiredSemaphore  = fs->ImageAcquiredSemaphore;
   VkSemaphore                        renderCompleteSemaphore = fs->RenderCompleteSemaphore;
-  g_FrameIndex                                               = wd->FrameIndex;
 
   err = vkAcquireNextImageKHR(g_Device, wd->Swapchain, UINT64_MAX, imageAcquiredSemaphore, VK_NULL_HANDLE, &wd->FrameIndex);
+
+  g_FrameIndex = wd->FrameIndex;
 
   if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR) {
     g_SwapChainRebuild = true;
@@ -437,18 +434,18 @@ static void FrameRender(ImGui_ImplVulkanH_Window* wd, ImDrawData* drawData) {
     CheckVkResult(err, "Failed to at vkResetFences");
   }
 
+  // Free buffers after waiting on frame
   {
-    // Free resources in queue
-    for (auto& func : s_ResourceFreeQueue[s_CurrentFrameIndex])
-      func();
-    s_ResourceFreeQueue[s_CurrentFrameIndex].clear();
+    for (auto& b : s_Defer.FreeBuffers[g_FrameIndex])
+      vmaDestroyBuffer(g_VmaAllocator, b.buffer, b.allocation);
+    s_Defer.FreeBuffers[g_FrameIndex].clear();
   }
 
+  // Free resources in queue after waiting on frame
   {
-    // Free buffers after waiting on frame
-    for (auto& b : s_BufferFreeQueue[g_FrameIndex])
-      vmaDestroyBuffer(g_VmaAllocator, b.buffer, b.allocation);
-    s_BufferFreeQueue[g_FrameIndex].clear();
+    for (auto& func : s_Defer.FreeResources[g_FrameIndex])
+      func();
+    s_Defer.FreeResources[g_FrameIndex].clear();
   }
 
   {
@@ -527,8 +524,7 @@ static void FramePresent(ImGui_ImplVulkanH_Window* wd) {
 
   CheckVkResult(err, "Failed to at vkQueuePresentKHR");
 
-  wd->SemaphoreIndex  = (wd->SemaphoreIndex + 1) % wd->SemaphoreCount;
-  s_CurrentFrameIndex = (s_CurrentFrameIndex + 1) % g_MainWindowData.ImageCount;
+  wd->SemaphoreIndex = (wd->SemaphoreIndex + 1) % wd->SemaphoreCount;
 }
 
 static void GLFWCallbackError(int error, const char* description) {
@@ -600,8 +596,8 @@ void Application::Init() {
   SetupVulkanWindow(wd, g_Surface, w, h);
 
   s_AllocatedCommandBuffers.resize(wd->ImageCount);
-  s_ResourceFreeQueue.resize(wd->ImageCount);
-  s_BufferFreeQueue.resize(wd->ImageCount);
+  s_Defer.FreeBuffers.resize(wd->ImageCount);
+  s_Defer.FreeResources.resize(wd->ImageCount);
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -738,12 +734,17 @@ void Application::Shutdown() {
   VkResult err = vkDeviceWaitIdle(g_Device);
   CheckVkResult(err, "Failed to at vkDeviceWaitIdle");
 
+  // Free buffers in queue
+  for (auto& queue : s_Defer.FreeBuffers)
+    for (auto& b : queue)
+      vmaDestroyBuffer(g_VmaAllocator, b.buffer, b.allocation);
+  s_Defer.FreeBuffers.clear();
+
   // Free resources in queue
-  for (auto& queue : s_ResourceFreeQueue) {
+  for (auto& queue : s_Defer.FreeResources)
     for (auto& func : queue)
       func();
-  }
-  s_ResourceFreeQueue.clear();
+  s_Defer.FreeResources.clear();
 
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
@@ -963,12 +964,12 @@ void Application::FlushCommandBuffer(VkCommandBuffer commandBuffer) {
   vkDestroyFence(g_Device, fence, nullptr);
 }
 
-void Application::SubmitResourceFree(std::function<void()>&& func) {
-  s_ResourceFreeQueue[s_CurrentFrameIndex].emplace_back(func);
+void Application::FreeResource(std::function<void()>&& func) {
+  s_Defer.FreeResources[g_FrameIndex].emplace_back(func);
 }
 
-void Application::SubmitBufferFree(const DeferredBufferFreeInfo& info) {
-  s_BufferFreeQueue[g_FrameIndex].emplace_back(info);
+void Application::FreeBuffer(const FreeBufferInfo& info) {
+  s_Defer.FreeBuffers[g_FrameIndex].emplace_back(info);
 }
 
 VkSampleCountFlagBits Application::GetMaxUsableSampleCount() {

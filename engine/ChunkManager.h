@@ -96,8 +96,14 @@ public:
    */
   SparseOctree<Chunk<SS>, CS>::Node* Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z);
 
+  /**
+   * Get the SVO buffer
+   */
   akari::render::Buffer* GetSVOBuffer();
 
+  /**
+   * Get the Vertex buffer
+   */
   akari::render::Buffer* GetVertexBuffer();
 
   /**
@@ -280,9 +286,18 @@ public:
    */
   typename SparseOctree<Voxel, SS>::Hit DeepRaymarch(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
 
+  /**
+   * Triggers multi thread greedy meshing.
+   * @param ids Used to split greedy meshing, each id is meshed in a seperate thread. Generally these ids would represent different voxel types, each type can be merged together.
+   */
   void FlushUpdates(const std::vector<uint32_t>& ids);
 
-  const std::vector<typename Chunk<SS>::FlushedChunk>& FlushRenderer(VkCommandBuffer commandbuffer);
+  /**
+   * Collects all flushed chunks that are dirty
+   * @param commandBuffer The command buffer for this frame
+   * @returns A vector of flushed chunks that need to be rendered. Uses to create indirect draw commands.
+   */
+  const std::vector<typename Chunk<SS>::FlushedChunk>& FlushRenderer(VkCommandBuffer commandBuffer);
 
   /**
    * Converts world coordinates (96, 32, 32) to chunk coordinates (1, 0, 0)
@@ -415,22 +430,27 @@ inline void ChunkManager<SS, CS>::Sync(const glm::u8vec3& coordinate) {
 
 template <uint32_t SS, uint8_t CS>
 inline void ChunkManager<SS, CS>::Set(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z, Voxel* data) {
-  Ensure(coordinate.x, coordinate.y, coordinate.z)->Data->Set(x, y, z, data);
+  auto chunk = Ensure(coordinate.x, coordinate.y, coordinate.z);
+
+  chunk->Data->Set(x, y, z, data);
 }
 
 template <uint32_t SS, uint8_t CS>
 inline void ChunkManager<SS, CS>::Set(const glm::u8vec3& coordinate, const glm::u8vec3& position, Voxel* data) {
-  Ensure(coordinate.x, coordinate.y, coordinate.z)->Data->Set(position.x, position.y, position.z, data);
+  auto chunk = Ensure(coordinate.x, coordinate.y, coordinate.z);
+  chunk->Data->Set(position.x, position.y, position.z, data);
 }
 
 template <uint32_t SS, uint8_t CS>
 inline void ChunkManager<SS, CS>::Set(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Writer& session, const glm::u8vec3& position, Voxel* data) {
-  Ensure(coordinate.x, coordinate.y, coordinate.z)->Data->Set(session, position.x, position.y, position.z, data);
+  auto chunk = Ensure(coordinate.x, coordinate.y, coordinate.z);
+  chunk->Data->Set(session, position.x, position.y, position.z, data);
 }
 
 template <uint32_t SS, uint8_t CS>
 inline void ChunkManager<SS, CS>::Set(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Writer& session, uint8_t x, uint8_t y, uint8_t z, Voxel* data) {
-  Ensure(coordinate.x, coordinate.y, coordinate.z)->Data->Set(session, x, y, z, data);
+  auto chunk = Ensure(coordinate.x, coordinate.y, coordinate.z);
+  chunk->Data->Set(session, x, y, z, data);
 }
 
 template <uint32_t SS, uint8_t CS>
@@ -545,7 +565,7 @@ inline void ChunkManager<SS, CS>::FlushUpdates(const std::vector<uint32_t>& ids)
 }
 
 template <uint32_t SS, uint8_t CS>
-inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>::FlushRenderer(VkCommandBuffer commandbuffer) {
+inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>::FlushRenderer(VkCommandBuffer commandBuffer) {
   /// TODO: Need to FlushRenderer() only chunks that are dirty
 
   m_FlushedChunks.clear();
@@ -554,7 +574,7 @@ inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
         if (m_Chunks->Exists(x, y, z))
-          m_FlushedChunks.emplace_back(m_Chunks->Get(x, y, z)->Data->FlushRenderer(commandbuffer, &m_VertexBuffer, &m_SVOBuffer));
+          m_FlushedChunks.emplace_back(m_Chunks->Get(x, y, z)->Data->FlushRenderer(commandBuffer, &m_VertexBuffer, &m_SVOBuffer));
 
   return m_FlushedChunks;
 }

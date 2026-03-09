@@ -74,7 +74,7 @@ void Buffer::CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
   }
 
   if (previousBuffer)
-    Application::SubmitBufferFree({previousBuffer, previousAllocation});
+    Application::FreeBuffer({previousBuffer, previousAllocation});
 }
 
 void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
@@ -145,7 +145,7 @@ void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
   }
 
   if (previousBuffer)
-    Application::SubmitBufferFree({previousBuffer, previousAllocation});
+    Application::FreeBuffer({previousBuffer, previousAllocation});
 }
 
 Buffer::Allocation Buffer::Allocate(uint64_t id, uint64_t bytes, VkCommandBuffer commandBuffer) {

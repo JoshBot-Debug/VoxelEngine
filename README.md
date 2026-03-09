@@ -116,7 +116,7 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
   - [x] Add .GetAxis() - It should return a mask (uint64_t mask[4096]) of x axis for a material
   - [x] Remove the mask generated in GreedyMesh64, it's per voxel and too slow.
 - [x] Threads clone & start are very slow. Need to implement a thread pool.
-- [ ] Improve sync between flushes. When a thread is dispatched, it may be completed after OnUpdate() and before OnRender()
+- [x] Improve sync between flushes. When a thread is dispatched, it may be completed after OnUpdate() and before OnRender()
       OnRender() clears the dirty flag and OnUpdate never see the flag. Nothing is rendered to the screen.
       Proposal: World::Flag(CHUNK_MANAGER_SYNC_BIT), World::Flag(CHUNK_MANAGER_FLUSH_BIT), World::Flag(PALETTE_FLUSH_BIT)
       At the start of OnUpdate(), call World::Sync(), it should check all FLAGS and Flush() / Sync() / Others...
@@ -127,7 +127,7 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
       API: - std::atomic<uint64_t> m_Flags; - std::queue<DirtyChunk> m_DirtyChunks; - Signal::Set(WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) // different flags for RENDER_BIT, UPDATE_BIT - Signal::Queue(DirtyChunk{0,0,0}) // The queue must be protected with a mutex - Signal::Pop<DirtyChunk>(); - if (m_Flags & WORLD_FLAG_CHUNK_MANAGER_SYNC_UPDATE_BIT) atomically read & clear the flag & start popping DirtyChunks (copy the queue & clear it);
 - [ ] Make the world round and vast to make it seemingly infinate, like the real world and keep all coordinates positive
       - Research octahedral projection mapping http://www.raytracerchallenge.com/bonus/texture-mapping.html
-- [ ] Add multithreading to chunk manager.
+- [x] Add multithreading to chunk manager.
 - [ ] Handle a vertex buffer pool & multiple flat SVO's for raytracing. Seperate by chunk.
 
 - Retire & copy only when modified

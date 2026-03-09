@@ -19,9 +19,14 @@
 
 #include "vk_mem_alloc.h"
 
-struct DeferredBufferFreeInfo {
+struct FreeBufferInfo {
   VkBuffer      buffer;
   VmaAllocation allocation;
+};
+
+struct Defer {
+  std::vector<std::vector<FreeBufferInfo>>        FreeBuffers;
+  std::vector<std::vector<std::function<void()>>> FreeResources;
 };
 
 namespace akari::window {
@@ -113,8 +118,15 @@ public:
   static VkCommandPool GetCommandPool();
   static void          FlushCommandBuffer(VkCommandBuffer commandBuffer);
 
-  static void SubmitResourceFree(std::function<void()>&& func);
-  static void SubmitBufferFree(const DeferredBufferFreeInfo& info);
+  /**
+   * Defers freeing resources until after waiting on frame
+   */
+  static void FreeResource(std::function<void()>&& func);
+
+  /**
+   * Defers freeing buffer until after waiting on frame
+   */
+  static void FreeBuffer(const FreeBufferInfo& info);
 
   static VkSampleCountFlagBits GetMaxUsableSampleCount();
   static uint32_t              GetGraphicsQueueFamilyIndex();

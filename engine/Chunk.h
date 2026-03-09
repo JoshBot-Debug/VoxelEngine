@@ -11,7 +11,7 @@
 
 #include "render/Buffer.h"
 #include "render/BufferPool.h"
-#include "state/StateMachine.h"
+#include "window/Application.h"
 
 #include "Signal.h"
 

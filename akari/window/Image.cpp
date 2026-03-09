@@ -113,7 +113,7 @@ void Image::Initialize(const Specification& specification) {
 void Image::Release() {
   VkDevice device = akari::window::Application::GetDevice();
 
-  akari::window::Application::SubmitResourceFree(
+  akari::window::Application::FreeResource(
       [sampler = m_Sampler, imageView = m_ImageView, image = m_Image, stagingBuffer = m_StagingBuffer, imageAllocation = m_ImageAllocation, stagingBufferAllocation = m_StagingBufferAllocation]() {
         VmaAllocator allocator = akari::window::Application::GetVmaAllocator();
         VkDevice     device    = akari::window::Application::GetDevice();
