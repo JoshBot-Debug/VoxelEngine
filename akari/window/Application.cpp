@@ -157,11 +157,11 @@ static void SetupVulkan(std::vector<const char*>& instanceExtensions) {
     CheckVkResult(err, "Failed to at vkCreateInstance");
 
     SetupDebugMessenger(g_Instance);
+#endif
 #else
     // Create Vulkan Instance without any debug feature
     err = vkCreateInstance(&createInfo, g_Allocator, &g_Instance);
     CheckVkResult(err, "Failed to at vkCreateInstance");
-#endif
 #endif
   }
 
