@@ -10,7 +10,9 @@ bool g_ApplicationRunning {false};
 #include "voxel/SparseOctreeWithoutRCU.h"
 #include "voxel/Voxel.h"
 
-const int ITERATIONS = 64;
+#include <random>
+
+const int ITERATIONS = 1;
 
 static void BM_SVO_Set_With_RCU_With_Clone_Check(benchmark::State& state) {
   SparseOctree<Voxel> svo;
@@ -200,12 +202,40 @@ static void BM_SVO_Raymarch(benchmark::State& state) {
   }
   svo.Sync();
 
+  struct Ray {
+    glm::vec3 origin;
+    glm::vec3 dir;
+  };
+
+  std::vector<Ray> rays;
+  glm::vec3        camera = {32.f, 32.f, 144.f};
+
+  const int   resolution = 128;
+  const float volumeSize = 64.0f;
+
+  for (int y = 0; y < resolution; y++)
+    for (int x = 0; x < resolution; x++) {
+
+      float u = (x + 0.5f) / resolution;
+      float v = (y + 0.5f) / resolution;
+
+      glm::vec3 target {
+          u * volumeSize,
+          v * volumeSize,
+          0.0f};
+
+      glm::vec3 dir = glm::normalize(target - camera);
+
+      rays.push_back({camera, dir});
+    }
+
+  std::shuffle(rays.begin(), rays.end(), std::mt19937(42));
+
   for (auto _ : state) {
-    auto w = svo.BeginRead();
-    for (int x = 0; x < 64; x += 2)
-      for (int y = 0; y < 64; y += 2)
-        for (int z = 0; z < 64; z += 2)
-          svo.Raymarch(w, {x, y, z}, {1, 0, 0});
+    auto r = svo.BeginRead();
+
+    for (const auto& ray : rays)
+      svo.Raymarch2(r, ray.origin, ray.dir);
   }
 }
 
@@ -234,7 +264,7 @@ static void BM_SVO_DeepRaymarch(benchmark::State& state) {
     for (int x = 0; x < 64; x += 2)
       for (int y = 0; y < 64; y += 2)
         for (int z = 0; z < 64; z += 2)
-          svo.DeepRaymarch(w, {x, y, z}, {1, 0, 0});
+          svo.DeepRaymarch2(w, {x, y, z}, {1, 0, 0});
   }
 }
 
@@ -242,15 +272,11 @@ static void BM_Buffer_Block_Allocate(benchmark::State& state) {
 
   for (auto _ : state) {
     akari::render::Buffer::Blocks blocks;
-    std::cout << "Re start" << std::endl;
-
     blocks.Allocate(0, 1024);
     blocks.Allocate(0, 512);
     blocks.Allocate(0, 1024);
-    // blocks.Allocate(0, 256);
-    // blocks.Allocate(0, 2048);
-
-    std::cout << blocks.Id.size() << std::endl;
+    blocks.Allocate(0, 256);
+    blocks.Allocate(0, 2048);
   }
 }
 
@@ -262,25 +288,25 @@ static void BM_Buffer_Block_Allocate(benchmark::State& state) {
 // BENCHMARK(BM_SVO_Clear);
 // BENCHMARK(BM_SVO_Get);
 // BENCHMARK(BM_SVO_Flatten);
-// BENCHMARK(BM_SVO_Raymarch);
+BENCHMARK(BM_SVO_Raymarch);
 // BENCHMARK(BM_SVO_DeepRaymarch);
 // BENCHMARK(BM_Buffer_Block_Allocate);
 
-// BENCHMARK_MAIN();
+BENCHMARK_MAIN();
 
-int main(int argc, char** argv) {
-  akari::render::Buffer::Blocks blocks;
+// int main(int argc, char** argv) {
+//   akari::render::Buffer::Blocks blocks;
 
-  blocks.Allocate(0, 1024);
-  blocks.Allocate(0, 512);
-  blocks.Allocate(0, 256);
-  blocks.Allocate(0, 128);
-  blocks.Allocate(0, 2048);
-  blocks.Allocate(0, 1024);
-  blocks.Allocate(0, 2048);
+//   blocks.Allocate(0, 1024);
+//   blocks.Allocate(0, 512);
+//   blocks.Allocate(0, 256);
+//   blocks.Allocate(0, 128);
+//   blocks.Allocate(0, 2048);
+//   blocks.Allocate(0, 1024);
+//   blocks.Allocate(0, 2048);
 
-  std::cout << blocks.Id.size() << std::endl;
-}
+//   std::cout << blocks.Id.size() << std::endl;
+// }
 
 // int main(int argc, char** argv) {
 //   SparseOctreeWithoutRCU<Voxel> svo;

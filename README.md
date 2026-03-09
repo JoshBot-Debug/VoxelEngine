@@ -88,7 +88,7 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
 
 ## TODO
 
-- [ ] Greedy mesh on the GPU
+- [ ] Greedy mesh on the GPU (maybe cancelled if CPU performs fast enough)
 - [ ] All voxels that are disjointed need to be in a seperate SVO.
 - [x] Implement copy on write (cow) for the SVO
 - [ ] Add the ability to render rays (raymarching for debug and stuff)
@@ -128,7 +128,14 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
 - [ ] Make the world round and vast to make it seemingly infinate, like the real world and keep all coordinates positive
       - Research octahedral projection mapping http://www.raytracerchallenge.com/bonus/texture-mapping.html
 - [x] Add multithreading to chunk manager.
-- [ ] Handle a vertex buffer pool & multiple flat SVO's for raytracing. Seperate by chunk.
+- [x] Create a VkBuffer pool chunk allocator
+  - [x] Allocate
+  - [x] Reallocate
+  - [x] Grow free slots
+  - [ ] Defragment
+- [ ] Flat SVO descriptor with a lookup table for fast access of different chunks's SVO tree.
+- [ ] Improve performance of SVO by using a custom allocator
+
 
 - Retire & copy only when modified
 - Retire & copy only if parent trail is not copied

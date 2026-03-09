@@ -132,7 +132,7 @@ public:
   class Reader {
   private:
     akari::thread::RCU<Node>* m_RCU {nullptr};
-    uint64_t   m_Generation {0};
+    uint64_t                  m_Generation {0};
 
   public:
     SparseOctree<T, S>::Node* Root {nullptr};
@@ -590,6 +590,61 @@ private:
     return Hit();
   };
 
+  bool Raymarch2(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, Hit& hit) {
+
+    float     tMin, tMax;
+    glm::vec3 normal;
+
+    if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
+      return false;
+
+    if (node->Data) {
+      hit.Position = nodeMin;
+      hit.Normal   = normal;
+      hit.Data     = node->Data;
+      hit.Size     = size;
+      return true;
+    }
+
+    if (!node->Children)
+      return false;
+
+    float half = size >> 1;
+
+    int dirX = direction.x >= 0.0f ? 0 : 1;
+    int dirY = direction.y >= 0.0f ? 0 : 1;
+    int dirZ = direction.z >= 0.0f ? 0 : 1;
+
+    int order[8];
+
+    order[0] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+    order[1] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+    order[2] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+    order[3] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+    order[4] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+    order[5] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+    order[6] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+    order[7] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+
+    for (int j = 0; j < 8; j++) {
+      int i = order[j];
+
+      Node* child = node->Children[i];
+
+      if (!child)
+        continue;
+
+      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, i & 1);
+
+      glm::vec3 childMin = nodeMin + offset * half;
+
+      if (Raymarch2(child, origin, direction, childMin, half, hit))
+        return true;
+    }
+
+    return false;
+  };
+
   /**
    * Perform a recursive raymarch on the SVO
    */
@@ -644,6 +699,60 @@ private:
     }
 
     return Hit();
+  };
+
+  /**
+   * Perform a recursive raymarch on the SVO
+   */
+  bool DeepRaymarch2(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, Hit& hit) {
+
+    float     tMin, tMax;
+    glm::vec3 normal;
+
+    if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
+      return false;
+
+    hit.Data = (node && node->Data) ? node->Data : hit.Data;
+
+    if (size == 1) {
+      hit.Position = nodeMin;
+      hit.Normal   = normal;
+      hit.Data     = hit.Data;
+      hit.Size     = size;
+      return !!hit.Data;
+    }
+
+    float half = size >> 1;
+
+    int dirX = direction.x >= 0.0f ? 0 : 1;
+    int dirY = direction.y >= 0.0f ? 0 : 1;
+    int dirZ = direction.z >= 0.0f ? 0 : 1;
+
+    int order[8];
+
+    order[0] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+    order[1] = ((0U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+    order[2] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+    order[3] = ((0U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+    order[4] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (0U ^ dirZ);
+    order[5] = ((1U ^ dirX) << 2) | ((0U ^ dirY) << 1) | (1U ^ dirZ);
+    order[6] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (0U ^ dirZ);
+    order[7] = ((1U ^ dirX) << 2) | ((1U ^ dirY) << 1) | (1U ^ dirZ);
+
+    for (int j = 0; j < 8; j++) {
+      int i = order[j];
+
+      Node* child = node ? node->Children[i] : nullptr;
+
+      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, i & 1);
+
+      glm::vec3 childMin = nodeMin + offset * half;
+
+      if (DeepRaymarch2(child, origin, direction, childMin, half, hit))
+        return true;
+    }
+
+    return false;
   };
 
 public:
@@ -997,13 +1106,49 @@ public:
    * Exits early, as soon as a node with a voxel is found.
    * @brief Quick raymarch
    */
+  Hit Raymarch2(const glm::vec3& origin, const glm::vec3& direction) {
+    Node* root = m_Root.load(std::memory_order::acquire);
+    Hit   hit;
+    Raymarch2(root, origin, direction, glm::vec3(0.0f), SIZE, hit);
+    return hit;
+  };
+
+  Hit Raymarch2(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
+    Hit hit;
+    Raymarch2(session.Root, origin, direction, glm::vec3(0.0f), SIZE, hit);
+    return hit;
+  };
+
+  /**
+   * Perform a recursive raymarch from the root node of the SVO
+   * Does not stop until it reaches size = 1
+   * @brief Slower raymarch
+   */
+  Hit DeepRaymarch2(const glm::vec3& origin, const glm::vec3& direction) {
+    Node* root = m_Root.load(std::memory_order::acquire);
+    Hit   hit;
+    DeepRaymarch2(root, origin, direction, glm::vec3(0.0f), SIZE, hit);
+    return hit;
+  };
+
+  Hit DeepRaymarch2(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
+    Hit hit;
+    DeepRaymarch2(session.Root, origin, direction, glm::vec3(0.0f), SIZE, hit);
+    return hit;
+  };
+
+    /**
+   * Perform a recursive raymarch from the root node of the SVO
+   * Exits early, as soon as a node with a voxel is found.
+   * @brief Quick raymarch
+   */
   Hit Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    return Raymarch(root, origin, direction, glm::vec3(0.), SIZE);
+    return Raymarch(root, origin, direction, glm::vec3(0.0f), SIZE);
   };
 
   Hit Raymarch(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
-    return Raymarch(session.Root, origin, direction, glm::vec3(0.), SIZE);
+    return Raymarch(session.Root, origin, direction, glm::vec3(0.0f), SIZE);
   };
 
   /**
@@ -1013,10 +1158,10 @@ public:
    */
   Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
     Node* root = m_Root.load(std::memory_order::acquire);
-    return DeepRaymarch(root, origin, direction, glm::vec3(0.), SIZE);
+    return DeepRaymarch(root, origin, direction, glm::vec3(0.0f), SIZE);
   };
 
   Hit DeepRaymarch(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
-    return DeepRaymarch(session.Root, origin, direction, glm::vec3(0.), SIZE);
+    return DeepRaymarch(session.Root, origin, direction, glm::vec3(0.0f), SIZE);
   };
 };
