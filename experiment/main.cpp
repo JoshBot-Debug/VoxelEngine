@@ -14,7 +14,7 @@ bool g_ApplicationRunning {false};
 
 const int ITERATIONS = 1;
 
-static void BM_SVO_Set_With_RCU_With_Clone_Check(benchmark::State& state) {
+static void BM_SVO_Set_With_RCU_With_Copy_Check(benchmark::State& state) {
   SparseOctree<Voxel> svo;
   Palette             palette;
 
@@ -23,15 +23,17 @@ static void BM_SVO_Set_With_RCU_With_Clone_Check(benchmark::State& state) {
       .Mat  = std::make_shared<Material>(Material {
            .Albedo = glm::vec4 {0.63f, 0.067f, 0.051f, 1.0f}})});
 
-  auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
+  auto     brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
+  uint64_t i     = 0;
 
   for (auto _ : state) {
     {
-      auto w = svo.BeginWrite();
-      for (int x = 0; x < ITERATIONS; ++x)
-        for (int y = 0; y < ITERATIONS; ++y)
-          for (int z = 0; z < ITERATIONS; ++z)
-            svo.Set(w, x, y, z, brick.get());
+      auto     w = svo.BeginWrite();
+      uint64_t x = i & 63;
+      uint64_t y = (i >> 6) & 63;
+      uint64_t z = (i >> 12) & 63;
+      svo.Set(w, x, y, z, brick.get());
+      i = (i + 1) & 262143;
     }
     svo.Sync();
   }
@@ -46,15 +48,17 @@ static void BM_SVO_Set_With_RCU(benchmark::State& state) {
       .Mat  = std::make_shared<Material>(Material {
            .Albedo = glm::vec4 {0.63f, 0.067f, 0.051f, 1.0f}})});
 
-  auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
+  auto     brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
+  uint64_t i     = 0;
 
   for (auto _ : state) {
     {
-      auto w = svo.BeginWrite();
-      for (int x = 0; x < ITERATIONS; ++x)
-        for (int y = 0; y < ITERATIONS; ++y)
-          for (int z = 0; z < ITERATIONS; ++z)
-            svo.SetWithoutCloneCheck(w, x, y, z, brick.get());
+      auto     w = svo.BeginWrite();
+      uint64_t x = i & 63;
+      uint64_t y = (i >> 6) & 63;
+      uint64_t z = (i >> 12) & 63;
+      svo.SetWithoutCloneCheck(w, x, y, z, brick.get());
+      i = (i + 1) & 262143;
     }
     svo.Sync();
   }
@@ -71,11 +75,15 @@ static void BM_SVO_Set_With_Copy(benchmark::State& state) {
 
   auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
 
-  for (auto _ : state)
-    for (int x = 0; x < ITERATIONS; ++x)
-      for (int y = 0; y < ITERATIONS; ++y)
-        for (int z = 0; z < ITERATIONS; ++z)
-          svo.Set(x, y, z, brick.get());
+  uint64_t i = 0;
+
+  for (auto _ : state) {
+    uint64_t x = i & 63;
+    uint64_t y = (i >> 6) & 63;
+    uint64_t z = (i >> 12) & 63;
+    svo.Set(x, y, z, brick.get());
+    i = (i + 1) & 262143;
+  }
 }
 
 static void BM_SVO_Set_Without_Copy(benchmark::State& state) {
@@ -89,11 +97,15 @@ static void BM_SVO_Set_Without_Copy(benchmark::State& state) {
 
   auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
 
-  for (auto _ : state)
-    for (int x = 0; x < ITERATIONS; ++x)
-      for (int y = 0; y < ITERATIONS; ++y)
-        for (int z = 0; z < ITERATIONS; ++z)
-          svo.SetWithoutCopy(x, y, z, brick.get());
+  uint64_t i = 0;
+
+  for (auto _ : state) {
+    uint64_t x = i & 63;
+    uint64_t y = (i >> 6) & 63;
+    uint64_t z = (i >> 12) & 63;
+    svo.SetWithoutCopy(x, y, z, brick.get());
+    i = (i + 1) & 262143;
+  }
 }
 
 static void BM_SVO_Clear(benchmark::State& state) {
@@ -268,27 +280,27 @@ static void BM_SVO_DeepRaymarch(benchmark::State& state) {
   }
 }
 
-static void BM_Buffer_Block_Allocate(benchmark::State& state) {
+// static void BM_Buffer_Block_Allocate(benchmark::State& state) {
 
-  for (auto _ : state) {
-    akari::render::Buffer::Blocks blocks;
-    blocks.Allocate(0, 1024);
-    blocks.Allocate(0, 512);
-    blocks.Allocate(0, 1024);
-    blocks.Allocate(0, 256);
-    blocks.Allocate(0, 2048);
-  }
-}
+//   for (auto _ : state) {
+//     akari::render::Buffer::Blocks blocks;
+//     blocks.Allocate(0, 1024);
+//     blocks.Allocate(0, 512);
+//     blocks.Allocate(0, 1024);
+//     blocks.Allocate(0, 256);
+//     blocks.Allocate(0, 2048);
+//   }
+// }
 
-// BENCHMARK(BM_SVO_Set_With_RCU_With_Clone_Check);
-// BENCHMARK(BM_SVO_Set_With_RCU);
-// BENCHMARK(BM_SVO_Set_With_Copy);
-// BENCHMARK(BM_SVO_Set_Without_Copy);
+BENCHMARK(BM_SVO_Set_With_RCU_With_Copy_Check);
+BENCHMARK(BM_SVO_Set_With_RCU);
+BENCHMARK(BM_SVO_Set_With_Copy);
+BENCHMARK(BM_SVO_Set_Without_Copy);
 
 // BENCHMARK(BM_SVO_Clear);
 // BENCHMARK(BM_SVO_Get);
 // BENCHMARK(BM_SVO_Flatten);
-BENCHMARK(BM_SVO_Raymarch);
+// BENCHMARK(BM_SVO_Raymarch);
 // BENCHMARK(BM_SVO_DeepRaymarch);
 // BENCHMARK(BM_Buffer_Block_Allocate);
 

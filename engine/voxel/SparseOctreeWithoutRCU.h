@@ -55,7 +55,7 @@ public:
 
     Node(uint8_t depth, T* data = nullptr)
         : Depth(depth)
-        , Data(data){};
+        , Data(data) {};
 
     bool operator==(const Node& other) const { return Data.Id == other.Data.Id; };
     bool operator!=(const Node& other) const { return Data.Id != other.Data.Id; };
@@ -144,7 +144,7 @@ private:
    */
   Node* m_Root = new Node(DIV);
 
-  std::atomic<Node*> m_RootAtomic{new Node(DIV)};
+  std::atomic<Node*> m_RootAtomic {new Node(DIV)};
 
   /**
    * A mask that can tell you if a voxel exists at x,y,z or if a voxel at x,y,z is hidden
@@ -163,6 +163,8 @@ private:
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
     if (size == 1) {
+      node->Destroy();
+      delete node;
       node       = new Node(*node);
       node->Data = data;
       return node;
@@ -179,6 +181,7 @@ private:
      * create a new empty one to keep traversing to size 1
      */
     if (!node->Children[index]) {
+      delete node;
       node                  = new Node(*node);
       node->Children[index] = new Node(node->Depth - 1);
     }
@@ -196,6 +199,8 @@ private:
     /**
      * Copy before modifying
      */
+    node->Destroy();
+    delete node;
     node = new Node(*node);
 
     /**
@@ -392,7 +397,7 @@ private:
 
       uint32_t index = static_cast<uint32_t>(out.size());
 
-      out.emplace_back(FlatNode{.PackedIDC = 0, .ChildIndex = 0});
+      out.emplace_back(FlatNode {.PackedIDC = 0, .ChildIndex = 0});
       out[index].SetDepth(child->Depth);
 
       if (child->Data)
@@ -434,7 +439,7 @@ private:
       return;
 
     if (node->Data && filter(node)) {
-      out.emplace_back(FilterNode{
+      out.emplace_back(FilterNode {
           .Id       = node->Data->Id,
           .Depth    = node->Depth,
           .Position = position,
@@ -506,7 +511,7 @@ private:
       return Hit();
 
     if (node->Data)
-      return Hit{
+      return Hit {
           .Position = nodeMin,
           .Normal   = normal,
           .Data     = node->Data,
@@ -568,7 +573,7 @@ private:
     data = (node && node->Data) ? node->Data : data;
 
     if (size == 1)
-      return Hit{
+      return Hit {
           .Position = nodeMin,
           .Normal   = normal,
           .Data     = data,
@@ -857,7 +862,7 @@ public:
 
     uint32_t index = static_cast<uint32_t>(out.size());
 
-    out.emplace_back(FlatNode{.PackedIDC = 0, .ChildIndex = 1});
+    out.emplace_back(FlatNode {.PackedIDC = 0, .ChildIndex = 1});
     out[index].SetDepth(m_Root->Depth);
 
     if (m_Root->Data)
