@@ -135,6 +135,16 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
   - [ ] Defragment
 - [ ] Flat SVO descriptor with a lookup table for fast access of different chunks's SVO tree.
 - [ ] Improve performance of SVO by using a custom allocator
+- [ ] Handle tracking and updating of dirty chunks.
+- [ ] Handle updating the indirect draw command buffer.
+      After generating meshes & LODs on the CPU side
+      Create a vkBuffer that contains chunk information that I can use to perform chunk related things in a compute shader
+      When a change happens, update the struct at that index in the vkBuffer.
+      Launch a compute shader with the number of chunks.
+      Pass the camera info, and any other required info.
+      In the shader, test the chunk to see if it should be drawn.
+      Create the indirect draw command from the compute shader.
+      Finally... Draw the indirect buffer!
 
 
 - Retire & copy only when modified

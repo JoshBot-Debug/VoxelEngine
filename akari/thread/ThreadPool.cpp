@@ -45,9 +45,9 @@ ThreadPool& ThreadPool::Instance() {
   return instance;
 }
 
-std::shared_ptr<ThreadPool::Group> ThreadPool::CreateGroup(const std::function<void()>& fn) {
+std::shared_ptr<ThreadPool::Group> ThreadPool::CreateGroup(const std::function<void()>& onComplete) {
   auto group = std::make_shared<ThreadPool::Group>();
-  group->OnComplete(fn);
+  group->OnComplete(onComplete);
   return group;
 }
 

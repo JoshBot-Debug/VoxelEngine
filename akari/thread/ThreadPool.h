@@ -55,7 +55,7 @@ private:
 public:
   static ThreadPool& Instance();
 
-  static std::shared_ptr<ThreadPool::Group> CreateGroup(const std::function<void()>& fn);
+  static std::shared_ptr<ThreadPool::Group> CreateGroup(const std::function<void()>& onComplete);
 
   template <typename F>
   static void Dispatch(F&& task);
