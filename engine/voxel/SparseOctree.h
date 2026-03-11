@@ -262,19 +262,21 @@ private:
 
     /// NOTE: I'm not copying the entire path downward so this isn't exactly correct but
     /// It will not cause a segment fault because I retire nodes and copy before updating.
-    /// Except one place:
+    /// This may produce visual glitches or incorrect meshes, not crashes so I'm allowing it.
+    /// RCU gurantees that readers only see one dataset the entire read, so I'm not really sticking to RCU :( 
+    ///
+    /// Here is the place I don't make a copy where I should actually (I change the pointer on this child):
     ///     node->Children[index] = Set()
     /// I don't copy the node when I change the pointer here, this reduces allocations from 1.8 million to 800k when setting
     /// the entire 64x64x64 octree tree. If in the future we see a bug,
-    /// I most likely need to uncomment the lined below
+    /// I most likely need to uncomment the line below
     // if (!exclusive) {
     //   m_RCU.Retire(node, false);
     //   node = new Node(*node);
     // }
     /// All other retires and copies below are not required, exclusive must be set however, to help save a bit of unnecessary
     /// allocations. ~300k allocations
-    /// NOTE: This may produce visual glitches or incorrect meshes, not crashes so I'm allowing it.
-    /// RCU gurantees that readers only see one dataset the entire read, so I'm not really sticking to RCU :( 
+    /// NOTE: 
 
     if (size == 1) {
 
