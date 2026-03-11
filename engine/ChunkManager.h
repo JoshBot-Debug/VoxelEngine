@@ -35,9 +35,10 @@ private:
   akari::render::BufferPool m_SVOPool {};
   akari::render::BufferPool m_VertexPool {};
 
-  std::deque<Chunk<SS>>                         m_ChunkAllocator {};
-  SparseOctree<Chunk<SS>, CS>*                  m_Chunks {nullptr};
-  std::vector<typename Chunk<SS>::FlushedChunk> m_FlushedChunks {};
+  std::deque<Chunk<SS>>                                       m_ChunkAllocator {};
+  SparseOctree<Chunk<SS>, CS>*                                m_Chunks {nullptr};
+  std::vector<typename Chunk<SS>::FlushedChunk>               m_FlushedChunks {};
+  std::vector<typename SparseOctree<Chunk<SS>, CS>::FlatNode> m_FlatNodes {};
 
   akari::render::Buffer m_SVOBuffer {};
   akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
@@ -95,6 +96,11 @@ public:
    * @param x,y,z The position of the chunk.
    */
   SparseOctree<Chunk<SS>, CS>::Node* Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z);
+
+  /**
+   * Flatten the Chunks in to a vector for the GPU
+   */
+  const std::vector<typename SparseOctree<Chunk<SS>, CS>::FlatNode>& Flatten();
 
   /**
    * Get the SVO buffer
@@ -401,6 +407,12 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(Spa
 template <uint32_t SS, uint8_t CS>
 inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
   return m_Chunks->Get(session, x, y, z);
+}
+
+template <uint32_t SS, uint8_t CS>
+inline const std::vector<typename SparseOctree<Chunk<SS>, CS>::FlatNode>& ChunkManager<SS, CS>::Flatten() {
+  m_Chunks->Flatten(m_FlatNodes);
+  return m_FlatNodes;
 }
 
 template <uint32_t SS, uint8_t CS>

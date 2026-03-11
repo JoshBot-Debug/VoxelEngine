@@ -178,7 +178,6 @@ World::ChunkManagerBuffer World::GetVertexBuffer() {
 
 const std::vector<vxen::Chunk<64U>::FlushedChunk> World::FlushRenderer(VkCommandBuffer commandBuffer) {
   auto flushed = m_ChunkManager->FlushRenderer(commandBuffer);
-
   return flushed;
 }
 

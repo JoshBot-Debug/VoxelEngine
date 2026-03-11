@@ -257,12 +257,17 @@ private:
    * @tparam T        The datatype to set at the marked positions.
    * @param size      The size of the region represented by this node.
    */
-  Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size, bool copied = false) {
+  Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size, bool exclusive = false) {
     if (size == 1) {
-      if (!copied) {
+
+      /**
+       * If other threads can see this node, we need to copy before mutating
+       */
+      if (!exclusive) {
         m_RCU.Retire(node);
         node = new Node(*node);
       }
+
       node->Data = data;
       return node;
     }
@@ -278,15 +283,23 @@ private:
      * create a new empty one to keep traversing to size 1
      */
     if (!node->Children[index]) {
-      if (!copied) {
+
+      if (!exclusive) {
         m_RCU.Retire(node, false);
-        node   = new Node(*node);
-        copied = true;
+        node = new Node(*node);
+
+        /**
+         * We are about to make a new node
+         * Nodes going forward will be exclusive to this thread
+         * No other thread can see nodes beyond this point.
+         * We don't need to make any copies of nodes going forward
+         */
+        exclusive = true;
       }
       node->Children[index] = new Node(node->Depth - 1);
     }
 
-    node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half, copied);
+    node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half, exclusive);
 
     /**
      * If all 8 children exist and are of the same voxel type.
@@ -300,9 +313,9 @@ private:
         return node;
 
     /**
-     * Copy before modifying
+     * If other threads can see this node, we need to copy before mutating
      */
-    if (!copied) {
+    if (!exclusive) {
       m_RCU.Retire(node);
       node = new Node(*node);
 
@@ -1137,7 +1150,7 @@ public:
     return hit;
   };
 
-    /**
+  /**
    * Perform a recursive raymarch from the root node of the SVO
    * Exits early, as soon as a node with a voxel is found.
    * @brief Quick raymarch

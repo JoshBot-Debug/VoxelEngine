@@ -10,7 +10,7 @@ namespace akari::thread {
 
 template <typename T>
 concept Destroyable = requires(T& t) {
-  { t.Destroy() };
+  { t.Destroy() } -> std::same_as<void>;
 };
 
 template <Destroyable T>
@@ -76,15 +76,17 @@ template <Destroyable T>
 inline uint64_t RCU<T>::ReadLock() {
   uint64_t g;
   for (;;) {
-    g = m_Generation.Current.load(std::memory_order::acquire);
-    m_References[g].Ref.fetch_add(1, std::memory_order::relaxed);
+    g         = m_Generation.Current.load(std::memory_order::acquire);
+    auto& ref = m_References[g].Ref;
+
+    ref.fetch_add(1, std::memory_order::relaxed);
 
     // Verify generation did not change
     if (m_Generation.Current.load(std::memory_order::acquire) == g)
       break;
 
     // Generation changed, undo and retry
-    m_References[g].Ref.fetch_sub(1, std::memory_order::relaxed);
+    ref.fetch_sub(1, std::memory_order::relaxed);
   }
   return g;
 }
@@ -103,7 +105,7 @@ inline void RCU<T>::Sync() {
 
   // Wait for all readers of the previous generation to finish
   while (m_References[previous].Ref.load(std::memory_order::acquire) != 0)
-    std::this_thread::yield();
+    _mm_pause();
 
   // Reclaim memory from the previous generation
   for (Retired& r : m_Retired[previous]) {
@@ -117,7 +119,7 @@ inline void RCU<T>::Sync() {
 
 template <Destroyable T>
 inline void RCU<T>::Retire(T* data, bool destroy) {
-  uint64_t g = m_Generation.Current.load(std::memory_order::relaxed);
+  uint64_t g = m_Generation.Current.load(std::memory_order::acquire);
   m_Retired[g].emplace_back(data, destroy);
 }
 

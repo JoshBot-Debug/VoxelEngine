@@ -152,16 +152,16 @@ static void SetupVulkan(std::vector<const char*>& instanceExtensions) {
     createInfo.enabledExtensionCount   = static_cast<uint32_t>(instanceExtensions.size()),
     createInfo.ppEnabledExtensionNames = instanceExtensions.data();
 
-    // Create Vulkan Instance
-    err = vkCreateInstance(&createInfo, g_Allocator, &g_Instance);
-    CheckVkResult(err, "Failed to at vkCreateInstance");
-
-    SetupDebugMessenger(g_Instance);
 #endif
-#else
+#endif
     // Create Vulkan Instance without any debug feature
     err = vkCreateInstance(&createInfo, g_Allocator, &g_Instance);
     CheckVkResult(err, "Failed to at vkCreateInstance");
+
+#ifdef DEBUG
+#ifdef ENABLE_VULKAN_VALIDATION
+    SetupDebugMessenger(g_Instance);
+#endif
 #endif
   }
 
