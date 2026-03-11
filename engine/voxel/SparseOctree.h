@@ -276,7 +276,6 @@ private:
     // }
     /// All other retires and copies below are not required, exclusive must be set however, to help save a bit of unnecessary
     /// allocations. ~300k allocations
-    /// NOTE: 
 
     if (size == 1) {
 
