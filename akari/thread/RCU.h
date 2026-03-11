@@ -105,7 +105,7 @@ inline void RCU<T>::Sync() {
 
   // Wait for all readers of the previous generation to finish
   while (m_References[previous].Ref.load(std::memory_order::acquire) != 0)
-    _mm_pause();
+    std::this_thread::yield();
 
   // Reclaim memory from the previous generation
   for (Retired& r : m_Retired[previous]) {
