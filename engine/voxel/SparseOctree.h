@@ -256,6 +256,7 @@ private:
    * @param x,y,z     Local voxel-space coordinates at this level.
    * @tparam T        The datatype to set at the marked positions.
    * @param size      The size of the region represented by this node.
+   * @param exclusive A flag used to determine if nodes beyond this recursive iteration are exclusive to this thread (When a new node is created, all nodes under it are exclusive. No copies need beyond that point.)
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size, bool exclusive = false) {
     if (size == 1) {
