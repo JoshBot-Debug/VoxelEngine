@@ -184,3 +184,62 @@ TODO:
 Need to create an allocator. Use one VkBuffer for verticies. Use indirect draw for drawing different offsets in that buffer.
 /// TODO: There is a glitch every time we need to resize the buffer and copy content. only when the buffer size is small
 The buffer default size in Buffer.h is 1 kb, need to increase it something more reasonably or set it whereever I create a buffer.
+
+1. Create a Signal
+    - CHUNK_MANAGER_FLUSH_UPDATE
+        - Signals when a chunk has changed.
+        - Chunk Requirements:
+            - 1 u8   | dirty flag    | based on Set(), Clear() & Flatten()
+            - 1 u8   | full or empty | based on if verticies were generated for underground voxels, they may be 1 block that is hidden on all sides & tracked by Set() & Clear()
+            - 6 u64  | LOD selected  | based on coord 0,0,0 is where the player is
+            - 5 bytes padding left unused
+        - CHUNK_MANAGER_FLUSH_VERTICES
+            - Signals when verticies are ready to be rendered. | the indirect draw command would have changed.
+            - Greedy mesh.
+                - Check if full or empty
+                - Check distance from 0,0,0 to select LOD
+                - Generate LOD if it was not generated already. | the chunk keeps track of this (6 bits somewhere else for lods already existing)
+                - Check if voxels exist or not                  | may generate an empty vector if chunk is underground
+                - Update the chunk's lookup table data          | LOD selected, full or empty, dirty flag
+            - Upload verticies to the GPU                       | Synchronize with the preprocessor indirect buffer
+            - Set the signal
+        - CHUNK_MANAGER_FLUSH_PREPROCESSOR
+            - Signals when FlatNodes & other requirements are read for the preprocessor compute shader.
+            - Generate FlatNodes for Chunks
+            - Generate LUT
+            - Upload to GPU for processing
+            - Try to cull underground voxels from flat nodes | This will enable both CPU compute and GPU compute to run in parallel. Save nano seconds!    - CHUNK_MANAGER_FLUSH_UPDATE
+        - Signals when a chunk has changed.
+        - Chunk Requirements:
+            - 1 u8   | dirty flag    | based on Set(), Clear() & Flatten()
+            - 1 u8   | full or empty | based on if verticies were generated for underground voxels, they may be 1 block that is hidden on all sides & tracked by Set() & Clear()
+            - 6 u64  | LOD selected  | based on coord 0,0,0 is where the player is
+            - 5 bytes padding left unused
+        - CHUNK_MANAGER_FLUSH_VERTICES
+            - Signals when verticies are ready to be rendered. | the indirect draw command would have changed.
+            - Greedy mesh.
+                - Check if full or empty
+                - Check distance from 0,0,0 to select LOD
+                - Generate LOD if it was not generated already. | the chunk keeps track of this (6 bits somewhere else for lods already existing)
+                - Check if voxels exist or not                  | may generate an empty vector if chunk is underground
+                - Update the chunk's lookup table data          | LOD selected, full or empty, dirty flag
+            - Upload verticies to the GPU                       | Synchronize with the preprocessor indirect buffer
+            - Set the signal
+        - CHUNK_MANAGER_FLUSH_PREPROCESSOR
+            - Signals when FlatNodes & other requirements are read for the preprocessor compute shader.
+            - Generate FlatNodes for Chunks
+            - Generate LUT
+            - Upload to GPU for processing
+            - Proprocessor
+                - Culls chunks hidden from the camera view  | Frustum culling
+                - Builds indirect draw buffer               | Uses the LUT & FlatNode Id to figure out LOD offsets
+            - Update? indirect draw buffer
+            - Set the signal!!
+            - Proprocessor
+                - Culls chunks hidden from the camera view   | Frustum culling
+                - Builds indirect draw buffer                | Uses the LUT & FlatNode Id to figure out LOD offsets
+            - Update? indirect draw buffer
+            - Set the signal
+                
+2. ChunkManager flattens Chunks. m_FlatChunks
+3. 
