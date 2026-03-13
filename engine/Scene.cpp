@@ -310,8 +310,8 @@ void Scene::Render() {
   std::vector<VkBufferMemoryBarrier2> bufferBarriers {};
   bool                                bufferResized {false};
 
-  if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_RENDER)) {
-    auto flushedChunks = m_World->FlushRenderer(commandBuffer);
+  if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_VERTICES)) {
+    auto flushedChunks = m_World->FlushPreprocessor(commandBuffer);
 
     std::vector<VkDrawIndirectCommand> indirectCommands {};
 

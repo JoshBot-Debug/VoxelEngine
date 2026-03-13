@@ -79,7 +79,7 @@ public:
 
   WorldChunkManager* GetChunkManager() { return m_ChunkManager; };
 
-  const std::vector<vxen::Chunk<64U>::FlushedChunk> FlushRenderer(VkCommandBuffer commandBuffer);
+  const std::vector<vxen::Chunk<64U>::FlushedChunk> FlushPreprocessor(VkCommandBuffer commandBuffer);
 
   void Clean();
 };

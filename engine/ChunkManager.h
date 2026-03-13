@@ -15,6 +15,7 @@
 
 #include "render/BufferPool.h"
 #include "state/StateMachine.h"
+#include "thread/ThreadPool.h"
 #include "window/Application.h"
 
 namespace vxen {
@@ -296,14 +297,14 @@ public:
    * Triggers multi thread greedy meshing.
    * @param ids Used to split greedy meshing, each id is meshed in a seperate thread. Generally these ids would represent different voxel types, each type can be merged together.
    */
-  void FlushUpdates(const std::vector<uint32_t>& ids);
+  void FlushVertices(const std::vector<uint32_t>& ids);
 
   /**
    * Collects all flushed chunks that are dirty
    * @param commandBuffer The command buffer for this frame
    * @returns A vector of flushed chunks that need to be rendered. Uses to create indirect draw commands.
    */
-  const std::vector<typename Chunk<SS>::FlushedChunk>& FlushRenderer(VkCommandBuffer commandBuffer);
+  const std::vector<typename Chunk<SS>::FlushedChunk>& FlushPreprocessor(VkCommandBuffer commandBuffer);
 
   /**
    * Converts world coordinates (96, 32, 32) to chunk coordinates (1, 0, 0)
@@ -565,20 +566,25 @@ inline typename SparseOctree<Voxel, SS>::Hit ChunkManager<SS, CS>::DeepRaymarch(
 }
 
 template <uint32_t SS, uint8_t CS>
-inline void ChunkManager<SS, CS>::FlushUpdates(const std::vector<uint32_t>& ids) {
-  /// TODO: When flush is done, TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER);
-  /// TODO: Need to FlushUpdates() only chunks that are dirty
+inline void ChunkManager<SS, CS>::FlushVertices(const std::vector<uint32_t>& ids) {
+
+  auto onComplete = []() {
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
+    std::cout << "auto group onComplete " << std::endl;
+  };
+
+  auto group = akari::thread::ThreadPool::CreateGroup(onComplete);
 
   for (uint8_t z = 0; z < CHUNK_SIZE; z++)
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
         if (m_Chunks->Exists(x, y, z))
-          m_Chunks->Get(x, y, z)->Data->FlushUpdates({x, y, z}, ids);
+          m_Chunks->Get(x, y, z)->Data->FlushVertices(group, {x, y, z}, ids);
 }
 
 template <uint32_t SS, uint8_t CS>
-inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>::FlushRenderer(VkCommandBuffer commandBuffer) {
-  /// TODO: Need to FlushRenderer() only chunks that are dirty
+inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>::FlushPreprocessor(VkCommandBuffer commandBuffer) {
+  /// TODO: Need to FlushPreprocessor() only chunks that are dirty
 
   m_FlushedChunks.clear();
 
@@ -586,7 +592,7 @@ inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
         if (m_Chunks->Exists(x, y, z))
-          m_FlushedChunks.emplace_back(m_Chunks->Get(x, y, z)->Data->FlushRenderer(commandBuffer, &m_VertexBuffer, &m_SVOBuffer));
+          m_FlushedChunks.emplace_back(m_Chunks->Get(x, y, z)->Data->FlushPreprocessor(commandBuffer, &m_VertexBuffer, &m_SVOBuffer));
 
   return m_FlushedChunks;
 }

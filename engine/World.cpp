@@ -91,21 +91,21 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   bool isActing      = ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Left);
 
   if (ImGui::IsKeyPressed(ImGuiKey_F5)) {
-    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE | PALETTE_FLUSH_UPDATE);
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | PALETTE_FLUSH_UPDATE);
   }
 
   if (ImGui::IsKeyPressed(ImGuiKey_T)) {
     SparseOctree<Voxel>::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
     auto                     position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
     m_ChunkManager->Set(wcc, position, hit.Data);
-    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   }
 
   if (ImGui::IsKeyPressed(ImGuiKey_Y)) {
     SparseOctree<Voxel>::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
     auto                     position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
     m_ChunkManager->Clear(wcc, position);
-    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   }
 
   if (isCtrlPressed && isActing) {
@@ -114,19 +114,15 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
       auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
       m_ChunkManager->Clear(wcc, position);
-      TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+      TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
       auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
       m_ChunkManager->Set(wcc, position, hit.Data);
-      TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+      TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
     }
   }
-
-  /// TODO: We are syncing here, only one chunk?? Need to sync all dirty chunks :|
-  if (TSignal::Consume(0, CHUNK_MANAGER_SYNC_UPDATE))
-    m_ChunkManager->Sync(wcc);
 
   if (TSignal::Consume(0, PALETTE_FLUSH_UPDATE)) {
     m_Materials            = m_Palette.GetMaterials();
@@ -142,12 +138,14 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_UPDATE)) {
+    m_ChunkManager->Sync();
+
     std::vector<uint32_t> ids;
 
     for (auto& material : m_Palette.GetMaterials())
       ids.push_back(material.Id);
 
-    m_ChunkManager->FlushUpdates(ids);
+    m_ChunkManager->FlushVertices(ids);
 
     {
       auto session = m_ChunkManager->BeginRead(wcc);
@@ -176,8 +174,8 @@ World::ChunkManagerBuffer World::GetVertexBuffer() {
   };
 }
 
-const std::vector<vxen::Chunk<64U>::FlushedChunk> World::FlushRenderer(VkCommandBuffer commandBuffer) {
-  auto flushed = m_ChunkManager->FlushRenderer(commandBuffer);
+const std::vector<vxen::Chunk<64U>::FlushedChunk> World::FlushPreprocessor(VkCommandBuffer commandBuffer) {
+  auto flushed = m_ChunkManager->FlushPreprocessor(commandBuffer);
   return flushed;
 }
 
@@ -212,7 +210,7 @@ const void World::GenerateChunk(const glm::ivec3& wcc) {
     m_ChunkManager->Set(wcc, session, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
   }
 
-  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }
 
 const void World::GenerateCornellBox(const glm::u8vec3& origin) {
@@ -287,7 +285,7 @@ const void World::GenerateCornellBox(const glm::u8vec3& origin) {
     m_ChunkManager->Set(origin, session, 16, 5, 48, rightWall.get());
   }
 
-  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }
 
 const void World::GenerateSphere(const glm::ivec3& wcc) {
@@ -316,7 +314,7 @@ const void World::GenerateSphere(const glm::ivec3& wcc) {
         }
   }
 
-  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }
 
 const void World::GenerateNoiseSphere(const glm::ivec3& wcc) {
@@ -355,7 +353,7 @@ const void World::GenerateNoiseSphere(const glm::ivec3& wcc) {
         }
   }
 
-  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | CHUNK_MANAGER_SYNC_UPDATE);
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }
 
 } // namespace vxen

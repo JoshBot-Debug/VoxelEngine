@@ -263,7 +263,7 @@ private:
     /// NOTE: I'm not copying the entire path downward so this isn't exactly correct but
     /// It will not cause a segment fault because I retire nodes and copy before updating.
     /// This may produce visual glitches or incorrect meshes, not crashes so I'm allowing it.
-    /// RCU gurantees that readers only see one dataset the entire read, so I'm not really sticking to RCU :( 
+    /// RCU gurantees that readers only see one dataset the entire read, so I'm not really sticking to RCU :(
     ///
     /// Here is the place I don't make a copy where I should actually (I change the pointer on this child):
     ///     node->Children[index] = Set()
@@ -1196,4 +1196,14 @@ public:
   Hit DeepRaymarch(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
     return DeepRaymarch(session.Root, origin, direction, glm::vec3(0.0f), SIZE);
   };
+
+  bool Empty() {
+    Node* root = m_Root.load(std::memory_order::acquire);
+
+    for (size_t i = 0; i < 8; i++)
+      if (root->Children[i])
+        return false;
+
+    return !root->Data;
+  }
 };
