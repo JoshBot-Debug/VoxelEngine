@@ -14,9 +14,7 @@
 #include "voxel/Voxel.h"
 
 #include "render/BufferPool.h"
-#include "state/StateMachine.h"
 #include "thread/ThreadPool.h"
-#include "window/Application.h"
 
 namespace vxen {
 
@@ -570,7 +568,6 @@ inline void ChunkManager<SS, CS>::FlushVertices(const std::vector<uint32_t>& ids
 
   auto onComplete = []() {
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
-    std::cout << "auto group onComplete " << std::endl;
   };
 
   auto group = akari::thread::ThreadPool::CreateGroup(onComplete);
