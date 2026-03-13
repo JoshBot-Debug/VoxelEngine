@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include "voxel/GreedyMesh64.h"
@@ -32,6 +33,19 @@ public:
     uint32_t VertexCount {0};
   };
 
+  struct LevelOfDetail {
+    // Bit mask for LOD levels
+    uint8_t  Exists;
+    uint64_t Offset[6];
+    uint64_t Size[6];
+  };
+
+  struct State {
+    uint8_t       Dirty;
+    uint8_t       Empty;
+    LevelOfDetail LOD;
+  };
+
 private:
   SparseOctree<Voxel, SS>* m_SVO {nullptr};
   uint8_t                  m_Padding[SIZE * SIZE] {0};
@@ -40,6 +54,7 @@ private:
   std::vector<Vertex>                                     m_Vertices {};
   std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
 
+  State        m_State;
   FlushedChunk m_FlushedChunk;
 
   static uint32_t UID();
@@ -96,9 +111,9 @@ public:
 
   SparseOctree<Voxel, SS>::Hit DeepRaymarch(SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
 
-  void FlushUpdates(const glm::ivec3& offset, const std::vector<uint32_t>& ids);
+  void FlushVertices(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids);
 
-  const FlushedChunk& FlushRenderer(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer);
+  const FlushedChunk& FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer);
 };
 
 template <uint32_t SS>
@@ -119,17 +134,21 @@ inline SparseOctree<Voxel, SS>::Writer Chunk<SS>::BeginWrite() {
 
 template <uint32_t SS>
 inline void Chunk<SS>::Sync() {
+  if (!m_State.Dirty)
+    return;
   m_SVO->Sync();
 }
 
 template <uint32_t SS>
 inline void Chunk<SS>::Set(uint8_t x, uint8_t y, uint8_t z, Voxel* data) {
   m_SVO->Set(x, y, z, data);
+  m_State.Dirty = 1;
 }
 
 template <uint32_t SS>
 inline void Chunk<SS>::Set(SparseOctree<Voxel, SS>::Writer& session, uint8_t x, uint8_t y, uint8_t z, Voxel* data) {
   m_SVO->Set(session, x, y, z, data);
+  m_State.Dirty = 1;
 }
 
 template <uint32_t SS>
@@ -145,11 +164,13 @@ inline SparseOctree<Voxel, SS>::Node Chunk<SS>::Get(SparseOctree<Voxel, SS>::Rea
 template <uint32_t SS>
 inline void Chunk<SS>::Clear(uint8_t x, uint8_t y, uint8_t z) {
   m_SVO->Clear(x, y, z);
+  m_State.Dirty = 1;
 }
 
 template <uint32_t SS>
 inline void Chunk<SS>::Clear(SparseOctree<Voxel, SS>::Writer& session, uint8_t x, uint8_t y, uint8_t z) {
   m_SVO->Clear(session, x, y, z);
+  m_State.Dirty = 1;
 }
 
 template <uint32_t SS>
@@ -237,48 +258,55 @@ inline SparseOctree<Voxel, SS>::Hit Chunk<SS>::DeepRaymarch(SparseOctree<Voxel, 
 }
 
 template <uint32_t SS>
-inline void Chunk<SS>::FlushUpdates(const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
+inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
+  if (!m_State.Dirty || m_SVO->Empty())
+    return;
+
+  group->Add();
+
   m_ThreadVertices.resize(ids.size());
 
   auto flatten = [&]() {
     m_SVO->Flatten(m_FlatNodes);
   };
 
-  auto greedyMesh = [svo = m_SVO, &padding = m_Padding, offset, &vertices = m_ThreadVertices](size_t i, uint32_t id) {
+  auto greedyMesh = [svo = m_SVO, &padding = m_Padding, offset, &threadVertices = m_ThreadVertices](size_t i, uint32_t id) {
     auto session = svo->BeginRead();
 
     auto& rows    = svo->GetAxisX(session, id);
     auto& columns = svo->GetAxisY(session, id);
     auto& layers  = svo->GetAxisZ(session, id);
 
-    GreedyMesh64::Generate(vertices[i], offset, id, rows, columns, layers, padding);
+    GreedyMesh64::Generate(threadVertices[i], offset, id, rows, columns, layers, padding);
   };
 
-  auto group = akari::thread::ThreadPool::CreateGroup([&]() {
+  auto onComplete = [group, &vertices = m_Vertices, &threadVertices = m_ThreadVertices]() {
     size_t total = 0;
 
-    for (const auto& v : m_ThreadVertices)
+    for (const auto& v : threadVertices)
       total += v.size();
 
-    m_Vertices.clear();
-    m_Vertices.reserve(total);
+    vertices.clear();
+    vertices.reserve(total);
 
-    for (auto& v : m_ThreadVertices)
-      m_Vertices.insert(m_Vertices.end(), v.begin(), v.end());
+    for (auto& v : threadVertices)
+      vertices.insert(vertices.end(), v.begin(), v.end());
 
-    for (auto& v : m_ThreadVertices)
+    for (auto& v : threadVertices)
       v.clear();
 
-    TSignal::Set(0, CHUNK_MANAGER_FLUSH_RENDER);
-  });
+    group->Done();
+  };
 
-  akari::thread::ThreadPool::ForEach(group, ids, greedyMesh);
+  auto batch = akari::thread::ThreadPool::CreateGroup(onComplete);
 
-  akari::thread::ThreadPool::Dispatch(group, flatten);
+  akari::thread::ThreadPool::ForEach(batch, ids, greedyMesh);
+
+  akari::thread::ThreadPool::Dispatch(batch, flatten);
 }
 
 template <uint32_t SS>
-inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushRenderer(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer) {
+inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer) {
   auto vertexAlloc = vertexBuffer->Upload(commandBuffer, Id, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
   auto svoAlloc    = svoBuffer->Upload(commandBuffer, Id, m_FlatNodes);
 
