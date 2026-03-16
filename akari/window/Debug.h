@@ -5,10 +5,7 @@
 #include <string>
 #include <vulkan/vulkan.h>
 
-static PFN_vkSetDebugUtilsObjectNameEXT vkSetDebugUtilsObjectNameEXT_Func =
-    nullptr;
-
-inline const char *VkResultToString(VkResult result) {
+inline const char* VkResultToString(VkResult result) {
   switch (result) {
   case VK_SUCCESS:
     return "VK_SUCCESS";
@@ -94,9 +91,7 @@ inline const char *VkResultToString(VkResult result) {
 }
 
 template <typename... Args>
-inline VkResult LogVkResult(const char *file, int line,
-                            const char *functionName, VkResult err,
-                            const Args &...args) {
+inline VkResult LogVkResult(const char* file, int line, const char* functionName, VkResult err, const Args&... args) {
   if (err == 0)
     return err;
 
@@ -110,36 +105,32 @@ inline VkResult LogVkResult(const char *file, int line,
   return err;
 }
 
-inline void SetDebugObjectName(VkDevice device, VkObjectType objectType,
-                               uint64_t objectHandle, const char *objectName) {
-  if (!vkSetDebugUtilsObjectNameEXT_Func) {
-    vkSetDebugUtilsObjectNameEXT_Func =
-        (PFN_vkSetDebugUtilsObjectNameEXT)vkGetDeviceProcAddr(
-            device, "vkSetDebugUtilsObjectNameEXT");
-  }
+inline void SetDebugObjectName(VkDevice device, VkObjectType objectType, uint64_t objectHandle, const char* objectName) {
+  static PFN_vkSetDebugUtilsObjectNameEXT func =
+      (PFN_vkSetDebugUtilsObjectNameEXT)
+      vkGetDeviceProcAddr(device, "vkSetDebugUtilsObjectNameEXT");
 
-  if (!vkSetDebugUtilsObjectNameEXT_Func)
-    throw std::runtime_error("Failed to load vkSetDebugUtilsObjectNameEXT");
+  if (!func)
+      return;
 
-  VkDebugUtilsObjectNameInfoEXT nameInfo{
-      .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT,
-      .pNext = nullptr,
-      .objectType = objectType,
-      .objectHandle = objectHandle,
-      .pObjectName = objectName,
-  };
-  vkSetDebugUtilsObjectNameEXT_Func(device, &nameInfo);
+  VkDebugUtilsObjectNameInfoEXT info{};
+  info.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_OBJECT_NAME_INFO_EXT;
+  info.objectType = objectType;
+  info.objectHandle = objectHandle;
+  info.pObjectName = objectName;
+
+  func(device, &info);
 }
 
 #ifdef ENABLE_VULKAN_VALIDATION
 #define SET_DEBUG_OBJECT_NAME(...) SetDebugObjectName(__VA_ARGS__)
 #else
-#define SET_DEBUG_OBJECT_NAME(...) (__VA_ARGS__)
+#define SET_DEBUG_OBJECT_NAME(...)
 #endif
 
 #ifdef DEBUG
-#define LOG_VK_RESULT(...)                                                     \
+#define LOG_VK_RESULT(...) \
   LogVkResult(__FILE__, __LINE__, __func__, __VA_ARGS__)
 #else
-#define LOG_VK_RESULT(...) (__VA_ARGS__)
+#define LOG_VK_RESULT(...)
 #endif

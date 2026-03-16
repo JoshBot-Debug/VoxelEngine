@@ -5,6 +5,7 @@
 #include "backends/imgui_impl_vulkan.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <vulkan/vulkan_core.h>
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -233,22 +234,24 @@ static void SetupVulkan(std::vector<const char*>& instanceExtensions) {
     };
 
     // Enable features
-    VkPhysicalDeviceBufferDeviceAddressFeatures bufferDevAddrFeat {};
-    bufferDevAddrFeat.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_BUFFER_DEVICE_ADDRESS_FEATURES;
-
     VkPhysicalDeviceSynchronization2FeaturesKHR sync2 {};
     sync2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SYNCHRONIZATION_2_FEATURES;
-    sync2.pNext = &bufferDevAddrFeat;
+
+    VkPhysicalDeviceVulkan12Features vulkan12 {};
+    vulkan12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
+    vulkan12.pNext = &sync2;
 
     VkPhysicalDeviceFeatures2 features2 {};
     features2.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-    features2.pNext = &sync2;
+    features2.pNext = &vulkan12;
 
     vkGetPhysicalDeviceFeatures2(g_PhysicalDevice, &features2);
 
     features2.features.fillModeNonSolid = VK_TRUE;
     features2.features.wideLines        = VK_TRUE;
     features2.features.independentBlend = VK_TRUE;
+
+    vulkan12.drawIndirectCount = VK_TRUE;
 
     const float pQueuePriorities[] = {1.0f};
 

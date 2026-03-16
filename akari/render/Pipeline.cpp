@@ -1,6 +1,7 @@
 #include "Pipeline.h"
 
 #include <fstream>
+#include <vulkan/vulkan_core.h>
 
 #include "window/Application.h"
 
@@ -317,6 +318,16 @@ void Pipeline::DrawIndirect(const DrawIndirectInfo& info) {
   vkCmdBindVertexBuffers(info.commandBuffer, 0, static_cast<uint32_t>(info.vertexBuffers.size()), info.vertexBuffers.data(), info.offsets.data());
   vkCmdBindDescriptorSets(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, static_cast<uint32_t>(info.descriptorSets.size()), info.descriptorSets.data(), 0, nullptr);
   vkCmdDrawIndirect(info.commandBuffer, info.indirectBuffer, info.indirectOffset, info.drawCount, info.stride);
+}
+
+void Pipeline::DrawIndirectCount(const DrawIndirectCountInfo& info) {
+  if (info.maxDrawCount == 0 || info.vertexBuffers.empty() || info.indirectBuffer == VK_NULL_HANDLE || info.countBuffer == VK_NULL_HANDLE)
+    return;
+
+  vkCmdBindPipeline(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_Pipeline);
+  vkCmdBindVertexBuffers(info.commandBuffer, 0, static_cast<uint32_t>(info.vertexBuffers.size()), info.vertexBuffers.data(), info.offsets.data());
+  vkCmdBindDescriptorSets(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, static_cast<uint32_t>(info.descriptorSets.size()), info.descriptorSets.data(), 0, nullptr);
+  vkCmdDrawIndirectCount(info.commandBuffer, info.indirectBuffer, info.indirectOffset, info.countBuffer, info.countOffset, info.maxDrawCount, info.stride);
 }
 
 VkDescriptorSet Pipeline::GetDescriptorSet(uint32_t id, uint32_t index) {

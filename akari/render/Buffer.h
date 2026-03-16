@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <mutex>
+#include <string>
 #include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan.h>
@@ -14,25 +15,25 @@ class Buffer {
 
 public:
   struct Allocation {
-    uint64_t Index {UINT64_MAX};
-    uint64_t Size {0};
-    uint64_t Offset {0};
+    uint32_t Index {UINT32_MAX};
+    uint32_t Size {0};
+    uint32_t Offset {0};
     bool     Resized {false};
   };
 
   struct Blocks {
-    std::vector<uint64_t> Id {};
-    std::vector<uint64_t> Size {};
-    std::vector<uint64_t> Offset {};
+    std::vector<uint32_t> Id {};
+    std::vector<uint32_t> Size {};
+    std::vector<uint32_t> Offset {};
     std::vector<bool>     Free {};
 
-    Allocation Allocate(uint64_t id, uint64_t bytes);
+    Allocation Allocate(uint32_t id, uint32_t bytes);
   };
 
   struct Specification {
     /// TODO: There is a glitch every time we need to resize the buffer and copy content.
-    // uint64_t           Size {1024 * 1024 * 64};
-    uint64_t           Size {1024};
+    // uint32_t           Size {1024 * 1024 * 32};
+    uint32_t           Size {1024};
     VkBufferUsageFlags Usage {VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
     BufferPool*        Pool {nullptr};
   };
@@ -55,13 +56,15 @@ private:
 
   VmaAllocationInfo m_HostAllocationInfo;
 
+  std::string m_DebugName = "";
+
 private:
   /**
    * Creates a device buffer of a specified size
    *
    * @note Implicitly destroys the previous buffer if any
    */
-  void CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer);
+  void CreateDeviceBuffer(uint32_t size, VkCommandBuffer commandBuffer);
 
   /**
    * Creates the host buffer.
@@ -69,7 +72,7 @@ private:
    *
    * @note Implicitly destroys the previous buffer if any
    */
-  void CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer);
+  void CreateHostBuffer(uint32_t size, VkCommandBuffer commandBuffer);
 
   template <typename T>
   std::vector<uint8_t> BuildStorageBufferAlignedData(const std::vector<T>& src) {
@@ -94,7 +97,7 @@ private:
   /**
    * Allocates a block & allocates more memory in the host & device buffer if needed.
    */
-  Allocation Allocate(uint64_t id, uint64_t bytes, VkCommandBuffer commandBuffer);
+  Allocation Allocate(uint32_t id, uint32_t bytes, VkCommandBuffer commandBuffer);
 
   void HostToDevice(VkCommandBuffer commandBuffer, const Buffer::Allocation& allocation, const void* data);
 
@@ -106,7 +109,7 @@ public:
   Buffer(const Buffer& allocator)            = delete;
   Buffer& operator=(const Buffer& allocator) = delete;
 
-  void CreateBuffer(uint64_t size = 0);
+  void CreateBuffer(uint32_t size = 0, const char* debugName = nullptr);
 
   void DestroyBuffer();
 
@@ -116,7 +119,7 @@ public:
    * For storage buffers & vector data only.
    */
   template <typename T>
-  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, uint64_t id, const std::vector<T>& vector) {
+  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, uint32_t id, const std::vector<T>& vector) {
     if (!vector.size())
       return Buffer::Allocation {};
     std::vector<uint8_t> buffer = BuildStorageBufferAlignedData(vector);
@@ -131,7 +134,7 @@ public:
     return Upload(commandBuffer, 0, vector);
   }
 
-  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, uint64_t id, size_t size, const void* data);
+  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, uint32_t id, size_t size, const void* data);
 
   Buffer::Allocation Upload(VkCommandBuffer commandBuffer, size_t size, const void* data) {
     return Upload(commandBuffer, 0, size, data);

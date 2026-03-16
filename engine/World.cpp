@@ -1,10 +1,7 @@
 #include "World.h"
 
-#include "Utility.h"
-#include "thread/Signal.h"
 #include "thread/ThreadPool.h"
-#include "voxel/GreedyMesh64.h"
-#include "window/Application.h"
+#include <imgui.h>
 
 using namespace akari::thread;
 
@@ -158,25 +155,12 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 }
 
-World::ChunkManagerBuffer World::GetSVOBuffer() {
-  auto* b = m_ChunkManager->GetSVOBuffer();
-  return ChunkManagerBuffer {
-      .Buffer  = b->GetBuffer(),
-      .Barrier = b->GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
-  };
+ChunkBuffers World::GetChunkBuffers() {
+  return m_ChunkManager->GetBuffers();
 }
 
-World::ChunkManagerBuffer World::GetVertexBuffer() {
-  auto* b = m_ChunkManager->GetVertexBuffer();
-  return ChunkManagerBuffer {
-      .Buffer  = b->GetBuffer(),
-      .Barrier = b->GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT),
-  };
-}
-
-const std::vector<vxen::Chunk<64U>::FlushedChunk> World::FlushPreprocessor(VkCommandBuffer commandBuffer) {
-  auto flushed = m_ChunkManager->FlushPreprocessor(commandBuffer);
-  return flushed;
+void World::FlushPreprocessor(VkCommandBuffer commandBuffer) {
+  m_ChunkManager->FlushPreprocessor(commandBuffer);
 }
 
 void World::Clean() {

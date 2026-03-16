@@ -2,13 +2,17 @@
 
 #include "Binding.h"
 #include "Utility.h"
+#include "World.h"
 #include "window/Application.h"
 
 #include "stb/stb.h"
 #include "stb/stb_image.h"
+#include <vulkan/vulkan_core.h>
 
 using namespace akari::render;
 using namespace vxen;
+
+const uint32_t MAX_CHUNKS = 1024;
 
 Scene::Scene() {
   m_DisplayImages = {
@@ -17,10 +21,12 @@ Scene::Scene() {
       m_DirectLight,
   };
 
-  m_LightBuffer.CreateBuffer(1024);
-  m_MaterialBuffer.CreateBuffer(1024);
-  m_MaterialLUTBuffer.CreateBuffer(1024);
-  m_OverlayVertexBuffer.CreateBuffer(1024);
+  m_LightBuffer.CreateBuffer(1024, "m_LightBuffer");
+  m_MaterialBuffer.CreateBuffer(1024, "m_MaterialBuffer");
+  m_MaterialLUTBuffer.CreateBuffer(1024, "m_MaterialLUTBuffer");
+  m_OverlayVertexBuffer.CreateBuffer(1024, "m_OverlayVertexBuffer");
+  m_IndirectBuffer.CreateBuffer(MAX_CHUNKS * sizeof(VkDrawIndirectCommand), "m_IndirectBuffer");
+  m_IndirectDrawCountBuffer.CreateBuffer(1024, "m_IndirectDrawCountBuffer");
 }
 
 Scene::~Scene() {
@@ -43,12 +49,12 @@ void Scene::Initialize(const InitializeInfo& init) {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight},
       {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 4},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6},
   };
 
   VkDescriptorPoolCreateInfo poolInfo {
       .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-      .maxSets       = 3 + (framesInFlight * 4),
+      .maxSets       = 4 + (framesInFlight * 5),
       .poolSizeCount = static_cast<uint32_t>(std::size(sizes)),
       .pPoolSizes    = sizes,
   };
@@ -88,6 +94,52 @@ void Scene::Initialize(const InitializeInfo& init) {
               .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT,
+          },
+      },
+  });
+
+  m_PreprocessorPipeline.CreateDescriptorSetLayout({
+      .index          = 0,
+      .layoutBindings = {
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::U_CAMERA,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
+          },
+      },
+  });
+
+  m_PreprocessorPipeline.CreateDescriptorSetLayout({
+      .index          = 1,
+      .layoutBindings = {
+          // m_IndirectBuffer
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::S_INDIRECT_DRAW_BUFFER,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
+          },
+          // m_IndirectDrawCount
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::S_INDIRECT_DRAW_COUNT,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
+          },
+          // m_ChunksSVOBuffer
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::S_CHUNKS_SVO,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
+          },
+          // m_ChunksBuffer
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::S_CHUNKS,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
       },
   });
@@ -248,6 +300,10 @@ void Scene::Initialize(const InitializeInfo& init) {
       .depthWriteEnable = VK_TRUE,
   });
 
+  m_PreprocessorPipeline.CreateComputePipeline({
+      .computeShaderFile = GetExecutableDir() + "/../engine/shaders/pipeline/preprocessor.comp.spv",
+  });
+
   m_LightingPipeline.CreateComputePipeline({
       .computeShaderFile = GetExecutableDir() + "/../engine/shaders/pipeline/lighting.comp.spv",
   });
@@ -311,39 +367,55 @@ void Scene::Render() {
   bool                                bufferResized {false};
 
   if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_VERTICES)) {
-    auto flushedChunks = m_World->FlushPreprocessor(commandBuffer);
+    m_World->FlushPreprocessor(commandBuffer);
+    
+    auto buffers = m_World->GetChunkBuffers();
 
-    std::vector<VkDrawIndirectCommand> indirectCommands {};
+    m_SVOBuffer = buffers.SVOBuffer;
+    bufferBarriers.push_back(buffers.SVOBufferBarrier);
 
-    for (auto& o : flushedChunks) {
-      indirectCommands.emplace_back(VkDrawIndirectCommand {
-          .vertexCount   = o.VertexCount,
-          .instanceCount = 1,
-          .firstVertex   = static_cast<uint32_t>(o.VertexOffset / sizeof(Vertex)),
-          .firstInstance = 0,
-      });
+    m_VertexBuffer = buffers.VertexBuffer;
+    bufferBarriers.push_back(buffers.VertexBufferBarrier);
 
-      bufferResized |= o.VerticesResized || o.SVOResized;
-    }
+    m_ChunkSVOBuffer = buffers.ChunkSVOBuffer;
+    bufferBarriers.push_back(buffers.ChunkSVOBufferBarrier);
 
-    if (flushedChunks.size()) {
-      auto svoBuffer    = m_World->GetSVOBuffer();
-      auto vertexBuffer = m_World->GetVertexBuffer();
+    m_ChunkBuffer = buffers.ChunkBuffer;
+    bufferBarriers.push_back(buffers.ChunkBufferBarrier);
 
-      m_VertexBuffer = vertexBuffer.Buffer;
-      m_SVOBuffer    = svoBuffer.Buffer;
+    // auto flushedChunks = m_World->FlushPreprocessor(commandBuffer);
+    //
+    // std::vector<VkDrawIndirectCommand> indirectCommands {};
+    //
+    // for (auto& o : flushedChunks) {
+    //   indirectCommands.emplace_back(VkDrawIndirectCommand {
+    //       .vertexCount   = o.VertexCount,
+    //       .instanceCount = 1,
+    //       .firstVertex   = static_cast<uint32_t>(o.VertexOffset / sizeof(Vertex)),
+    //       .firstInstance = 0,
+    //   });
+    //
+    //   bufferResized |= o.VerticesResized || o.SVOResized;
+    // }
+    //
+    // if (flushedChunks.size()) {
+    //   auto svoBuffer    = m_World->GetSVOBuffer();
+    //   auto vertexBuffer = m_World->GetVertexBuffer();
+    //
+    //   m_VertexBuffer = vertexBuffer.Buffer;
+    //   m_SVOBuffer    = svoBuffer.Buffer;
+    //
+    //   if (bufferResized) {
+    //     bufferBarriers.push_back(svoBuffer.Barrier);
+    //     bufferBarriers.push_back(vertexBuffer.Barrier);
+    //   }
+    //
+    //   m_IndirectDrawCount = static_cast<uint32_t>(flushedChunks.size());
+    // }
+    //
+    // m_IndirectBuffer.Upload(commandBuffer, indirectCommands.size() * sizeof(VkDrawIndirectCommand), indirectCommands.data());
 
-      if (bufferResized) {
-        bufferBarriers.push_back(svoBuffer.Barrier);
-        bufferBarriers.push_back(vertexBuffer.Barrier);
-      }
-
-      m_IndirectDrawCount = static_cast<uint32_t>(flushedChunks.size());
-    }
-
-    m_IndirectBuffer.Upload(commandBuffer, indirectCommands.size() * sizeof(VkDrawIndirectCommand), indirectCommands.data());
-
-    bufferBarriers.emplace_back(m_IndirectBuffer.GetBarrier(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT));
+    // bufferBarriers.emplace_back(m_IndirectBuffer.GetBarrier(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT));
 
     const std::vector<Material>&                        materials   = m_World->GetMaterials();
     const std::vector<uint32_t>&                        materialLUT = m_World->GetMaterialsLUT();
@@ -366,6 +438,9 @@ void Scene::Render() {
 
     m_World->Clean();
   }
+
+  if (m_SVOBuffer == VK_NULL_HANDLE || m_VertexBuffer == VK_NULL_HANDLE)
+    return;
 
   {
     auto vertices = m_UI->GetHighlightVertices();
@@ -391,6 +466,20 @@ void Scene::Render() {
   if (bufferResized)
     CreateDescriptorSets();
 
+  // Preprocessor compute
+  {
+    m_PreprocessorPipeline.DispatchCompute({
+        .commandBuffer  = commandBuffer,
+        .groupCountX    = 1,
+        .groupCountY    = 1,
+        .groupCountZ    = 1,
+        .descriptorSets = {
+            m_PreprocessorPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
+            m_PreprocessorPipeline.GetDescriptorSet(1, 0),
+        },
+    });
+  }
+
   // GBuffer pass
   {
     m_GBufferPass.BeginRenderPass({
@@ -407,7 +496,7 @@ void Scene::Render() {
         },
     });
 
-    m_GeometryPipeline.DrawIndirect({
+    m_GeometryPipeline.DrawIndirectCount({
         .commandBuffer  = commandBuffer,
         .vertexBuffers  = {m_VertexBuffer},
         .offsets        = {0},
@@ -416,7 +505,9 @@ void Scene::Render() {
         },
         .indirectBuffer = m_IndirectBuffer.GetBuffer(),
         .indirectOffset = 0,
-        .drawCount      = m_IndirectDrawCount,
+        .countBuffer    = m_IndirectDrawCountBuffer.GetBuffer(),
+        .countOffset    = 0,
+        .maxDrawCount   = MAX_CHUNKS,
         .stride         = sizeof(VkDrawIndirectCommand),
     });
 
@@ -541,6 +632,14 @@ void Scene::CreateDescriptorSets() {
       .writes             = cameraWrites,
   });
 
+  m_PreprocessorPipeline.CreateDescriptorSet({
+      .id                 = 0,
+      .layoutIndex        = 0,
+      .descriptorPool     = m_DescriptorPool,
+      .descriptorSetCount = framesInFlight,
+      .writes             = cameraWrites,
+  });
+
   m_LightingPipeline.CreateDescriptorSet({
       .id                 = 0,
       .layoutIndex        = 0,
@@ -578,6 +677,64 @@ void Scene::CreateDescriptorSets() {
                                     .sampler     = VK_NULL_HANDLE,
                                     .imageView   = m_OutputImage->m_ImageView,
                                     .imageLayout = VK_IMAGE_LAYOUT_GENERAL,
+                  },
+              },
+          },
+      },
+  });
+
+  m_PreprocessorPipeline.CreateDescriptorSet({
+      .id                 = 1,
+      .layoutIndex        = 1,
+      .descriptorPool     = m_DescriptorPool,
+      .descriptorSetCount = 1,
+      .writes             = {
+          // --- Storage Buffers ---
+          // m_IndirectBuffer
+          Pipeline::DescriptorWriteInfo {
+                          .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                          .binding = vxen::Binding::S_INDIRECT_DRAW_BUFFER,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_IndirectBuffer.GetBuffer(),
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
+              },
+          },
+          // m_IndirectDrawCount
+          Pipeline::DescriptorWriteInfo {
+                          .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                          .binding = vxen::Binding::S_INDIRECT_DRAW_COUNT,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_IndirectDrawCountBuffer.GetBuffer(),
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
+              },
+          },
+          // m_ChunksSVOBuffer
+          Pipeline::DescriptorWriteInfo {
+                          .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                          .binding = vxen::Binding::S_CHUNKS_SVO,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_ChunkSVOBuffer,
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
+              },
+          },
+          // m_ChunksBuffer
+          Pipeline::DescriptorWriteInfo {
+                          .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                          .binding = vxen::Binding::S_CHUNKS,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_ChunkBuffer,
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
                   },
               },
           },

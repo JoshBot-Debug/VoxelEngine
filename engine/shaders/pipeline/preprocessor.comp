@@ -1,0 +1,54 @@
+#version 460
+
+layout(local_size_x=8,local_size_y=8,local_size_z=8)in;
+
+#include "common.glsl"
+#include "raymarchChunks.glsl"
+
+struct DrawIndirectCommand
+{
+  uint vertexCount;
+  uint instanceCount;
+  uint firstVertex;
+  uint firstInstance;
+};
+
+
+struct Chunk{
+  bool Dirty;
+  bool Empty;
+  bool Exists;
+  bool Padding;
+  uint Offset[6];
+  uint Size[6];
+};
+
+layout(std430,set=1,binding=55)readonly buffer Chunks{
+  uint count;
+  uint padding[3];
+  Chunk data[];
+}chunks;
+
+layout(std430,set=1,binding=56)buffer DrawCommands{
+  DrawIndirectCommand commands[];
+};
+
+layout(std430,set=1,binding=57)buffer DrawCount{
+  uint count;
+};
+
+#include "camera.glsl"
+
+void main(){
+  ivec3 coord=ivec3(gl_GlobalInvocationID.xyz);
+  uint index=coord.x+(coord.y*8+(coord.z*8*8));
+  
+  if(index>chunks.count)return;
+  if(!chunks.data[index].Exists)return;
+  
+  uint drawIndex=atomicAdd(count,1);
+  commands[drawIndex].vertexCount=chunks.data[index].Size[0];
+  commands[drawIndex].instanceCount=1;
+  commands[drawIndex].firstVertex=chunks.data[index].Offset[0];
+  commands[drawIndex].firstInstance=0;
+}

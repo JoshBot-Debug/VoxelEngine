@@ -33,7 +33,11 @@ private:
   VkBuffer m_VertexBuffer {};
   VkBuffer m_SVOBuffer {};
 
-  akari::render::Buffer m_IndirectBuffer {{.Usage = VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT}};
+  VkBuffer m_ChunkSVOBuffer {};
+  VkBuffer m_ChunkBuffer {};
+
+  akari::render::Buffer m_IndirectBuffer {{.Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT}};
+  akari::render::Buffer m_IndirectDrawCountBuffer {{.Usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT}};
   uint32_t              m_IndirectDrawCount {0};
 
   akari::render::Buffer m_OverlayVertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
@@ -42,6 +46,7 @@ private:
   akari::render::RenderPass m_GBufferPass;
   akari::render::Pipeline   m_GeometryPipeline;
 
+  akari::render::Pipeline m_PreprocessorPipeline;
   akari::render::Pipeline m_LightingPipeline;
   akari::render::Pipeline m_ShadingPipeline;
 

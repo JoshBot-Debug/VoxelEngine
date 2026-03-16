@@ -13,10 +13,23 @@
 #include "voxel/Type.h"
 #include "voxel/Voxel.h"
 
+#include "Signal.h"
 #include "render/BufferPool.h"
 #include "thread/ThreadPool.h"
 
 namespace vxen {
+
+struct ChunkBuffers {
+  VkBuffer SVOBuffer      = VK_NULL_HANDLE;
+  VkBuffer VertexBuffer   = VK_NULL_HANDLE;
+  VkBuffer ChunkSVOBuffer = VK_NULL_HANDLE;
+  VkBuffer ChunkBuffer    = VK_NULL_HANDLE;
+
+  VkBufferMemoryBarrier2 SVOBufferBarrier;
+  VkBufferMemoryBarrier2 VertexBufferBarrier;
+  VkBufferMemoryBarrier2 ChunkSVOBufferBarrier;
+  VkBufferMemoryBarrier2 ChunkBufferBarrier;
+};
 
 template <uint32_t SS, uint8_t CS>
 class ChunkManager {
@@ -36,11 +49,14 @@ private:
 
   std::deque<Chunk<SS>>                                       m_ChunkAllocator {};
   SparseOctree<Chunk<SS>, CS>*                                m_Chunks {nullptr};
-  std::vector<typename Chunk<SS>::FlushedChunk>               m_FlushedChunks {};
-  std::vector<typename SparseOctree<Chunk<SS>, CS>::FlatNode> m_FlatNodes {};
+  std::vector<typename SparseOctree<Chunk<SS>, CS>::FlatNode> m_FlatChunkNodes {};
+  std::vector<typename Chunk<SS>::State>                      m_ChunkState {};
 
   akari::render::Buffer m_SVOBuffer {};
   akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+
+  akari::render::Buffer m_ChunkSVOBuffer {};
+  akari::render::Buffer m_ChunkBuffer {};
 
 private:
   /**
@@ -102,14 +118,9 @@ public:
   const std::vector<typename SparseOctree<Chunk<SS>, CS>::FlatNode>& Flatten();
 
   /**
-   * Get the SVO buffer
+   * Get all buffers
    */
-  akari::render::Buffer* GetSVOBuffer();
-
-  /**
-   * Get the Vertex buffer
-   */
-  akari::render::Buffer* GetVertexBuffer();
+  ChunkBuffers GetBuffers();
 
   /**
    * ******************************************************************************
@@ -302,7 +313,7 @@ public:
    * @param commandBuffer The command buffer for this frame
    * @returns A vector of flushed chunks that need to be rendered. Uses to create indirect draw commands.
    */
-  const std::vector<typename Chunk<SS>::FlushedChunk>& FlushPreprocessor(VkCommandBuffer commandBuffer);
+  void FlushPreprocessor(VkCommandBuffer commandBuffer);
 
   /**
    * Converts world coordinates (96, 32, 32) to chunk coordinates (1, 0, 0)
@@ -364,8 +375,11 @@ inline ChunkManager<SS, CS>::ChunkManager()
   m_SVOBuffer.SetPool(&m_SVOPool);
   m_VertexBuffer.SetPool(&m_VertexPool);
 
-  m_SVOBuffer.CreateBuffer(1024);
-  m_VertexBuffer.CreateBuffer(1024);
+  m_SVOBuffer.CreateBuffer(1024, "m_SVOBuffer");
+  m_VertexBuffer.CreateBuffer(1024, "m_VertexBuffer");
+
+  m_ChunkBuffer.CreateBuffer(1024, "m_ChunkBuffer");
+  m_ChunkSVOBuffer.CreateBuffer(1024, "m_ChunkSVOBuffer");
 }
 
 template <uint32_t SS, uint8_t CS>
@@ -410,18 +424,22 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(Spa
 
 template <uint32_t SS, uint8_t CS>
 inline const std::vector<typename SparseOctree<Chunk<SS>, CS>::FlatNode>& ChunkManager<SS, CS>::Flatten() {
-  m_Chunks->Flatten(m_FlatNodes);
-  return m_FlatNodes;
+  m_Chunks->Flatten(m_FlatChunkNodes);
+  return m_FlatChunkNodes;
 }
 
 template <uint32_t SS, uint8_t CS>
-inline akari::render::Buffer* ChunkManager<SS, CS>::GetSVOBuffer() {
-  return &m_SVOBuffer;
-}
-
-template <uint32_t SS, uint8_t CS>
-inline akari::render::Buffer* ChunkManager<SS, CS>::GetVertexBuffer() {
-  return &m_VertexBuffer;
+inline ChunkBuffers ChunkManager<SS, CS>::GetBuffers() {
+  return {
+      .SVOBuffer             = m_SVOBuffer.GetBuffer(),
+      .VertexBuffer          = m_VertexBuffer.GetBuffer(),
+      .ChunkSVOBuffer        = m_ChunkSVOBuffer.GetBuffer(),
+      .ChunkBuffer           = m_ChunkBuffer.GetBuffer(),
+      .SVOBufferBarrier      = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
+      .VertexBufferBarrier   = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT),
+      .ChunkSVOBufferBarrier = m_ChunkSVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
+      .ChunkBufferBarrier    = m_ChunkBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
+  };
 }
 
 template <uint32_t SS, uint8_t CS>
@@ -580,18 +598,21 @@ inline void ChunkManager<SS, CS>::FlushVertices(const std::vector<uint32_t>& ids
 }
 
 template <uint32_t SS, uint8_t CS>
-inline const std::vector<typename Chunk<SS>::FlushedChunk>& ChunkManager<SS, CS>::FlushPreprocessor(VkCommandBuffer commandBuffer) {
-  /// TODO: Need to FlushPreprocessor() only chunks that are dirty
+inline void ChunkManager<SS, CS>::FlushPreprocessor(VkCommandBuffer commandBuffer) {
+  m_Chunks->Flatten(m_FlatChunkNodes);
 
-  m_FlushedChunks.clear();
+  m_ChunkState.resize(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
 
   for (uint8_t z = 0; z < CHUNK_SIZE; z++)
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
-        if (m_Chunks->Exists(x, y, z))
-          m_FlushedChunks.emplace_back(m_Chunks->Get(x, y, z)->Data->FlushPreprocessor(commandBuffer, &m_VertexBuffer, &m_SVOBuffer));
+        if (m_Chunks->Exists(x, y, z)) {
+          uint32_t i = x + (y * CHUNK_SIZE + (z + CHUNK_SIZE * CHUNK_SIZE));
+          m_Chunks->Get(x, y, z)->Data->FlushPreprocessor(commandBuffer, &m_VertexBuffer, &m_SVOBuffer, m_ChunkState[i]);
+        }
 
-  return m_FlushedChunks;
+  m_ChunkSVOBuffer.Upload(commandBuffer, m_FlatChunkNodes);
+  m_ChunkBuffer.Upload(commandBuffer, m_ChunkState);
 }
 
 template <uint32_t SS, uint8_t CS>

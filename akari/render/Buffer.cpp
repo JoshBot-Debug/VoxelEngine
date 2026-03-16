@@ -1,12 +1,13 @@
 #include "Buffer.h"
 
 #include "window/Application.h"
+#include "window/Debug.h"
 
 using namespace akari::window;
 
 namespace akari::render {
 
-void Buffer::CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
+void Buffer::CreateDeviceBuffer(uint32_t size, VkCommandBuffer commandBuffer) {
 
   if (m_DeviceSize >= size)
     return;
@@ -15,10 +16,10 @@ void Buffer::CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
 
   VkBuffer      previousBuffer     = m_DeviceBuffer;
   VmaAllocation previousAllocation = m_DeviceBufferAllocation;
-  uint64_t      previousSize       = m_DeviceSize;
+  uint32_t      previousSize       = m_DeviceSize;
 
-  uint64_t grow   = size - m_DeviceSize;
-  uint64_t blocks = (grow + m_Specification.Size - 1) / m_Specification.Size;
+  uint32_t grow   = size - m_DeviceSize;
+  uint32_t blocks = (grow + m_Specification.Size - 1) / m_Specification.Size;
   m_DeviceSize += blocks * m_Specification.Size;
 
 #ifdef DEBUG
@@ -38,6 +39,16 @@ void Buffer::CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
     allocInfo.pool = m_Specification.Pool->GetDevicePool();
 
   vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &m_DeviceBuffer, &m_DeviceBufferAllocation, nullptr);
+
+#ifdef ENABLE_VULKAN_VALIDATION
+  if (!m_DebugName.empty()) {
+    SET_DEBUG_OBJECT_NAME(
+        m_Device,
+        VK_OBJECT_TYPE_BUFFER,
+        (uint64_t)(m_DeviceBuffer),
+        (m_DebugName + " m_DeviceBuffer").c_str());
+  }
+#endif
 
   if (previousBuffer && commandBuffer && previousSize) {
     VkBufferCopy copyRegion {};
@@ -77,7 +88,7 @@ void Buffer::CreateDeviceBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
     Application::FreeBuffer({previousBuffer, previousAllocation});
 }
 
-void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
+void Buffer::CreateHostBuffer(uint32_t size, VkCommandBuffer commandBuffer) {
 
   if (m_HostSize >= size)
     return;
@@ -86,11 +97,11 @@ void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
 
   VkBuffer          previousBuffer         = m_HostBuffer;
   VmaAllocation     previousAllocation     = m_HostBufferAllocation;
-  uint64_t          previousSize           = m_HostSize;
+  uint32_t          previousSize           = m_HostSize;
   VmaAllocationInfo previousAllocationInfo = m_HostAllocationInfo;
 
-  uint64_t grow   = size - m_HostSize;
-  uint64_t blocks = (grow + m_Specification.Size - 1) / m_Specification.Size;
+  uint32_t grow   = size - m_HostSize;
+  uint32_t blocks = (grow + m_Specification.Size - 1) / m_Specification.Size;
   m_HostSize += blocks * m_Specification.Size;
 
 #ifdef DEBUG
@@ -113,6 +124,16 @@ void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
     allocInfo.pool = m_Specification.Pool->GetHostPool();
 
   vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &m_HostBuffer, &m_HostBufferAllocation, &m_HostAllocationInfo);
+
+#ifdef ENABLE_VULKAN_VALIDATION
+  if (!m_DebugName.empty()) {
+    SET_DEBUG_OBJECT_NAME(
+        m_Device,
+        VK_OBJECT_TYPE_BUFFER,
+        (uint64_t)(m_HostBuffer),
+        (m_DebugName + " m_HostBuffer").c_str());
+  }
+#endif
 
   if (previousBuffer && commandBuffer && previousSize) {
     memcpy(m_HostAllocationInfo.pMappedData, previousAllocationInfo.pMappedData, previousSize);
@@ -148,7 +169,7 @@ void Buffer::CreateHostBuffer(uint64_t size, VkCommandBuffer commandBuffer) {
     Application::FreeBuffer({previousBuffer, previousAllocation});
 }
 
-Buffer::Allocation Buffer::Allocate(uint64_t id, uint64_t bytes, VkCommandBuffer commandBuffer) {
+Buffer::Allocation Buffer::Allocate(uint32_t id, uint32_t bytes, VkCommandBuffer commandBuffer) {
 
   Allocation alloc = m_Blocks.Allocate(id, bytes);
 
@@ -191,7 +212,10 @@ Buffer::~Buffer() {
   DestroyBuffer();
 }
 
-void Buffer::CreateBuffer(uint64_t size) {
+void Buffer::CreateBuffer(uint32_t size, const char* debugName) {
+  if (debugName)
+    m_DebugName = debugName;
+
   CreateHostBuffer(size, nullptr);
   CreateDeviceBuffer(size, nullptr);
 }
@@ -209,7 +233,7 @@ void Buffer::DestroyBuffer() {
   m_Blocks.Free.clear();
 }
 
-Buffer::Allocation Buffer::Upload(VkCommandBuffer commandBuffer, uint64_t id, size_t size, const void* data) {
+Buffer::Allocation Buffer::Upload(VkCommandBuffer commandBuffer, uint32_t id, size_t size, const void* data) {
   if (!size)
     return Buffer::Allocation {};
 
@@ -235,7 +259,7 @@ VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask, Vk
   };
 }
 
-Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
+Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
 #ifdef DEBUG
   std::cout << "\nBuffer::Blocks::Allocate(" << id << ", " << bytes << ")" << std::endl;
 #endif
@@ -248,11 +272,11 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
       break;
     }
 
-  auto insertBlock = [&](uint64_t i, uint64_t id, uint64_t bytes, bool resized = false) {
+  auto insertBlock = [&](uint32_t i, uint32_t id, uint32_t bytes, bool resized = false) {
     // Add a free block with the remaining bytes at position i + 1
     // If there are any left over bytes
     if (Size[i] - bytes) {
-      Id.insert(Id.begin() + i + 1, UINT64_MAX);
+      Id.insert(Id.begin() + i + 1, UINT32_MAX);
       Size.insert(Size.begin() + i + 1, Size[i] - bytes);
       Offset.insert(Offset.begin() + i + 1, Offset[i] + bytes);
       Free.insert(Free.begin() + i + 1, true);
@@ -279,7 +303,7 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
    * @param bytes The number of bytes we need
    * @returns True if we resized, false otherwise
    */
-  auto growForward = [&](uint64_t i, uint64_t bytes) -> bool {
+  auto growForward = [&](uint32_t i, uint32_t bytes) -> bool {
     // If this block is at the end
     // Just update the size
     if (i + 1 == Id.size()) {
@@ -335,7 +359,7 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
 
     // There was not enough space in the matching block
     // Mark the block as free
-    Id[mi]   = UINT64_MAX;
+    Id[mi]   = UINT32_MAX;
     Free[mi] = true;
 
 #ifdef DEBUG
@@ -370,8 +394,8 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
   }
 
   // There is no suitable block, create a new one
-  uint64_t blocks = Id.size();
-  uint64_t offset = blocks == 0 ? 0 : Offset[blocks - 1] + Size[blocks - 1];
+  uint32_t blocks = Id.size();
+  uint32_t offset = blocks == 0 ? 0 : Offset[blocks - 1] + Size[blocks - 1];
 
   Id.emplace_back(id);
   Size.emplace_back(bytes);
@@ -383,7 +407,7 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint64_t id, uint64_t bytes) {
 #endif
 
   return Allocation {
-      .Index   = static_cast<uint64_t>(blocks),
+      .Index   = static_cast<uint32_t>(blocks),
       .Size    = bytes,
       .Offset  = offset,
       .Resized = true,

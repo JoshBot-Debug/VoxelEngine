@@ -7,14 +7,9 @@
 #include "voxel/SparseOctree.h"
 #include "voxel/Voxel.h"
 
-#include "thread/Signal.h"
 #include "thread/ThreadPool.h"
 
 #include "render/Buffer.h"
-#include "render/BufferPool.h"
-#include "window/Application.h"
-
-#include "Signal.h"
 
 namespace vxen {
 
@@ -25,25 +20,13 @@ class Chunk {
 public:
   static constexpr uint32_t SIZE = SS;
 
-  struct FlushedChunk {
-    uint32_t VertexOffset {0};
-    uint32_t SVOOffset {0};
-    bool     VerticesResized {0};
-    bool     SVOResized {0};
-    uint32_t VertexCount {0};
-  };
-
-  struct LevelOfDetail {
-    // Bit mask for LOD levels
-    uint8_t  Exists;
-    uint64_t Offset[6];
-    uint64_t Size[6];
-  };
-
   struct State {
-    uint8_t       Dirty;
-    uint8_t       Empty;
-    LevelOfDetail LOD;
+    uint32_t  Dirty {0};
+    uint32_t  Empty {1};
+    uint32_t  Exists {0};
+    uint32_t  Padding[1] {0};
+    uint32_t Offset[6] {0};
+    uint32_t Size[6] {0};
   };
 
 private:
@@ -54,8 +37,7 @@ private:
   std::vector<Vertex>                                     m_Vertices {};
   std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
 
-  State        m_State;
-  FlushedChunk m_FlushedChunk;
+  State m_State;
 
   static uint32_t UID();
 
@@ -113,7 +95,7 @@ public:
 
   void FlushVertices(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids);
 
-  const FlushedChunk& FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer);
+  void FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer, State& state);
 };
 
 template <uint32_t SS>
@@ -259,7 +241,11 @@ inline SparseOctree<Voxel, SS>::Hit Chunk<SS>::DeepRaymarch(SparseOctree<Voxel, 
 
 template <uint32_t SS>
 inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
-  if (!m_State.Dirty || m_SVO->Empty())
+  // Need to check offset and choose the right LOD here, for now I'm just using lod 0
+
+  m_State.Empty = m_SVO->Empty();
+
+  if (!m_State.Dirty || m_State.Empty)
     return;
 
   group->Add();
@@ -280,7 +266,7 @@ inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::
     GreedyMesh64::Generate(threadVertices[i], offset, id, rows, columns, layers, padding);
   };
 
-  auto onComplete = [group, &vertices = m_Vertices, &threadVertices = m_ThreadVertices]() {
+  auto onComplete = [group, &state = m_State, &vertices = m_Vertices, &threadVertices = m_ThreadVertices]() {
     size_t total = 0;
 
     for (const auto& v : threadVertices)
@@ -296,6 +282,8 @@ inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::
       v.clear();
 
     group->Done();
+    state.Dirty  = 0;
+    state.Exists = 1;
   };
 
   auto batch = akari::thread::ThreadPool::CreateGroup(onComplete);
@@ -306,19 +294,12 @@ inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::
 }
 
 template <uint32_t SS>
-inline const Chunk<SS>::FlushedChunk& Chunk<SS>::FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer) {
-  auto vertexAlloc = vertexBuffer->Upload(commandBuffer, Id, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
-  auto svoAlloc    = svoBuffer->Upload(commandBuffer, Id, m_FlatNodes);
-
-  m_FlushedChunk.VertexOffset = vertexAlloc.Offset;
-  m_FlushedChunk.SVOOffset    = svoAlloc.Offset;
-
-  m_FlushedChunk.VerticesResized = vertexAlloc.Resized;
-  m_FlushedChunk.SVOResized      = svoAlloc.Resized;
-
-  m_FlushedChunk.VertexCount = static_cast<uint64_t>(m_Vertices.size());
-
-  return m_FlushedChunk;
+inline void Chunk<SS>::FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer, State& state) {
+  auto vertexAlloc  = vertexBuffer->Upload(commandBuffer, Id, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
+  auto svoAlloc     = svoBuffer->Upload(commandBuffer, Id, m_FlatNodes);
+  m_State.Offset[0] = vertexAlloc.Offset / sizeof(Vertex);
+  m_State.Size[0]   = static_cast<uint32_t>(m_Vertices.size());
+  state             = m_State;
 }
 
 } // namespace vxen

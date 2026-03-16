@@ -74,6 +74,22 @@ public:
     uint32_t stride {sizeof(VkDrawIndirectCommand)};
   };
 
+  struct DrawIndirectCountInfo {
+    VkCommandBuffer commandBuffer {VK_NULL_HANDLE};
+
+    std::vector<VkBuffer>        vertexBuffers;
+    std::vector<VkDeviceSize>    offsets;
+    std::vector<VkDescriptorSet> descriptorSets;
+
+    VkBuffer     indirectBuffer {VK_NULL_HANDLE};
+    VkDeviceSize indirectOffset {0};
+    VkBuffer     countBuffer {VK_NULL_HANDLE};
+    VkDeviceSize countOffset {0};
+
+    uint32_t maxDrawCount {0};
+    uint32_t stride {sizeof(VkDrawIndirectCommand)};
+  };
+
   struct DispatchComputeInfo {
     VkCommandBuffer              commandBuffer;
     uint32_t                     groupCountX {1};
@@ -107,6 +123,8 @@ public:
   void Draw(const DrawInfo& info);
 
   void DrawIndirect(const DrawIndirectInfo& info);
+
+  void DrawIndirectCount(const DrawIndirectCountInfo& info);
 
   VkDescriptorSet GetDescriptorSet(uint32_t id, uint32_t index);
 };

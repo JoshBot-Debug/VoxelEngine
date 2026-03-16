@@ -18,12 +18,6 @@ using WorldChunkManager = vxen::ChunkManager<64, 4>;
 namespace vxen {
 
 class World {
-public:
-  struct ChunkManagerBuffer {
-    VkBuffer               Buffer {nullptr};
-    VkBufferMemoryBarrier2 Barrier;
-  };
-
 private:
   uint32_t m_ChunkSize {0};
 
@@ -73,13 +67,11 @@ public:
   const std::vector<uint32_t>&                        GetMaterialsLUT() { return m_MaterialsLUT; };
   const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
 
-  ChunkManagerBuffer GetSVOBuffer();
-
-  ChunkManagerBuffer GetVertexBuffer();
+  ChunkBuffers GetChunkBuffers();
 
   WorldChunkManager* GetChunkManager() { return m_ChunkManager; };
 
-  const std::vector<vxen::Chunk<64U>::FlushedChunk> FlushPreprocessor(VkCommandBuffer commandBuffer);
+  void FlushPreprocessor(VkCommandBuffer commandBuffer);
 
   void Clean();
 };
