@@ -16,9 +16,7 @@ struct DrawIndirectCommand
 
 struct Chunk{
   bool Dirty;
-  bool Empty;
   bool Exists;
-  bool Padding;
   uint Offset[6];
   uint Size[6];
 };
@@ -41,14 +39,15 @@ layout(std430,set=1,binding=57)buffer DrawCount{
 
 void main(){
   ivec3 coord=ivec3(gl_GlobalInvocationID.xyz);
-  uint index=coord.x+(coord.y*8+(coord.z*8*8));
+  uint i=coord.x+(coord.y*8+(coord.z*8*8));
   
-  if(index>chunks.count)return;
-  if(!chunks.data[index].Exists)return;
+  if(i>=chunks.count)return;
+
+  if(!chunks.data[i].Exists)return;
   
   uint drawIndex=atomicAdd(count,1);
-  commands[drawIndex].vertexCount=chunks.data[index].Size[0];
+  commands[drawIndex].vertexCount=chunks.data[i].Size[0];
   commands[drawIndex].instanceCount=1;
-  commands[drawIndex].firstVertex=chunks.data[index].Offset[0];
+  commands[drawIndex].firstVertex=chunks.data[i].Offset[0];
   commands[drawIndex].firstInstance=0;
 }

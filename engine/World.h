@@ -13,7 +13,7 @@
 
 #include "Signal.h"
 
-using WorldChunkManager = vxen::ChunkManager<64, 4>;
+using WorldChunkManager = vxen::ChunkManager<64, 16>;
 
 namespace vxen {
 

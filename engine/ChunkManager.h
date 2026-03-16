@@ -601,13 +601,14 @@ template <uint32_t SS, uint8_t CS>
 inline void ChunkManager<SS, CS>::FlushPreprocessor(VkCommandBuffer commandBuffer) {
   m_Chunks->Flatten(m_FlatChunkNodes);
 
+  m_ChunkState.clear();
   m_ChunkState.resize(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
 
   for (uint8_t z = 0; z < CHUNK_SIZE; z++)
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
         if (m_Chunks->Exists(x, y, z)) {
-          uint32_t i = x + (y * CHUNK_SIZE + (z + CHUNK_SIZE * CHUNK_SIZE));
+          uint32_t i = x + (y * CHUNK_SIZE + (z * CHUNK_SIZE * CHUNK_SIZE));
           m_Chunks->Get(x, y, z)->Data->FlushPreprocessor(commandBuffer, &m_VertexBuffer, &m_SVOBuffer, m_ChunkState[i]);
         }
 

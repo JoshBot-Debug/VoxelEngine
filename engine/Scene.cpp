@@ -365,10 +365,13 @@ void Scene::Render() {
 
   std::vector<VkBufferMemoryBarrier2> bufferBarriers {};
   bool                                bufferResized {false};
+  bool                                dispatchPreprocess {false};
 
   if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_VERTICES)) {
+    dispatchPreprocess = true;
+
     m_World->FlushPreprocessor(commandBuffer);
-    
+
     auto buffers = m_World->GetChunkBuffers();
 
     m_SVOBuffer = buffers.SVOBuffer;
@@ -382,40 +385,6 @@ void Scene::Render() {
 
     m_ChunkBuffer = buffers.ChunkBuffer;
     bufferBarriers.push_back(buffers.ChunkBufferBarrier);
-
-    // auto flushedChunks = m_World->FlushPreprocessor(commandBuffer);
-    //
-    // std::vector<VkDrawIndirectCommand> indirectCommands {};
-    //
-    // for (auto& o : flushedChunks) {
-    //   indirectCommands.emplace_back(VkDrawIndirectCommand {
-    //       .vertexCount   = o.VertexCount,
-    //       .instanceCount = 1,
-    //       .firstVertex   = static_cast<uint32_t>(o.VertexOffset / sizeof(Vertex)),
-    //       .firstInstance = 0,
-    //   });
-    //
-    //   bufferResized |= o.VerticesResized || o.SVOResized;
-    // }
-    //
-    // if (flushedChunks.size()) {
-    //   auto svoBuffer    = m_World->GetSVOBuffer();
-    //   auto vertexBuffer = m_World->GetVertexBuffer();
-    //
-    //   m_VertexBuffer = vertexBuffer.Buffer;
-    //   m_SVOBuffer    = svoBuffer.Buffer;
-    //
-    //   if (bufferResized) {
-    //     bufferBarriers.push_back(svoBuffer.Barrier);
-    //     bufferBarriers.push_back(vertexBuffer.Barrier);
-    //   }
-    //
-    //   m_IndirectDrawCount = static_cast<uint32_t>(flushedChunks.size());
-    // }
-    //
-    // m_IndirectBuffer.Upload(commandBuffer, indirectCommands.size() * sizeof(VkDrawIndirectCommand), indirectCommands.data());
-
-    // bufferBarriers.emplace_back(m_IndirectBuffer.GetBarrier(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT));
 
     const std::vector<Material>&                        materials   = m_World->GetMaterials();
     const std::vector<uint32_t>&                        materialLUT = m_World->GetMaterialsLUT();
@@ -467,7 +436,8 @@ void Scene::Render() {
     CreateDescriptorSets();
 
   // Preprocessor compute
-  {
+  if (dispatchPreprocess || true) {
+    vkCmdFillBuffer(commandBuffer, m_IndirectDrawCountBuffer.GetBuffer(), 0, sizeof(uint32_t), 0);
     m_PreprocessorPipeline.DispatchCompute({
         .commandBuffer  = commandBuffer,
         .groupCountX    = 1,

@@ -60,12 +60,12 @@ World::World(uint32_t m_ChunkSize)
 
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
-  ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
+  // ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}); });
 
-  // for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
-  //   for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
-  //     GenerateChunk({x, 0, z});
+  for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
+    for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
+      GenerateChunk({x, 0, z});
 }
 
 World::~World() {
@@ -186,7 +186,7 @@ const void World::GenerateChunk(const glm::ivec3& wcc) {
     for (int z = 0; z < m_ChunkSize; z++)
       for (int x = 0; x < m_ChunkSize; x++) {
         float n      = noise.GetValue(x, z);
-        int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize / 2)));
+        int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (m_ChunkSize >> 1)));
         for (int y = 0; y < height; y++)
           m_ChunkManager->Set(wcc, session, x, y, z, lush.get());
       }

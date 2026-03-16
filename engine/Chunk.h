@@ -21,10 +21,8 @@ public:
   static constexpr uint32_t SIZE = SS;
 
   struct State {
-    uint32_t  Dirty {0};
-    uint32_t  Empty {1};
-    uint32_t  Exists {0};
-    uint32_t  Padding[1] {0};
+    uint32_t Dirty {0};
+    uint32_t Exists {0};
     uint32_t Offset[6] {0};
     uint32_t Size[6] {0};
   };
@@ -243,9 +241,9 @@ template <uint32_t SS>
 inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
   // Need to check offset and choose the right LOD here, for now I'm just using lod 0
 
-  m_State.Empty = m_SVO->Empty();
+  m_State.Exists = !m_SVO->Empty();
 
-  if (!m_State.Dirty || m_State.Empty)
+  if (!m_State.Dirty || !m_State.Exists)
     return;
 
   group->Add();
