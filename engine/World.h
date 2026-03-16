@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <mutex>
 #include <vector>
 
 #include "camera/PerspectiveCamera.h"
@@ -11,9 +10,7 @@
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"
 
-#include "Signal.h"
-
-using WorldChunkManager = vxen::ChunkManager<64, 16>;
+using WorldChunkManager = vxen::ChunkManager<64, 4>;
 
 namespace vxen {
 
