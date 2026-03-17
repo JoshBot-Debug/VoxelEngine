@@ -440,9 +440,9 @@ void Scene::Render() {
     vkCmdFillBuffer(commandBuffer, m_IndirectDrawCountBuffer.GetBuffer(), 0, sizeof(uint32_t), 0);
     m_PreprocessorPipeline.DispatchCompute({
         .commandBuffer  = commandBuffer,
-        .groupCountX    = 1,
-        .groupCountY    = 1,
-        .groupCountZ    = 1,
+        .groupCountX    = WorldChunkManager::CHUNK_SIZE / 8,
+        .groupCountY    = WorldChunkManager::CHUNK_SIZE / 8,
+        .groupCountZ    = WorldChunkManager::CHUNK_SIZE / 8,
         .descriptorSets = {
             m_PreprocessorPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
             m_PreprocessorPipeline.GetDescriptorSet(1, 0),

@@ -39,7 +39,7 @@ layout(std430,set=1,binding=57)buffer DrawCount{
 
 void main(){
   ivec3 coord=ivec3(gl_GlobalInvocationID.xyz);
-  uint i=coord.x+(coord.y*8+(coord.z*8*8));
+  uint i=coord.x+(coord.y*16+(coord.z*16*16));
   
   if(i>=chunks.count)return;
 

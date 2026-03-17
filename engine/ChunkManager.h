@@ -460,7 +460,6 @@ inline void ChunkManager<SS, CS>::Sync(const glm::u8vec3& coordinate) {
 template <uint32_t SS, uint8_t CS>
 inline void ChunkManager<SS, CS>::Set(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z, Voxel* data) {
   auto chunk = Ensure(coordinate.x, coordinate.y, coordinate.z);
-
   chunk->Data->Set(x, y, z, data);
 }
 
