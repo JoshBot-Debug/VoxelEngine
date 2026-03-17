@@ -63,8 +63,8 @@ World::World(uint32_t m_ChunkSize)
   // ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}); });
 
-  for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
-    for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
+  for (size_t z = 0; z < 8; z++)
+    for (size_t x = 0; x < 16; x++)
       GenerateChunk({x, 0, z});
 }
 
