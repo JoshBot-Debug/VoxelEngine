@@ -68,7 +68,7 @@ World::World(uint32_t m_ChunkSize)
   ThreadPool::Dispatch([&]() {
     for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
       for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(150));
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));
         GenerateChunk({x, 0, z});
       }
   });

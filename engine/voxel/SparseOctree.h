@@ -814,7 +814,6 @@ public:
   /**
    * RCU
    * Used for reading in scope
-   * @note This is not thread safe, make sure only one thread is writing
    */
   Reader BeginRead() {
     return Reader(&m_Root, &m_RCU);

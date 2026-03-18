@@ -1,7 +1,6 @@
 #include "Buffer.h"
 
 #include "window/Application.h"
-#include "window/Debug.h"
 
 using namespace akari::window;
 
@@ -412,6 +411,44 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
       .Offset  = offset,
       .Resized = true,
   };
+}
+
+void Buffer::Blocks::Log() {
+  uint64_t totalMemory = 0;
+  uint64_t usedMemory  = 0;
+  uint64_t freeMemory  = 0;
+
+  uint32_t freeBlocks = 0;
+  uint32_t usedBlocks = 0;
+
+  for (size_t i = 0; i < Size.size(); i++) {
+    totalMemory += Size[i];
+
+    if (Free[i]) {
+      freeBlocks++;
+      freeMemory += Size[i];
+    } else {
+      usedBlocks++;
+      usedMemory += Size[i];
+    }
+  }
+
+  auto toMB = [](uint64_t bytes) {
+    return bytes / 1024.0 / 1024.0;
+  };
+
+  std::cout << "Total blocks: " << Size.size() << "\n";
+  std::cout << "Used blocks : " << usedBlocks << "\n";
+  std::cout << "Free blocks : " << freeBlocks << "\n";
+
+  std::cout << "Total memory: " << toMB(totalMemory) << " MB\n";
+  std::cout << "Used memory : " << toMB(usedMemory) << " MB\n";
+  std::cout << "Free memory : " << toMB(freeMemory) << " MB\n";
+}
+
+void Buffer::Log() {
+  std::cout << "\n===  Allocation Info " << m_DebugName << " ===\n";
+  m_Blocks.Log();
 }
 
 } // namespace akari::render

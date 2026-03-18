@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstring>
-#include <mutex>
 #include <string>
 #include <vector>
 #include <vk_mem_alloc.h>
@@ -28,11 +27,11 @@ public:
     std::vector<bool>     Free {};
 
     Allocation Allocate(uint32_t id, uint32_t bytes);
+
+    void Log();
   };
 
   struct Specification {
-    /// TODO: There is a glitch every time we need to resize the buffer and copy content.
-    // uint32_t           Size {1024 * 1024 * 32};
     uint32_t           Size {1024};
     VkBufferUsageFlags Usage {VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
     BufferPool*        Pool {nullptr};
@@ -143,6 +142,8 @@ public:
   VkBufferMemoryBarrier2 GetBarrier(VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask);
 
   VkBuffer GetBuffer() { return m_DeviceBuffer; }
+
+  void Log();
 };
 
 } // namespace akari::render

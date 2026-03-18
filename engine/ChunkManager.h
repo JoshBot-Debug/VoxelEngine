@@ -583,6 +583,11 @@ inline typename SparseOctree<Voxel, SS>::Hit ChunkManager<SS, CS>::DeepRaymarch(
 template <uint32_t SS, uint8_t CS>
 inline void ChunkManager<SS, CS>::FlushVertices(const std::vector<uint32_t>& ids) {
 
+  m_VertexBuffer.Log();
+  m_ChunkBuffer.Log();
+  m_ChunkSVOBuffer.Log();
+  m_SVOBuffer.Log();
+
   auto onComplete = []() {
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
   };
