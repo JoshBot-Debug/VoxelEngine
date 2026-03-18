@@ -287,7 +287,6 @@ inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::
   auto batch = akari::thread::ThreadPool::CreateGroup(onComplete);
 
   akari::thread::ThreadPool::ForEach(batch, ids, greedyMesh);
-
   akari::thread::ThreadPool::Dispatch(batch, flatten);
 }
 
