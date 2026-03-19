@@ -13,6 +13,7 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(RELWITHDEBINFO_OPT "-O3" CACHE STRING "Optimization for RelWithDebInfo")
 
 # === Optional AVX ===
 if(ENABLE_AVX256)
@@ -80,7 +81,7 @@ target_link_libraries(experiment PRIVATE vxengine)
 
 # === Include Directories ===
 target_include_directories(akari PUBLIC 
-  ${CMAKE_SOURCE_DIR}/akari
+${CMAKE_SOURCE_DIR}/akari
   ${CMAKE_SOURCE_DIR}/vendor/imgui
   ${CMAKE_SOURCE_DIR}/vendor/imgui/backends
   ${CMAKE_SOURCE_DIR}/vendor/VulkanMemoryAllocator/include
@@ -138,21 +139,21 @@ endif()
 
 # === Release \w Debug Configuration ===
 target_compile_options(akari PRIVATE
-  $<$<CONFIG:RelWithDebInfo>:-O3 -g -fno-inline -fno-omit-frame-pointer -march=native>
+  $<$<CONFIG:RelWithDebInfo>:${RELWITHDEBINFO_OPT} -g -fno-inline -fno-omit-frame-pointer -march=native>
 )
 
 target_compile_options(vxengine PRIVATE
-  $<$<CONFIG:RelWithDebInfo>:-O3 -g -fno-inline -fno-omit-frame-pointer -march=native>
+  $<$<CONFIG:RelWithDebInfo>:${RELWITHDEBINFO_OPT} -g -fno-inline -fno-omit-frame-pointer -march=native>
 )
 
 
 # === Release Configuration ===
 target_compile_options(akari PRIVATE
-  $<$<CONFIG:Release>:-O3 -march=native -flto=auto -funroll-loops -fomit-frame-pointer -ffast-math>
+  $<$<CONFIG:Release>:-O3 -march=native -flto=auto -funroll-loops -fomit-frame-pointer>
 )
 
 target_compile_options(vxengine PRIVATE
-  $<$<CONFIG:Release>:-O3 -march=native -flto=auto -funroll-loops -fomit-frame-pointer -ffast-math>
+  $<$<CONFIG:Release>:-O3 -march=native -flto=auto -funroll-loops -fomit-frame-pointer>
 )
 
 target_link_options(akari PRIVATE

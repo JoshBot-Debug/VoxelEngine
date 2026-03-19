@@ -219,4 +219,10 @@ If it's possible to process both CPU and GPU work in parallel use this to synchr
 
 1. Use a memory barrier to synchronize the compute shader with the draw command
 2. If the CPU work is not done, don't submit the draw command
-3. Once the CPU work is done, submit the draw command, it'll wait on the memory barrier and eventually the draw command will execute with both data.
+3. Once the CPU work is done, submit the draw command, it'll wait on the memory barrier and eventually the draw command will execute with both data
+
+There seems to be a memory issue, I's definitely in the Buffer::Upload(). Most likely because to copy memory, etc we use
+a command buffer. We may update/create a new buffer before the command is executed. There are issues with using
+Buffer::Upload() in a loop like how I use it.
+The problem seems to be reallocating more memory, causes an explosion.
+If I set the buffer size from 1024 to 64mb, it reallocates only once and no explosion happens.

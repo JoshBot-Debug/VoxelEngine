@@ -18,6 +18,11 @@ release-debug:
 	cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo
 	cmake --build build
 
+release-debug-unoptimized:
+	bash compileShaders.sh
+	cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRELWITHDEBINFO_OPT=-O0
+	cmake --build build
+
 run:
 	./build/vxen
 

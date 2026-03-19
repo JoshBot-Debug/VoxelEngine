@@ -286,17 +286,22 @@ inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::
 
   auto batch = akari::thread::ThreadPool::CreateGroup(onComplete);
 
-  akari::thread::ThreadPool::ForEach(batch, ids, greedyMesh);
-  akari::thread::ThreadPool::Dispatch(batch, flatten);
+  // akari::thread::ThreadPool::ForEach(batch, ids, greedyMesh);
+  // akari::thread::ThreadPool::Dispatch(batch, flatten);
+
+  flatten();
+  for (size_t i = 0; i < ids.size(); i++)
+    greedyMesh(i, ids[i]);
+  onComplete();
 }
 
 template <uint32_t SS>
 inline void Chunk<SS>::FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer, State& state) {
   auto vertexAlloc  = vertexBuffer->Upload(commandBuffer, Id, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
-  auto svoAlloc     = svoBuffer->Upload(commandBuffer, Id, m_FlatNodes);
+  auto svoAlloc = svoBuffer->Upload(commandBuffer, Id, m_FlatNodes);
   m_State.Offset[0] = vertexAlloc.Offset / sizeof(Vertex);
   m_State.Size[0]   = static_cast<uint32_t>(m_Vertices.size());
-  state             = m_State;
+  state = m_State;
 }
 
 } // namespace vxen

@@ -376,7 +376,7 @@ inline ChunkManager<SS, CS>::ChunkManager()
   m_VertexBuffer.SetPool(&m_VertexPool);
 
   m_SVOBuffer.CreateBuffer(1024, "m_SVOBuffer");
-  m_VertexBuffer.CreateBuffer(1024, "m_VertexBuffer");
+  m_VertexBuffer.CreateBuffer(1024 * 1024 * 64, "m_VertexBuffer");
 
   m_ChunkBuffer.CreateBuffer(1024, "m_ChunkBuffer");
   m_ChunkSVOBuffer.CreateBuffer(1024, "m_ChunkSVOBuffer");
