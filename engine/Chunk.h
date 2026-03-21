@@ -20,13 +20,6 @@ class Chunk {
 public:
   static constexpr uint32_t SIZE = SS;
 
-  struct State {
-    uint32_t Dirty {0};
-    uint32_t Exists {0};
-    uint32_t Offset[6] {0};
-    uint32_t Size[6] {0};
-  };
-
 private:
   SparseOctree<Voxel, SS>* m_SVO {nullptr};
   uint8_t                  m_Padding[SIZE * SIZE] {0};
@@ -35,273 +28,83 @@ private:
   std::vector<Vertex>                                     m_Vertices {};
   std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
 
-  State m_State;
-
-  static uint32_t UID();
-
 public:
   uint32_t Id {0};
 
 public:
-  Chunk()
+  Chunk(uint32_t id)
       : m_SVO(new SparseOctree<Voxel, SS>())
-      , Id(UID()) {};
+      , Id(id) {};
 
   ~Chunk() {
     delete m_SVO;
   };
 
-  SparseOctree<Voxel, SS>::Reader BeginRead();
+  bool Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids);
 
-  SparseOctree<Voxel, SS>::Writer BeginWrite();
+  const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& FlatNodes();
 
-  void Sync();
+  const std::vector<Vertex>& Verticies();
 
-  void Set(uint8_t x, uint8_t y, uint8_t z, Voxel* data);
-
-  void Set(SparseOctree<Voxel, SS>::Writer& session, uint8_t x, uint8_t y, uint8_t z, Voxel* data);
-
-  SparseOctree<Voxel, SS>::Node Get(uint8_t x, uint8_t y, uint8_t z);
-
-  SparseOctree<Voxel, SS>::Node Get(SparseOctree<Voxel, SS>::Reader& session, uint8_t x, uint8_t y, uint8_t z);
-
-  void Clear(uint8_t x, uint8_t y, uint8_t z);
-
-  void Clear(SparseOctree<Voxel, SS>::Writer& session, uint8_t x, uint8_t y, uint8_t z);
-
-  bool Exists(int x, int y, int z);
-
-  bool Exists(uint8_t x, uint8_t y, uint8_t z);
-
-  const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& Flatten();
-
-  const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& Flatten(SparseOctree<Voxel, SS>::Reader& session);
-
-  const std::vector<Vertex>& GreedyMesh(const glm::ivec3& offset, const std::vector<uint32_t>& ids);
-
-  template <typename F>
-    requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
-  void Filter(std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter);
-
-  template <typename F>
-    requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
-  void Filter(SparseOctree<Voxel, SS>::Reader& session, std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter);
-
-  SparseOctree<Voxel, SS>::Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction);
-
-  SparseOctree<Voxel, SS>::Hit DeepRaymarch(SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
-
-  void FlushVertices(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids);
-
-  void FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer, State& state);
+  SparseOctree<Voxel, SS>* SVO();
 };
 
 template <uint32_t SS>
-inline uint32_t Chunk<SS>::UID() {
-  static uint32_t uid = 1;
-  return uid++;
-}
+inline bool Chunk<SS>::Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
 
-template <uint32_t SS>
-inline SparseOctree<Voxel, SS>::Reader Chunk<SS>::BeginRead() {
-  return m_SVO->BeginRead();
-}
+  if (m_SVO->Empty() || !m_SVO->Dirty())
+    return false;
 
-template <uint32_t SS>
-inline SparseOctree<Voxel, SS>::Writer Chunk<SS>::BeginWrite() {
-  return m_SVO->BeginWrite();
-}
+  group->Add();
 
-template <uint32_t SS>
-inline void Chunk<SS>::Sync() {
-  if (!m_State.Dirty)
-    return;
-  m_SVO->Sync();
-}
-
-template <uint32_t SS>
-inline void Chunk<SS>::Set(uint8_t x, uint8_t y, uint8_t z, Voxel* data) {
-  m_SVO->Set(x, y, z, data);
-  m_State.Dirty = 1;
-}
-
-template <uint32_t SS>
-inline void Chunk<SS>::Set(SparseOctree<Voxel, SS>::Writer& session, uint8_t x, uint8_t y, uint8_t z, Voxel* data) {
-  m_SVO->Set(session, x, y, z, data);
-  m_State.Dirty = 1;
-}
-
-template <uint32_t SS>
-inline SparseOctree<Voxel, SS>::Node Chunk<SS>::Get(uint8_t x, uint8_t y, uint8_t z) {
-  return m_SVO->Get(x, y, z);
-}
-
-template <uint32_t SS>
-inline SparseOctree<Voxel, SS>::Node Chunk<SS>::Get(SparseOctree<Voxel, SS>::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
-  return m_SVO->Get(session, x, y, z);
-}
-
-template <uint32_t SS>
-inline void Chunk<SS>::Clear(uint8_t x, uint8_t y, uint8_t z) {
-  m_SVO->Clear(x, y, z);
-  m_State.Dirty = 1;
-}
-
-template <uint32_t SS>
-inline void Chunk<SS>::Clear(SparseOctree<Voxel, SS>::Writer& session, uint8_t x, uint8_t y, uint8_t z) {
-  m_SVO->Clear(session, x, y, z);
-  m_State.Dirty = 1;
-}
-
-template <uint32_t SS>
-inline bool Chunk<SS>::Exists(int x, int y, int z) {
-  return m_SVO->Exists(x, y, z);
-}
-
-template <uint32_t SS>
-inline bool Chunk<SS>::Exists(uint8_t x, uint8_t y, uint8_t z) {
-  return m_SVO->Exists(x, y, z);
-}
-
-template <uint32_t SS>
-inline const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& Chunk<SS>::Flatten() {
-  m_SVO->Flatten(m_FlatNodes);
-  return m_FlatNodes;
-}
-
-template <uint32_t SS>
-inline const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& Chunk<SS>::Flatten(typename SparseOctree<Voxel, SS>::Reader& session) {
-  m_SVO->Flatten(session, m_FlatNodes);
-  return m_FlatNodes;
-}
-
-template <uint32_t SS>
-inline const std::vector<Vertex>& Chunk<SS>::GreedyMesh(const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
+  m_ThreadVertices.clear();
   m_ThreadVertices.resize(ids.size());
 
-  auto greedyMesh = [&](size_t i, uint32_t id) {
-    auto session = m_SVO->BeginRead();
+  auto session = std::make_shared<typename SparseOctree<Voxel, SS>::Reader>(m_SVO->BeginRead(false));
 
-    auto& rows    = m_SVO->GetAxisX(session, id);
-    auto& columns = m_SVO->GetAxisY(session, id);
-    auto& layers  = m_SVO->GetAxisZ(session, id);
-
-    GreedyMesh64::Generate(m_ThreadVertices[i], offset, id, rows, columns, layers, m_Padding);
+  auto flatten = [session, &svo = m_SVO, &flatNodes = m_FlatNodes]() {
+    svo->Flatten(*session, flatNodes);
   };
 
-  auto onComplete = [&]() {
-    size_t total = 0;
+  auto greedyMesh = [session, offset, &padding = m_Padding, &svo = m_SVO, &tVertices = m_ThreadVertices](size_t i, uint32_t id) {
+    auto& rows    = svo->GetAxisX(*session, id);
+    auto& columns = svo->GetAxisY(*session, id);
+    auto& layers  = svo->GetAxisZ(*session, id);
 
-    for (const auto& v : m_ThreadVertices)
-      total += v.size();
-
-    m_Vertices.clear();
-    m_Vertices.reserve(total);
-
-    for (auto& v : m_ThreadVertices)
-      m_Vertices.insert(m_Vertices.end(), v.begin(), v.end());
-
-    for (auto& v : m_ThreadVertices)
-      v.clear();
+    GreedyMesh64::Generate(tVertices[i], offset, id, rows, columns, layers, padding);
   };
 
-  for (size_t i = 0; i < ids.size(); i++)
-    greedyMesh(i, ids[i]);
+  auto onComplete = [group, session, &svo = m_SVO, &tVertices = m_ThreadVertices, &vertices = m_Vertices]() {
+    vertices.clear();
 
-  onComplete();
+    for (auto& v : tVertices)
+      vertices.insert(vertices.end(), v.begin(), v.end());
 
+    svo->Clean();
+    group->Done();
+    session->Unlock();
+  };
+
+  auto handle = akari::thread::ThreadPool::CreateGroup(onComplete);
+  akari::thread::ThreadPool::ForEach(handle, ids, greedyMesh);
+  akari::thread::ThreadPool::Dispatch(handle, flatten);
+
+  return true;
+}
+
+template <uint32_t SS>
+inline const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& Chunk<SS>::FlatNodes() {
+  return m_FlatNodes;
+}
+
+template <uint32_t SS>
+inline const std::vector<Vertex>& Chunk<SS>::Verticies() {
   return m_Vertices;
 }
 
 template <uint32_t SS>
-template <typename F>
-  requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
-inline void Chunk<SS>::Filter(std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
-  return m_SVO->Filter(out, filter);
-}
-
-template <uint32_t SS>
-template <typename F>
-  requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
-inline void Chunk<SS>::Filter(SparseOctree<Voxel, SS>::Reader& session, std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
-  return m_SVO->Filter(session, out, filter);
-}
-
-template <uint32_t SS>
-inline SparseOctree<Voxel, SS>::Hit Chunk<SS>::DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
-  return m_SVO->DeepRaymarch(origin, direction);
-}
-
-template <uint32_t SS>
-inline SparseOctree<Voxel, SS>::Hit Chunk<SS>::DeepRaymarch(SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
-  return m_SVO->DeepRaymarch(session, origin, direction);
-}
-
-template <uint32_t SS>
-inline void Chunk<SS>::FlushVertices(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
-  // Need to check offset and choose the right LOD here, for now I'm just using lod 0
-
-  m_State.Exists = !m_SVO->Empty();
-
-  if (!m_State.Dirty || !m_State.Exists)
-    return;
-
-  group->Add();
-
-  m_ThreadVertices.resize(ids.size());
-
-  auto flatten = [&]() {
-    m_SVO->Flatten(m_FlatNodes);
-  };
-
-  auto greedyMesh = [svo = m_SVO, &padding = m_Padding, offset, &threadVertices = m_ThreadVertices](size_t i, uint32_t id) {
-    auto session = svo->BeginRead();
-
-    auto& rows    = svo->GetAxisX(session, id);
-    auto& columns = svo->GetAxisY(session, id);
-    auto& layers  = svo->GetAxisZ(session, id);
-
-    GreedyMesh64::Generate(threadVertices[i], offset, id, rows, columns, layers, padding);
-  };
-
-  auto onComplete = [group, &state = m_State, &vertices = m_Vertices, &threadVertices = m_ThreadVertices]() {
-    size_t total = 0;
-
-    for (const auto& v : threadVertices)
-      total += v.size();
-
-    vertices.clear();
-    vertices.reserve(total);
-
-    for (auto& v : threadVertices)
-      vertices.insert(vertices.end(), v.begin(), v.end());
-
-    for (auto& v : threadVertices)
-      v.clear();
-
-    group->Done();
-    state.Dirty  = 0;
-    state.Exists = 1;
-  };
-
-  auto batch = akari::thread::ThreadPool::CreateGroup(onComplete);
-
-  // akari::thread::ThreadPool::ForEach(batch, ids, greedyMesh);
-  // akari::thread::ThreadPool::Dispatch(batch, flatten);
-
-  flatten();
-  for (size_t i = 0; i < ids.size(); i++)
-    greedyMesh(i, ids[i]);
-  onComplete();
-}
-
-template <uint32_t SS>
-inline void Chunk<SS>::FlushPreprocessor(VkCommandBuffer commandBuffer, akari::render::Buffer* vertexBuffer, akari::render::Buffer* svoBuffer, State& state) {
-  auto vertexAlloc  = vertexBuffer->Upload(commandBuffer, Id, m_Vertices.size() * sizeof(Vertex), m_Vertices.data());
-  auto svoAlloc = svoBuffer->Upload(commandBuffer, Id, m_FlatNodes);
-  m_State.Offset[0] = vertexAlloc.Offset / sizeof(Vertex);
-  m_State.Size[0]   = static_cast<uint32_t>(m_Vertices.size());
-  state = m_State;
+inline SparseOctree<Voxel, SS>* Chunk<SS>::SVO() {
+  return m_SVO;
 }
 
 } // namespace vxen

@@ -40,12 +40,12 @@ void Buffer::CreateDeviceBuffer(uint32_t size, VkCommandBuffer commandBuffer) {
   vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &m_DeviceBuffer, &m_DeviceBufferAllocation, nullptr);
 
 #ifdef ENABLE_VULKAN_VALIDATION
-  if (!m_DebugName.empty()) {
+  if (!m_Specification.DebugName.empty()) {
     SET_DEBUG_OBJECT_NAME(
         m_Device,
         VK_OBJECT_TYPE_BUFFER,
         (uint64_t)(m_DeviceBuffer),
-        (m_DebugName + " m_DeviceBuffer").c_str());
+        (m_Specification.DebugName + " m_DeviceBuffer").c_str());
   }
 #endif
 
@@ -125,12 +125,12 @@ void Buffer::CreateHostBuffer(uint32_t size, VkCommandBuffer commandBuffer) {
   vmaCreateBuffer(allocator, &bufferInfo, &allocInfo, &m_HostBuffer, &m_HostBufferAllocation, &m_HostAllocationInfo);
 
 #ifdef ENABLE_VULKAN_VALIDATION
-  if (!m_DebugName.empty()) {
+  if (!m_Specification.DebugName.empty()) {
     SET_DEBUG_OBJECT_NAME(
         m_Device,
         VK_OBJECT_TYPE_BUFFER,
         (uint64_t)(m_HostBuffer),
-        (m_DebugName + " m_HostBuffer").c_str());
+        (m_Specification.DebugName + " m_HostBuffer").c_str());
   }
 #endif
 
@@ -211,12 +211,15 @@ Buffer::~Buffer() {
   DestroyBuffer();
 }
 
-void Buffer::CreateBuffer(uint32_t size, const char* debugName) {
-  if (debugName)
-    m_DebugName = debugName;
+void Buffer::CreateBuffer() {
+  CreateHostBuffer(m_Specification.Size, nullptr);
+  CreateDeviceBuffer(m_Specification.Size, nullptr);
+}
 
-  CreateHostBuffer(size, nullptr);
-  CreateDeviceBuffer(size, nullptr);
+void Buffer::CreateBuffer(const Buffer::Specification& specification) {
+  m_Specification = specification;
+  CreateHostBuffer(specification.Size, nullptr);
+  CreateDeviceBuffer(specification.Size, nullptr);
 }
 
 void Buffer::DestroyBuffer() {
@@ -241,6 +244,49 @@ Buffer::Allocation Buffer::Upload(VkCommandBuffer commandBuffer, uint32_t id, si
   HostToDevice(commandBuffer, alloc, data);
 
   return alloc;
+}
+
+std::vector<Buffer::Allocation> Buffer::Upload(VkCommandBuffer commandBuffer, const std::vector<Buffer::Partition>& partitions, const void* data) {
+
+  auto*                           allocator = Application::GetVmaAllocator();
+  size_t                          offset {0};
+  size_t                          size {0};
+  bool                            resized {false};
+  std::vector<Buffer::Allocation> allocations {partitions.size()};
+
+  for (size_t i = 0; i < partitions.size(); i++) {
+    allocations[i] = m_Blocks.Allocate(partitions[i].Id, partitions[i].Size);
+
+    if (i == 0)
+      offset = allocations[0].Offset;
+
+    if (allocations[i].Resized)
+      resized = true;
+
+    if (i == partitions.size() - 1)
+      size = allocations[i].Offset + allocations[i].Size;
+  }
+
+  if (resized) {
+    auto currentSize = offset + size;
+    CreateHostBuffer(currentSize, commandBuffer);
+    CreateDeviceBuffer(currentSize, commandBuffer);
+  }
+
+  vmaCopyMemoryToAllocation(allocator, data, m_HostBufferAllocation, offset, size);
+
+  VkBufferCopy copyRegion {};
+  copyRegion.srcOffset = offset;
+  copyRegion.dstOffset = offset;
+  copyRegion.size      = size;
+
+#ifdef DEBUG
+  std::cout << "Copying from host to device, offset: " << offset << ", bytes: " << size << std::endl;
+#endif
+
+  vkCmdCopyBuffer(commandBuffer, m_HostBuffer, m_DeviceBuffer, 1, &copyRegion);
+
+  return allocations;
 }
 
 VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask, VkAccessFlags2 dstAccessMask) {
@@ -287,7 +333,7 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
     Free[i] = false;
 
     return Allocation {
-        .Index   = i,
+        .Id      = id,
         .Size    = bytes,
         .Offset  = Offset[i],
         .Resized = resized,
@@ -406,7 +452,7 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
 #endif
 
   return Allocation {
-      .Index   = static_cast<uint32_t>(blocks),
+      .Id      = id,
       .Size    = bytes,
       .Offset  = offset,
       .Resized = true,
@@ -447,7 +493,7 @@ void Buffer::Blocks::Log() {
 }
 
 void Buffer::Log() {
-  std::cout << "\n===  Allocation Info " << m_DebugName << " ===\n";
+  std::cout << "\n===  Allocation Info " << m_Specification.DebugName << " ===\n";
   m_Blocks.Log();
 }
 

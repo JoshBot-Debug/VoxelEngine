@@ -15,8 +15,7 @@ struct DrawIndirectCommand
 
 
 struct Chunk{
-  bool Dirty;
-  bool Exists;
+  bool Empty;
   uint Offset[6];
   uint Size[6];
 };
@@ -43,7 +42,7 @@ void main(){
   
   if(i>=chunks.count)return;
 
-  if(!chunks.data[i].Exists)return;
+  if(chunks.data[i].Empty)return;
   
   uint drawIndex=atomicAdd(count,1);
   commands[drawIndex].vertexCount=chunks.data[i].Size[0];

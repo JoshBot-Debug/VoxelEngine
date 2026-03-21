@@ -12,7 +12,7 @@
 using namespace akari::render;
 using namespace vxen;
 
-const uint32_t MAX_CHUNKS = 1024;
+const uint32_t MAX_CHUNKS = 4096;
 
 Scene::Scene() {
   m_DisplayImages = {
@@ -21,12 +21,12 @@ Scene::Scene() {
       m_DirectLight,
   };
 
-  m_LightBuffer.CreateBuffer(1024, "m_LightBuffer");
-  m_MaterialBuffer.CreateBuffer(1024, "m_MaterialBuffer");
-  m_MaterialLUTBuffer.CreateBuffer(1024, "m_MaterialLUTBuffer");
-  m_OverlayVertexBuffer.CreateBuffer(1024, "m_OverlayVertexBuffer");
-  m_IndirectBuffer.CreateBuffer(MAX_CHUNKS * sizeof(VkDrawIndirectCommand), "m_IndirectBuffer");
-  m_IndirectDrawCountBuffer.CreateBuffer(1024, "m_IndirectDrawCountBuffer");
+  m_LightBuffer.CreateBuffer({.DebugName = "m_LightBuffer"});
+  m_MaterialBuffer.CreateBuffer({.DebugName = "m_MaterialBuffer"});
+  m_MaterialLUTBuffer.CreateBuffer({.DebugName = "m_MaterialLUTBuffer"});
+  m_OverlayVertexBuffer.CreateBuffer({.DebugName = "m_OverlayVertexBuffer"});
+  m_IndirectBuffer.CreateBuffer({.Size = MAX_CHUNKS * sizeof(VkDrawIndirectCommand), .DebugName = "m_IndirectBuffer"});
+  m_IndirectDrawCountBuffer.CreateBuffer({.DebugName = "m_IndirectDrawCountBuffer"});
 }
 
 Scene::~Scene() {

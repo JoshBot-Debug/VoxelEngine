@@ -66,11 +66,12 @@ World::World(uint32_t m_ChunkSize)
   // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}); });
 
   ThreadPool::Dispatch([&]() {
-    for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
-      for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++) {
+      for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
         GenerateChunk({x, 0, z});
-      }
+      // TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
+    }
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   });
 
   // for (size_t z = 0; z < 12; z++)
@@ -203,8 +204,6 @@ const void World::GenerateChunk(const glm::ivec3& wcc) {
 
     m_ChunkManager->Set(wcc, session, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
   }
-
-  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }
 
 const void World::GenerateCornellBox(const glm::u8vec3& origin) {

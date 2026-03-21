@@ -5,7 +5,6 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-#include "Debug.h"
 #include "thread/RCU.h"
 
 template <typename T>
@@ -133,36 +132,36 @@ public:
   private:
     akari::thread::RCU<Node>* m_RCU {nullptr};
     uint64_t                  m_Generation {0};
+    bool                      m_AutoUnlock {true};
 
   public:
     SparseOctree<T, S>::Node* Root {nullptr};
 
-    Reader(std::atomic<SparseOctree<T, S>::Node*>* atomic, akari::thread::RCU<Node>* rcu)
+    Reader(std::atomic<SparseOctree<T, S>::Node*>* atomic, akari::thread::RCU<Node>* rcu, bool autoUnlock = true)
         : m_RCU(rcu)
-        , Root(atomic->load(std::memory_order::acquire)) {
+        , Root(atomic->load(std::memory_order::acquire))
+        , m_AutoUnlock(autoUnlock) {
       m_Generation = m_RCU->ReadLock();
     }
 
-    ~Reader() {
+    void Unlock() {
       m_RCU->ReadUnlock(m_Generation);
+    }
+
+    ~Reader() {
+      if (m_AutoUnlock)
+        m_RCU->ReadUnlock(m_Generation);
     }
   };
 
 private:
   class alignas(64) Mask {
   private:
+    bool     m_Dirty {false};
     uint64_t m_Present[SIZE * SIZE] {};
 
   public:
     Mask() = default;
-
-    inline bool Exists(int x, int y, int z) {
-      if (x < 0 || y < 0 || z < 0 || x > SIZE || y > SIZE || z > SIZE)
-        return false;
-
-      uint32_t i = x + (SIZE * (y + (SIZE * z)));
-      return (m_Present[i >> DIV] >> (i & MOD)) & 1ULL;
-    }
 
     inline bool Exists(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
@@ -172,12 +171,18 @@ private:
     inline void Set(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
       m_Present[i >> DIV] |= (1ULL << (i & MOD));
+      m_Dirty = true;
     }
 
     inline void Clear(uint8_t x, uint8_t y, uint8_t z) {
       uint32_t i = x + (SIZE * (y + (SIZE * z)));
       m_Present[i >> DIV] &= ~(1ULL << (i & MOD));
+      m_Dirty = true;
     }
+
+    inline bool Dirty() { return m_Dirty; }
+
+    inline void Clean() { m_Dirty = false; }
   };
 
   akari::thread::RCU<Node> m_RCU;
@@ -282,10 +287,10 @@ private:
       /**
        * If other threads can see this node, we need to copy before mutating
        */
-      if (!exclusive) {
-        m_RCU.Retire(node);
-        node = new Node(*node);
-      }
+      // if (!exclusive) {
+      //   m_RCU.Retire(node);
+      //   node = new Node(*node);
+      // }
 
       node->Data = data;
       return node;
@@ -303,18 +308,18 @@ private:
      */
     if (!node->Children[index]) {
 
-      if (!exclusive) {
-        m_RCU.Retire(node, false);
-        node = new Node(*node);
-
-        /**
-         * We are about to make a new node
-         * Nodes going forward will be exclusive to this thread
-         * No other thread can see nodes beyond this point.
-         * We don't need to make any copies of nodes going forward
-         */
-        exclusive = true;
-      }
+      // if (!exclusive) {
+      //   m_RCU.Retire(node, false);
+      //   node = new Node(*node);
+      //
+      //   /**
+      //    * We are about to make a new node
+      //    * Nodes going forward will be exclusive to this thread
+      //    * No other thread can see nodes beyond this point.
+      //    * We don't need to make any copies of nodes going forward
+      //    */
+      //   exclusive = true;
+      // }
       node->Children[index] = new Node(node->Depth - 1);
     }
 
@@ -334,21 +339,21 @@ private:
     /**
      * If other threads can see this node, we need to copy before mutating
      */
-    if (!exclusive) {
-      m_RCU.Retire(node);
-      node = new Node(*node);
-
-      /**
-       * Merge all children
-       * Retire all children, this node will represent all below
-       */
-      for (int i = 0; i < 8; i++)
-        node->Children[i] = nullptr;
-
-      node->Data = data;
-
-      return node;
-    }
+    // if (!exclusive) {
+    //   m_RCU.Retire(node);
+    //   node = new Node(*node);
+    //
+    //   /**
+    //    * Merge all children
+    //    * Retire all children, this node will represent all below
+    //    */
+    //   for (int i = 0; i < 8; i++)
+    //     node->Children[i] = nullptr;
+    //
+    //   node->Data = data;
+    //
+    //   return node;
+    // }
 
     node->Destroy();
     node->Data = data;
@@ -815,8 +820,8 @@ public:
    * RCU
    * Used for reading in scope
    */
-  Reader BeginRead() {
-    return Reader(&m_Root, &m_RCU);
+  Reader BeginRead(bool autoUnlock = true) {
+    return Reader(&m_Root, &m_RCU, autoUnlock);
   };
 
   /**
@@ -877,15 +882,22 @@ public:
   /**
    * Check if a voxel exists at location
    */
-  bool Exists(int x, int y, int z) {
+  bool Exists(uint8_t x, uint8_t y, uint8_t z) {
     return m_Mask.Exists(x, y, z);
   }
 
   /**
-   * Check if a voxel exists at location
+   * Is the octree dirty
    */
-  bool Exists(uint8_t x, uint8_t y, uint8_t z) {
-    return m_Mask.Exists(x, y, z);
+  bool Dirty() {
+    return m_Mask.Dirty();
+  }
+
+  /**
+   * The octree will be marked as not dirty
+   */
+  void Clean() {
+    return m_Mask.Clean();
   }
 
   /**

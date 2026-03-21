@@ -226,3 +226,7 @@ a command buffer. We may update/create a new buffer before the command is execut
 Buffer::Upload() in a loop like how I use it.
 The problem seems to be reallocating more memory, causes an explosion.
 If I set the buffer size from 1024 to 64mb, it reallocates only once and no explosion happens.
+
+There are two problems
+1. SVO RCU is causing memory to go up but not come down after Sync()
+2. Buffer resize causes bugs if the Size is too small and we call Upload in quick successions
