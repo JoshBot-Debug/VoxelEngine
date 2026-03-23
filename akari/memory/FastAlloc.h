@@ -56,8 +56,9 @@ public:
 
     uint32_t word = index >> 5;
     uint32_t bit  = index & 31;
+
+    static_cast<T*>(ptr)->~T();
     m_Free[word] |= (1U << bit);
-    ptr->~T();
     std::cout << "Dealloc" << std::endl;
   }
 };
