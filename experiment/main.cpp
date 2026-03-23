@@ -1,5 +1,8 @@
 #include <benchmark/benchmark.h>
+#include <bitset>
+#include <chrono>
 #include <cstdlib>
+#include <thread>
 #include <vector>
 
 #include "window/Application.h"
@@ -13,7 +16,7 @@ bool g_ApplicationRunning {false};
 
 #include <random>
 
-const int ITERATIONS = 1;
+const int ITERATIONS = 64;
 
 static void BM_SVO_Set_With_RCU_With_Copy_Check(benchmark::State& state) {
   SparseOctree<Voxel> svo;
@@ -40,30 +43,6 @@ static void BM_SVO_Set_With_RCU_With_Copy_Check(benchmark::State& state) {
   }
 }
 
-static void BM_SVO_Set_With_RCU(benchmark::State& state) {
-  SparseOctree<Voxel> svo;
-  Palette             palette;
-
-  palette.Create(Palette::Item {
-      .Name = "Brick",
-      .Mat  = std::make_shared<Material>(Material {
-           .Albedo = glm::vec4 {0.63f, 0.067f, 0.051f, 1.0f}})});
-
-  auto     brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
-  uint64_t i     = 0;
-
-  for (auto _ : state) {
-    {
-      auto     w = svo.BeginWrite();
-      uint64_t x = i & 63;
-      uint64_t y = (i >> 6) & 63;
-      uint64_t z = (i >> 12) & 63;
-      svo.SetWithoutCloneCheck(w, x, y, z, brick.get());
-      i = (i + 1) & 262143;
-    }
-    svo.Sync();
-  }
-}
 
 static void BM_SVO_Set_With_Copy(benchmark::State& state) {
   SparseOctreeWithoutRCU<Voxel> svo;
@@ -309,8 +288,9 @@ static void BM_SVO_DeepRaymarch(benchmark::State& state) {
 
 int main(int argc, char** argv) {
 
-  SparseOctree<Voxel> svo;
-  Palette             palette;
+  SparseOctree<Voxel, 8> svo;
+  Palette                palette;
+  uint32_t               size = 8;
 
   palette.Create(Palette::Item {
       .Name = "Brick",
@@ -319,23 +299,26 @@ int main(int argc, char** argv) {
 
   auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
 
-  {
-    auto w = svo.BeginWrite();
-    for (int x = 0; x < ITERATIONS; ++x)
-      for (int y = 0; y < ITERATIONS; ++y)
-        for (int z = 0; z < ITERATIONS; ++z)
-          svo.Set(w, x, y, z, brick.get());
-  }
+  std::vector<SparseOctree<Voxel, 8>::FlatNode> flattened;
+  svo.Set(0, 0, 0, brick.get());
+  svo.Flatten(flattened);
+  uint32_t i = 1;
 
-  svo.Sync();
-
-  {
-    auto w = svo.BeginRead();
-    for (int x = 0; x < ITERATIONS; ++x)
-      for (int y = 0; y < ITERATIONS; ++y)
-        for (int z = 0; z < ITERATIONS; ++z)
-          svo.Get(w, x, y, z);
-  }
+  // while (flattened[0].GetId() == 0) {
+  //   uint32_t x = i % 8;
+  //   uint32_t y = (i / 8) % 8;
+  //   uint32_t z = i / (8 * 8);
+  //   svo.Set(x, y, z, brick.get());
+  //   svo.Flatten(flattened);
+  //
+  //   for (auto& node : flattened) {
+  //     std::cout << x << "," << y << "," << z << " " << (int)node.GetId() << " " << std::bitset<8>(node.GetChildren()) << " " << (int)node.GetDepth() << " " << (uint32_t)node.ChildIndex << std::endl;
+  //   }
+  //
+  //   std::cout << "----------------------------" << std::endl;
+  //   i++;
+  //   std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+  // }
 
   return EXIT_SUCCESS;
 }

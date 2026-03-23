@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+#include "memory/FastAlloc.h"
 #include "thread/RCU.h"
 
 template <typename T>
@@ -46,7 +47,7 @@ public:
    * The nodes in the SVO
    * @tparam T The datatype of the pointer stored
    */
-  struct Node {
+  struct Node : akari::memory::FastAlloc<Node> {
     uint8_t Depth {0};
     /// NOTE: For allignment, sizeof(Node) = 80; Feel free (or rather, remember) to use up these 7 bytes.
     uint8_t Padding[7] {};
@@ -198,61 +199,6 @@ private:
   Mask m_Mask;
 
 private:
-  Node* SetWithoutCloneCheck(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size) {
-    if (size == 1) {
-      m_RCU.Retire(node);
-      node       = new Node(*node);
-      node->Data = data;
-      return node;
-    }
-
-    int half = size >> 1;
-
-    int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
-
-    int mod = half - 1;
-
-    /**
-     * If the node on this path down does not exist,
-     * create a new empty one to keep traversing to size 1
-     */
-    if (!node->Children[index]) {
-      m_RCU.Retire(node, false);
-      node                  = new Node(*node);
-      node->Children[index] = new Node(node->Depth - 1);
-    }
-
-    node->Children[index] = SetWithoutCloneCheck(node->Children[index], x & mod, y & mod, z & mod, data, half);
-
-    /**
-     * If all 8 children exist and are of the same voxel type.
-     * Delete all 8 children and set the parent voxel as their type.
-     *
-     * If any child is different or does not exist,
-     * no merging required, return
-     */
-    for (int i = 0; i < 8; i++)
-      if (!node->Children[i] || !node->Children[i]->Data || node->Children[i]->Data != data)
-        return node;
-
-    /**
-     * Copy before modifying
-     */
-    m_RCU.Retire(node);
-    node = new Node(*node);
-
-    /**
-     * Merge all children
-     * Retire all children, this node will represent all below
-     */
-    for (int i = 0; i < 8; i++)
-      node->Children[i] = nullptr;
-
-    node->Data = data;
-
-    return node;
-  };
-
   /**
    * Internal recursive setter that traverses and builds the tree as needed.
    * Called by the public `set(x, y, z, voxel)` and `set(vec3, voxel)` methods.
