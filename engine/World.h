@@ -10,7 +10,7 @@
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"
 
-using WorldChunkManager = vxen::ChunkManager<64, 16>;
+using WorldChunkManager = vxen::ChunkManager<64, 8>;
 
 namespace vxen {
 

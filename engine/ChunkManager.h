@@ -59,7 +59,7 @@ private:
   std::vector<ChunkState>                                     m_ChunkState {};
 
   akari::render::Buffer m_SVOBuffer {};
-  akari::render::Buffer m_VertexBuffer {{.Usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT}};
+  akari::render::Buffer m_VertexBuffer {};
 
   akari::render::Buffer m_ChunkSVOBuffer {};
   akari::render::Buffer m_ChunkBuffer {};
@@ -383,7 +383,11 @@ inline ChunkManager<SS, CS>::ChunkManager()
   m_VertexBuffer.SetPool(&m_VertexPool);
 
   m_SVOBuffer.CreateBuffer({.Size = 1024 * 1024 * 1, .DebugName = "m_SVOBuffer"});
-  m_VertexBuffer.CreateBuffer({.Size = 1024 * 1024 * 1, .DebugName = "m_VertexBuffer"});
+  m_VertexBuffer.CreateBuffer({
+      .Size      = 1024 * 1024 * 1,
+      .Usage     = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      .DebugName = "m_VertexBuffer",
+  });
 
   m_ChunkBuffer.CreateBuffer({.DebugName = "m_ChunkBuffer"});
   m_ChunkSVOBuffer.CreateBuffer({.DebugName = "m_ChunkSVOBuffer"});
@@ -634,12 +638,6 @@ inline void ChunkManager<SS, CS>::FlushPreprocessor(VkCommandBuffer commandBuffe
 
           flatNodes.insert(flatNodes.end(), fn.begin(), fn.end());
           flatNodeUploads.emplace_back(id, fn.size() * sizeof(typename SparseOctree<Voxel, SS>::FlatNode));
-
-          // auto vertexAlloc           = m_VertexBuffer.Upload(commandBuffer, id, v.size() * sizeof(Vertex), v.data());
-          // auto svoAlloc = m_SVOBuffer.Upload(commandBuffer, id, fn);
-          // m_ChunkState[id].Empty     = 0;
-          // m_ChunkState[id].Offset[0] = vertexAlloc.Offset / sizeof(Vertex);
-          // m_ChunkState[id].Size[0]   = static_cast<uint32_t>(v.size());
         }
 
   m_SVOBuffer.Upload(commandBuffer, flatNodeUploads, flatNodes);

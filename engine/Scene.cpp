@@ -24,9 +24,19 @@ Scene::Scene() {
   m_LightBuffer.CreateBuffer({.DebugName = "m_LightBuffer"});
   m_MaterialBuffer.CreateBuffer({.DebugName = "m_MaterialBuffer"});
   m_MaterialLUTBuffer.CreateBuffer({.DebugName = "m_MaterialLUTBuffer"});
-  m_OverlayVertexBuffer.CreateBuffer({.DebugName = "m_OverlayVertexBuffer"});
-  m_IndirectBuffer.CreateBuffer({.Size = MAX_CHUNKS * sizeof(VkDrawIndirectCommand), .DebugName = "m_IndirectBuffer"});
-  m_IndirectDrawCountBuffer.CreateBuffer({.DebugName = "m_IndirectDrawCountBuffer"});
+  m_OverlayVertexBuffer.CreateBuffer({
+      .Usage     = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      .DebugName = "m_OverlayVertexBuffer",
+  });
+  m_IndirectBuffer.CreateBuffer({
+      .Size      = MAX_CHUNKS * sizeof(VkDrawIndirectCommand),
+      .Usage     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+      .DebugName = "m_IndirectBuffer",
+  });
+  m_IndirectDrawCountBuffer.CreateBuffer({
+      .Usage     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
+      .DebugName = "m_IndirectDrawCountBuffer",
+  });
 }
 
 Scene::~Scene() {
@@ -438,6 +448,19 @@ void Scene::Render() {
   // Preprocessor compute
   if (dispatchPreprocess || true) {
     vkCmdFillBuffer(commandBuffer, m_IndirectDrawCountBuffer.GetBuffer(), 0, sizeof(uint32_t), 0);
+
+    {
+      auto barrier = m_IndirectDrawCountBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_STORAGE_READ_BIT);
+
+      VkDependencyInfo depInfo {
+          .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+          .bufferMemoryBarrierCount = 1,
+          .pBufferMemoryBarriers    = &barrier,
+      };
+
+      vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+    }
+
     m_PreprocessorPipeline.DispatchCompute({
         .commandBuffer  = commandBuffer,
         .groupCountX    = WorldChunkManager::CHUNK_SIZE / 8,
@@ -448,6 +471,18 @@ void Scene::Render() {
             m_PreprocessorPipeline.GetDescriptorSet(1, 0),
         },
     });
+
+    {
+      auto barrier = m_IndirectDrawCountBuffer.GetBarrier(VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
+
+      VkDependencyInfo depInfo {
+          .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+          .bufferMemoryBarrierCount = 1,
+          .pBufferMemoryBarriers    = &barrier,
+      };
+
+      vkCmdPipelineBarrier2(commandBuffer, &depInfo);
+    }
   }
 
   // GBuffer pass
@@ -555,6 +590,12 @@ void Scene::RenderUI() {
   ImGui::Spacing();
   ImGui::Begin("Textures##Textures");
 
+  if (m_SVOBuffer == VK_NULL_HANDLE || m_VertexBuffer == VK_NULL_HANDLE) {
+    ImGui::End();
+    ImGui::Spacing();
+    return;
+  }
+
   VkCommandBuffer commandBuffer =
       akari::window::Application::GetCommandBuffer({.Begin = true});
 
@@ -578,6 +619,10 @@ void Scene::RenderUI() {
 }
 
 void Scene::CreateDescriptorSets() {
+
+  if (m_SVOBuffer == VK_NULL_HANDLE || m_VertexBuffer == VK_NULL_HANDLE)
+    return;
+
   uint32_t                                   framesInFlight = akari::window::Application::GetMaxFramesInFlight();
   std::vector<Pipeline::DescriptorWriteInfo> cameraWrites(framesInFlight);
 

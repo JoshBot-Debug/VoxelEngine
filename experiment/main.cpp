@@ -304,8 +304,41 @@ static void BM_SVO_DeepRaymarch(benchmark::State& state) {
 // BENCHMARK(BM_SVO_Raymarch);
 // BENCHMARK(BM_SVO_DeepRaymarch);
 // BENCHMARK(BM_Buffer_Block_Allocate);
-
+//
 // BENCHMARK_MAIN();
+
+int main(int argc, char** argv) {
+
+  SparseOctree<Voxel> svo;
+  Palette             palette;
+
+  palette.Create(Palette::Item {
+      .Name = "Brick",
+      .Mat  = std::make_shared<Material>(Material {
+           .Albedo = glm::vec4 {0.63f, 0.067f, 0.051f, 1.0f}})});
+
+  auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
+
+  {
+    auto w = svo.BeginWrite();
+    for (int x = 0; x < ITERATIONS; ++x)
+      for (int y = 0; y < ITERATIONS; ++y)
+        for (int z = 0; z < ITERATIONS; ++z)
+          svo.Set(w, x, y, z, brick.get());
+  }
+
+  svo.Sync();
+
+  {
+    auto w = svo.BeginRead();
+    for (int x = 0; x < ITERATIONS; ++x)
+      for (int y = 0; y < ITERATIONS; ++y)
+        for (int z = 0; z < ITERATIONS; ++z)
+          svo.Get(w, x, y, z);
+  }
+
+  return EXIT_SUCCESS;
+}
 
 // int main(int argc, char** argv) {
 //   akari::render::Buffer::Blocks blocks;
@@ -365,9 +398,7 @@ static void BM_SVO_DeepRaymarch(benchmark::State& state) {
 //   return EXIT_SUCCESS;
 // }
 
-int main(int argc, char** argv) {
-  int a = 10;
-  int b = 20;
-  int c = a + b;
-  return c;
-}
+// int main(int argc, char** argv) {
+//
+//   return EXIT_SUCCESS;
+// }

@@ -133,6 +133,9 @@ LOG /home/joshua/Youtube/VoxelEngine/src/Kitagawa/ChunkManager.cpp:88 (operator(
   - [x] Reallocate
   - [x] Grow free slots
   - [ ] Defragment
+  - [ ] Causes a memory explosion when called multiple times. Likely because I'm adding commands to the command buffer.
+    It was probably not meant to be called 32x32x32 per frame. (definitely a problem. Always create as little commands
+  as possible)
 - [ ] Flat SVO descriptor with a lookup table for fast access of different chunks's SVO tree.
 - [ ] Improve performance of SVO by using a custom allocator
 - [ ] Handle tracking and updating of dirty chunks.
@@ -221,12 +224,44 @@ If it's possible to process both CPU and GPU work in parallel use this to synchr
 2. If the CPU work is not done, don't submit the draw command
 3. Once the CPU work is done, submit the draw command, it'll wait on the memory barrier and eventually the draw command will execute with both data
 
-There seems to be a memory issue, I's definitely in the Buffer::Upload(). Most likely because to copy memory, etc we use
+There seems to be a memory issue, It's definitely in the Buffer::Upload(). Most likely because to copy memory, etc we use
 a command buffer. We may update/create a new buffer before the command is executed. There are issues with using
 Buffer::Upload() in a loop like how I use it.
 The problem seems to be reallocating more memory, causes an explosion.
 If I set the buffer size from 1024 to 64mb, it reallocates only once and no explosion happens.
+This Buffer:Upload() problem was resolved by calling Upload only once. Initially I was calling Upload() in a for loop.
+This is definitely not how I want to do it. So Does buffer.Upload() have a problem?
 
 There are two problems
 1. SVO RCU is causing memory to go up but not come down after Sync()
+    - Temporarly fixed by removing copies when changes are made. Need to add this back in the future
+    - May want to remove RCU entirely. 
 2. Buffer resize causes bugs if the Size is too small and we call Upload in quick successions
+
+TODO:
+1. Multiple Flattened SVO to the GPU
+    - Chunk Manager
+        ChunkSO
+            - Chunk
+                VoxelSO
+
+```glsl
+struct Header {
+    uint id; // The id is a 1D index into a 3D grid (x + (y * 32 + (z * 32 * 32)))
+    uint count; // Number of nodes
+    uint offset; // The offset index from where this chunk's svo starts.
+};
+
+struct FlatNode {
+    uint PackedIDC;
+    uint ChildIndex;
+}
+
+layout(std430,set=1,binding=50)readonly buffer SparseOctreeLUT{
+  Header headers[];
+};
+
+layout(std430,set=1,binding=50)readonly buffer SparseOctree{
+  FlatNode nodes[];
+};
+```

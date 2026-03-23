@@ -1,9 +1,7 @@
 #include "World.h"
 #include "thread/ThreadPool.h"
 
-#include <chrono>
 #include <imgui.h>
-#include <thread>
 
 using namespace akari::thread;
 
@@ -66,17 +64,11 @@ World::World(uint32_t m_ChunkSize)
   // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}); });
 
   ThreadPool::Dispatch([&]() {
-    for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++) {
+    for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
       for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
         GenerateChunk({x, 0, z});
-      // TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
-    }
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   });
-
-  // for (size_t z = 0; z < 12; z++)
-  //   for (size_t x = 0; x < 16; x++)
-  //     GenerateChunk({x, 0, z});
 }
 
 World::~World() {

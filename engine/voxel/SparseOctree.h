@@ -287,10 +287,10 @@ private:
       /**
        * If other threads can see this node, we need to copy before mutating
        */
-      // if (!exclusive) {
-      //   m_RCU.Retire(node);
-      //   node = new Node(*node);
-      // }
+      if (!exclusive) {
+        m_RCU.Retire(node);
+        node = new Node(*node);
+      }
 
       node->Data = data;
       return node;
@@ -308,18 +308,18 @@ private:
      */
     if (!node->Children[index]) {
 
-      // if (!exclusive) {
-      //   m_RCU.Retire(node, false);
-      //   node = new Node(*node);
-      //
-      //   /**
-      //    * We are about to make a new node
-      //    * Nodes going forward will be exclusive to this thread
-      //    * No other thread can see nodes beyond this point.
-      //    * We don't need to make any copies of nodes going forward
-      //    */
-      //   exclusive = true;
-      // }
+      if (!exclusive) {
+        m_RCU.Retire(node, false);
+        node = new Node(*node);
+
+        /**
+         * We are about to make a new node
+         * Nodes going forward will be exclusive to this thread
+         * No other thread can see nodes beyond this point.
+         * We don't need to make any copies of nodes going forward
+         */
+        exclusive = true;
+      }
       node->Children[index] = new Node(node->Depth - 1);
     }
 
@@ -339,21 +339,21 @@ private:
     /**
      * If other threads can see this node, we need to copy before mutating
      */
-    // if (!exclusive) {
-    //   m_RCU.Retire(node);
-    //   node = new Node(*node);
-    //
-    //   /**
-    //    * Merge all children
-    //    * Retire all children, this node will represent all below
-    //    */
-    //   for (int i = 0; i < 8; i++)
-    //     node->Children[i] = nullptr;
-    //
-    //   node->Data = data;
-    //
-    //   return node;
-    // }
+    if (!exclusive) {
+      m_RCU.Retire(node);
+      node = new Node(*node);
+
+      /**
+       * Merge all children
+       * Retire all children, this node will represent all below
+       */
+      for (int i = 0; i < 8; i++)
+        node->Children[i] = nullptr;
+
+      node->Data = data;
+
+      return node;
+    }
 
     node->Destroy();
     node->Data = data;
