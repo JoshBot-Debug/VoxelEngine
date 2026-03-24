@@ -43,7 +43,6 @@ static void BM_SVO_Set_With_RCU_With_Copy_Check(benchmark::State& state) {
   }
 }
 
-
 static void BM_SVO_Set_With_Copy(benchmark::State& state) {
   SparseOctreeWithoutRCU<Voxel> svo;
   Palette                       palette;
@@ -288,9 +287,9 @@ static void BM_SVO_DeepRaymarch(benchmark::State& state) {
 
 int main(int argc, char** argv) {
 
-  SparseOctree<Voxel, 8> svo;
-  Palette                palette;
-  uint32_t               size = 8;
+  SparseOctree<Voxel, 64> svo;
+  Palette                 palette;
+  uint32_t                size = 8;
 
   palette.Create(Palette::Item {
       .Name = "Brick",
@@ -299,10 +298,22 @@ int main(int argc, char** argv) {
 
   auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
 
-  std::vector<SparseOctree<Voxel, 8>::FlatNode> flattened;
-  svo.Set(0, 0, 0, brick.get());
-  svo.Flatten(flattened);
-  uint32_t i = 1;
+  // std::vector<SparseOctree<Voxel, 8>::FlatNode> flattened;
+  // svo.Set(0, 0, 0, brick.get());
+
+  for (uint8_t x = 0; x < 64; x++)
+    for (uint8_t y = 0; y < 64; y++)
+      for (uint8_t z = 0; z < 64; z++)
+        svo.Set(x, y, z, brick.get());
+
+  // svo.Flatten(flattened);
+  // uint32_t i = 1;
+  //
+  // uint32_t* ptr = reinterpret_cast<uint32_t*>(malloc(8));
+  //
+  // uint32_t* x = new (ptr + 1) uint32_t(99);
+  //
+  // std::cout << *x << " " << *(ptr + 1) << " " << sizeof(SparseOctree<Voxel>::Node) << std::endl;
 
   // while (flattened[0].GetId() == 0) {
   //   uint32_t x = i % 8;

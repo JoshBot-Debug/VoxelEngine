@@ -52,6 +52,10 @@ cat /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor
 ./build/experiment --benchmark_out=baseline.json --benchmark_out_format=json --benchmark_repetitions=20
 ./build/experiment --benchmark_out=contender.json --benchmark_out_format=json --benchmark_repetitions=20
 python3 ~/benchmark/tools/compare.py benchmarks baseline.json contender.json
+
+# Cache misses
+perf stat -r 10 -e L1-dcache-loads,L1-dcache-load-misses,LLC-loads,LLC-load-misses ./build/experiment
+perf stat -C 0-7 -r 10 -e L1-dcache-loads,L1-dcache-load-misses,LLC-loads,LLC-load-misses,l2_request.all,l2_request.miss ./build/experiment
 ```
 
 ---

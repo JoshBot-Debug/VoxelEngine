@@ -47,7 +47,7 @@ public:
    * The nodes in the SVO
    * @tparam T The datatype of the pointer stored
    */
-  struct Node : akari::memory::FastAlloc<Node> {
+  struct Node : public akari::memory::FastAlloc<Node> {
     uint8_t Depth {0};
     /// NOTE: For allignment, sizeof(Node) = 80; Feel free (or rather, remember) to use up these 7 bytes.
     uint8_t Padding[7] {};
