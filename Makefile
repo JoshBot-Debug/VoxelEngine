@@ -23,6 +23,9 @@ release-debug-unoptimized:
 	cmake -B build -DCMAKE_BUILD_TYPE=RelWithDebInfo -DRELWITHDEBINFO_OPT=-O0
 	cmake --build build
 
+tracy:
+	./vendor/tracy/build/tracy-profiler
+
 run:
 	./build/vxen
 
@@ -37,3 +40,4 @@ renderdoc:
 
 clearlogs:
 	rm -rf logs/*
+ 

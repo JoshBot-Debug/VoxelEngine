@@ -5,8 +5,9 @@
 #include <glm/glm.hpp>
 #include <vector>
 
-#include "memory/FastAlloc.h"
 #include "thread/RCU.h"
+
+#include "tracy/Tracy.hpp"
 
 template <typename T>
 concept Data = requires(T t) {
@@ -47,7 +48,7 @@ public:
    * The nodes in the SVO
    * @tparam T The datatype of the pointer stored
    */
-  struct Node : public akari::memory::FastAlloc<Node> {
+  struct Node {
     uint8_t Depth {0};
     /// NOTE: For allignment, sizeof(Node) = 80; Feel free (or rather, remember) to use up these 7 bytes.
     uint8_t Padding[7] {};
@@ -210,6 +211,7 @@ private:
    * @param exclusive A flag used to determine if nodes beyond this recursive iteration are exclusive to this thread (When a new node is created, all nodes under it are exclusive. No copies need beyond that point.)
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size, bool exclusive = false) {
+    ZoneScopedNC("Node::Set()", 0xA0F055);
 
     /// NOTE: I'm not copying the entire path downward so this isn't exactly correct but
     /// It will not cause a segment fault because I retire nodes and copy before updating.

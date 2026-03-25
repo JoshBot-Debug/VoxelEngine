@@ -7,6 +7,8 @@ option(ENABLE_STL_DEBUG "Enable STL debug mode and DEBUG macro." OFF)
 option(ENABLE_THREAD_SANITIZER "Enable ThreadSanitizer (disables AddressSanitizer)" OFF)
 option(ENABLE_VULKAN_VALIDATION "Enable vulkan validation & debug extension" OFF)
 option(ENABLE_VMA_STATS_LOG "Log out vulkan memory allocator stats when the application exits" OFF)
+option (TRACY_ENABLE "Enable Tracy" ON)
+option (TRACY_ON_DEMAND "Enable Tracy on demand" ON)
 
 # === Compiler Flags ===
 set(CMAKE_CXX_STANDARD 23)
@@ -41,6 +43,7 @@ endif()
 
 # === Add vendor libraries ===
 add_subdirectory(vendor/imgui-cmake)
+add_subdirectory (vendor/tracy)
 
 # === Source Files ===
 file(GLOB_RECURSE SRC_FILES_AKARI ${CMAKE_SOURCE_DIR}/akari/*.cpp)
@@ -72,6 +75,7 @@ target_link_libraries(vxengine PUBLIC
   akari
   TBB::tbb
   imgui
+  Tracy::TracyClient
   ${NOISE_LIB}
   ${NOISEUTILS_LIB}
 )
