@@ -575,7 +575,14 @@ template <typename F>
   requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
 inline void ChunkManager<SS, CS>::Filter(std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
   m_Chunks->ForEach([&out, &filter](const SparseOctree<Chunk<SS>, CS>::Node* node) {
-    node->Data->SVO()->Filter(out, filter);
+    std::vector<typename SparseOctree<Voxel, SS>::FilterNode> tmp;
+    node->Data->SVO()->Filter(tmp, filter);
+    for (auto& n : tmp) {
+      n.Position.x += SVO_SIZE * (node->Data->Id % CHUNK_SIZE);
+      n.Position.y += SVO_SIZE * ((node->Data->Id / CHUNK_SIZE) % CHUNK_SIZE);
+      n.Position.z += SVO_SIZE * (node->Data->Id / (CHUNK_SIZE * CHUNK_SIZE));
+    }
+    out.insert(out.end(), std::make_move_iterator(tmp.begin()), std::make_move_iterator(tmp.end()));
   });
 }
 
@@ -671,22 +678,28 @@ inline void ChunkManager<SS, CS>::FlushPreprocessor(VkCommandBuffer commandBuffe
           vertices.insert(vertices.end(), v.begin(), v.end());
           vertexUploads.emplace_back(id, v.size() * sizeof(Vertex));
 
-          flatNodeHeaders.emplace_back(id, static_cast<uint32_t>(flatNodes.size()), static_cast<uint32_t>(fn.size()));
-
           flatNodes.insert(flatNodes.end(), fn.begin(), fn.end());
           flatNodeUploads.emplace_back(id, fn.size() * sizeof(typename SparseOctree<Voxel, SS>::FlatNode));
         }
 
-  m_SVOBuffer.Upload(commandBuffer, flatNodeUploads, flatNodes.data());
-  m_SVOHeaderBuffer.Upload(commandBuffer, flatNodeHeaders);
-  auto allocations = m_VertexBuffer.Upload(commandBuffer, vertexUploads, vertices.data());
+  auto svoAllocations = m_SVOBuffer.Upload(commandBuffer, flatNodeUploads, flatNodes.data());
 
-  for (auto& alloc : allocations) {
+  auto vertexAllocations = m_VertexBuffer.Upload(commandBuffer, vertexUploads, vertices.data());
+
+  for (auto& alloc : vertexAllocations) {
     m_ChunkState[alloc.Id].Empty     = 0;
     m_ChunkState[alloc.Id].Offset[0] = alloc.Offset / sizeof(Vertex);
     m_ChunkState[alloc.Id].Size[0]   = alloc.Size / sizeof(Vertex);
   }
 
+  /// TODO: The id mostly won't sync with the index. Need to sort so that ids go from 0 - whatever. Id is index is chunk scalar coordinate location
+  for (auto& alloc : svoAllocations) {
+    uint32_t offset = alloc.Offset / sizeof(typename SparseOctree<Voxel, SS>::FlatNode);
+    uint32_t size   = alloc.Size / sizeof(typename SparseOctree<Voxel, SS>::FlatNode);
+    flatNodeHeaders.emplace_back(alloc.Id, offset, size);
+  }
+
+  m_SVOHeaderBuffer.Upload(commandBuffer, flatNodeHeaders);
   m_ChunkSVOBuffer.Upload(commandBuffer, m_FlatChunkNodes);
   m_ChunkBuffer.Upload(commandBuffer, m_ChunkState);
 }

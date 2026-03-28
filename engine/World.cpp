@@ -195,8 +195,7 @@ const void World::GenerateChunk(const glm::ivec3& wcc) {
           m_ChunkManager->Set(wcc, session, x, y, z, lush.get());
       }
 
-    if (wcc.x == 0)
-      m_ChunkManager->Set(wcc, session, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
+    m_ChunkManager->Set(wcc, session, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
   }
 }
 
