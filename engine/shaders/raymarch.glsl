@@ -120,39 +120,23 @@ Hit raymarchVoxels(uint offset,vec3 origin,vec3 direction,float dist)
   return payload;
 }
 
-float tNextBoundary(vec3 origin,vec3 direction){
-  vec3 invDir=1./direction;
+float tNextBoundary(vec3 origin,vec3 dir){
+  vec3 invDir=1./dir;
   
-  // Next boundary depending on direction
-  vec3 nextBoundary=vec3(0.);
+  // Compute base cell
+  vec3 cell=floor(origin/64.)*64.;
   
-  // For each axis: choose next multiple of 64
-  for(int i=0;i<3;i++){
-    if(direction[i]>0.){
-      nextBoundary[i]=floor(origin[i]/64.)*64.+64.;
-    }else{
-      nextBoundary[i]=floor(origin[i]/64.)*64.;
-    }
-  }
+  // Select next boundary using step (1 for +, 0 for -)
+  vec3 stepDir=step(0.,dir);
+  vec3 nextBoundary=cell+stepDir*64.;
   
-  // Compute t for each axis
+  // Compute t values
   vec3 tVals=(nextBoundary-origin)*invDir;
   
-  // Ignore negative or invalid directions
-  if(direction.x==0.)tVals.x=1e30;
-  if(direction.y==0.)tVals.y=1e30;
-  if(direction.z==0.)tVals.z=1e30;
+  // Handle zero directions (branchless)
+  tVals=mix(vec3(1e30),tVals,notEqual(dir,vec3(0.)));
   
-  // Find smallest t
-  float tMin=tVals.x;
-  
-  if(tVals.y<tMin)
-  tMin=tVals.y;
-  
-  if(tVals.z<tMin)
-  tMin=tVals.z;
-    
-  return tMin;
+  return min(tVals.x,min(tVals.y,tVals.z));
 }
 
 Hit raymarch(vec3 origin,vec3 direction,float dist)
@@ -161,9 +145,9 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
   payload.IsValid=false;
   payload.TMin=0.;
   
-  RaymarchStackEntry stack[RAYMARCH_MAX_STACK];  
+  RaymarchStackEntry stack[RAYMARCH_MAX_STACK];
   uint id=getChunkId(origin);
-
+  
   uint ptr=0;
   stack[ptr++]=RaymarchStackEntry(id,0.,mod(origin,64.));
   
@@ -174,14 +158,14 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
     payload=raymarchVoxels(offset,entry.Origin,direction,dist);
     if(payload.IsValid)return payload;
     
-    float tStep = tNextBoundary(entry.Origin, direction);
-    float tGlobal = entry.TMin + tStep + (0.1);
-
-    vec3 globalPos = origin + direction * tGlobal;
+    float tStep=tNextBoundary(entry.Origin,direction);
+    float tGlobal=entry.TMin+tStep+(.1);
+    
+    vec3 globalPos=origin+direction*tGlobal;
     
     uint nId=getChunkId(globalPos);
     vec3 nOrigin=mod(globalPos,64.);
-    stack[ptr++] = RaymarchStackEntry(nId, tGlobal, nOrigin);
+    stack[ptr++]=RaymarchStackEntry(nId,tGlobal,nOrigin);
   }
   
   return payload;
