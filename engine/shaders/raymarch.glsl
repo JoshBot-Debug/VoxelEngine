@@ -120,21 +120,21 @@ Hit raymarchVoxels(uint offset,vec3 origin,vec3 direction,float dist)
   return payload;
 }
 
-float tNextBoundary(vec3 origin,vec3 dir){
-  vec3 invDir=1./dir;
+float tNextBoundary(vec3 origin,vec3 direction){
+  vec3 inverseDirection=1./direction;
   
   // Compute base cell
   vec3 cell=floor(origin/64.)*64.;
   
   // Select next boundary using step (1 for +, 0 for -)
-  vec3 stepDir=step(0.,dir);
+  vec3 stepDir=step(0.,direction);
   vec3 nextBoundary=cell+stepDir*64.;
   
   // Compute t values
-  vec3 tVals=(nextBoundary-origin)*invDir;
+  vec3 tVals=(nextBoundary-origin)*inverseDirection;
   
   // Handle zero directions (branchless)
-  tVals=mix(vec3(1e30),tVals,notEqual(dir,vec3(0.)));
+  tVals=mix(vec3(1e30),tVals,notEqual(direction,vec3(0.)));
   
   return min(tVals.x,min(tVals.y,tVals.z));
 }

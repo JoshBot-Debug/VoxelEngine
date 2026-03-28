@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <deque>
+#include <glm/common.hpp>
 #include <glm/glm.hpp>
 
 #include <vk_mem_alloc.h>
@@ -303,14 +304,6 @@ public:
   typename SparseOctree<Voxel, SS>::Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction);
 
   /**
-   * @param session The {Reader} session received from BeginRead(...)
-   * @param origin The camera's origin
-   * @param direction The camera's direction
-   * @return The voxel that was hit
-   */
-  typename SparseOctree<Voxel, SS>::Hit DeepRaymarch(typename SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
-
-  /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param origin The camera's origin
    * @param direction The camera's direction
@@ -378,6 +371,11 @@ public:
    * @note Does nothing for -2..., 65... This is intended because so far there is no reason to handle it.
    */
   static inline uint8_t Wrap(int i);
+
+  /**
+   * Move the origin to the boundary of the next chunk
+   */
+  static inline float TNextBoundary(const glm::vec3& localOrigin, const glm::vec3& direction);
 };
 
 template <uint32_t SS, uint8_t CS>
@@ -604,20 +602,37 @@ ChunkManager<SS, CS>::Filter(const glm::u8vec3& coordinate, typename SparseOctre
 
 template <uint32_t SS, uint8_t CS>
 inline typename SparseOctree<Voxel, SS>::Hit ChunkManager<SS, CS>::DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
-  glm::vec3                                 coordinate = WorldToChunkCoordinateFloat(origin.x, origin.y, origin.z);
-  typename SparseOctree<Chunk<SS>, CS>::Hit chunk      = m_Chunks->DeepRaymarch(coordinate, direction);
-  if (!chunk.Data)
-    return typename SparseOctree<Voxel, SS>::Hit();
-  return chunk.Data->SVO()->DeepRaymarch(origin, direction);
-}
 
-template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Voxel, SS>::Hit ChunkManager<SS, CS>::DeepRaymarch(typename SparseOctree<Voxel, SS>::Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
-  glm::vec3                                 coordinate = WorldToChunkCoordinateFloat(origin.x, origin.y, origin.z);
-  typename SparseOctree<Chunk<SS>, CS>::Hit chunk      = m_Chunks->DeepRaymarch(coordinate, direction);
-  if (!chunk.Data)
-    return typename SparseOctree<Voxel, SS>::Hit();
-  return chunk.Data->SVO()->DeepRaymarch(session, origin, direction);
+  glm::vec3 SIZE = glm::vec3(SVO_SIZE);
+
+  auto check = [&chunks = m_Chunks, &origin, &direction, &SIZE](auto&& self, const glm::vec3& localOrigin, const glm::vec3& coordinate, float tMin) {
+    auto chunk = chunks->DeepRaymarch(coordinate, direction);
+
+    if (!chunk.Data)
+      return typename SparseOctree<Voxel, SS>::Hit();
+
+    auto hit = chunk.Data->SVO()->DeepRaymarch(localOrigin, direction);
+    if (hit.Data) {
+      hit.Position.x += SIZE.x * coordinate.x;
+      hit.Position.y += SIZE.y * coordinate.y;
+      hit.Position.z += SIZE.z * coordinate.z;
+      return hit;
+    }
+
+    float tStep   = TNextBoundary(localOrigin, direction);
+    float tGlobal = tMin + tStep + 1.0f;
+
+    glm::vec3 globalPosition = origin + direction * tGlobal;
+    glm::vec3 nCoordinate    = WorldToChunkCoordinateFloat(globalPosition.x, globalPosition.y, globalPosition.z);
+    glm::vec3 nLocalOrigin   = glm::mod(globalPosition, SIZE);
+
+    return self(self, nLocalOrigin, nCoordinate, tGlobal);
+  };
+
+  glm::vec3 coordinate  = WorldToChunkCoordinateFloat(origin.x, origin.y, origin.z);
+  glm::vec3 localOrigin = glm::mod(origin, SIZE);
+
+  return check(check, localOrigin, coordinate, 0.0f);
 }
 
 template <uint32_t SS, uint8_t CS>
@@ -720,7 +735,7 @@ inline glm::u8vec3 ChunkManager<SS, CS>::WorldToChunkCoordinate(const glm::vec3&
 template <uint32_t SS, uint8_t CS>
 inline glm::vec3 ChunkManager<SS, CS>::WorldToChunkCoordinateFloat(float x, float y, float z) {
   auto floor = [size = SS](float a) {
-    return (a >= 0) ? (a / size) : ((a - size + 1) / size);
+    return uint32_t((a >= 0) ? (a / size) : ((a - size + 1) / size));
   };
   return glm::vec3(floor(x), floor(y), floor(z));
 }
@@ -747,6 +762,29 @@ template <uint32_t SS, uint8_t CS>
 inline uint8_t ChunkManager<SS, CS>::Wrap(int i) {
   int m = i & MOD_SS;
   return (m < 0) ? m + int(SS) : m;
+}
+
+template <uint32_t SS, uint8_t CS>
+inline float ChunkManager<SS, CS>::TNextBoundary(const glm::vec3& localOrigin, const glm::vec3& direction) {
+  glm::vec3 inverseDirection = 1.0f / direction;
+
+  float size = float(SVO_SIZE);
+
+  // Compute base cell
+  glm::vec3 cell = glm::floor(localOrigin / size) * size;
+
+  // Select next boundary using step (1 for +, 0 for -)
+  glm::vec3 stepDir      = glm::step(glm::vec3(0.0f), direction);
+  glm::vec3 nextBoundary = cell + stepDir * size;
+
+  // Compute t values
+  glm::vec3 tVals = (nextBoundary - localOrigin) * inverseDirection;
+
+  // Handle zero directions (branchless)
+  glm::bvec3 mask = glm::notEqual(direction, glm::vec3(0.0f));
+  tVals           = glm::mix(glm::vec3(1e30f), tVals, mask);
+
+  return std::min(tVals.x, std::min(tVals.y, tVals.z));
 }
 
 } // namespace vxen
