@@ -32,6 +32,7 @@ private:
 
   VkBuffer m_VertexBuffer {};
   VkBuffer m_SVOBuffer {};
+  VkBuffer m_SVOHeaderBuffer {};
 
   VkBuffer m_ChunkSVOBuffer {};
   VkBuffer m_ChunkBuffer {};

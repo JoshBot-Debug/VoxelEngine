@@ -7,8 +7,6 @@
 
 #include "thread/RCU.h"
 
-#include "tracy/Tracy.hpp"
-
 template <typename T>
 concept Data = requires(T t) {
   requires std::same_as<decltype(t.Id), uint32_t>;
@@ -17,6 +15,11 @@ concept Data = requires(T t) {
 template <typename N, typename F>
 concept FilterCallback = requires(F f, const N* node) {
   { f(node) } -> std::same_as<bool>;
+};
+
+template <typename N, typename F>
+concept ForEachCallback = requires(F f, const N* node) {
+  { f(node) } -> std::same_as<void>;
 };
 
 /**
@@ -211,8 +214,6 @@ private:
    * @param exclusive A flag used to determine if nodes beyond this recursive iteration are exclusive to this thread (When a new node is created, all nodes under it are exclusive. No copies need beyond that point.)
    */
   Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size, bool exclusive = false) {
-    ZoneScopedNC("Node::Set()", 0xA0F055);
-
     /// NOTE: I'm not copying the entire path downward so this isn't exactly correct but
     /// It will not cause a segment fault because I retire nodes and copy before updating.
     /// This may produce visual glitches or incorrect meshes, not crashes so I'm allowing it.
@@ -475,6 +476,41 @@ private:
       glm::vec3 childMin = position + offset * static_cast<float>(half);
 
       Filter(out, filter, childMin, half, node->Children[i]);
+    }
+  };
+
+
+  /**
+   * For each
+   *
+   * @param vector Out vector
+   * @param filter Filter callback
+   * @param position Position of the node
+   * @param size Size of the node
+   * @param node Pointer to the node from which to start a recursive search
+   */
+  template <typename F>
+    requires ForEachCallback<Node, F>
+  void ForEach(F&& callback, const glm::vec3& position, uint8_t size, Node* node) {
+    if (!node)
+      return;
+
+    if (node->Data) {
+      callback(node);
+      return;
+    }
+
+    int half = size >> 1;
+
+    for (size_t i = 0; i < 8; i++) {
+      if (!node->Children[i])
+        continue;
+
+      glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, i & 1);
+
+      glm::vec3 childMin = position + offset * static_cast<float>(half);
+
+      ForEach(callback, childMin, half, node->Children[i]);
     }
   };
 
@@ -1091,6 +1127,24 @@ public:
   void Filter(Reader& session, std::vector<FilterNode>& out, F&& filter) {
     Filter(out, filter, {0, 0, 0}, SIZE, session.Root);
   };
+
+
+  /**
+   * @param callback callback
+   */
+  template <typename F>
+    requires ForEachCallback<Node, F>
+  void ForEach(F&& callback) {
+    Node* root = m_Root.load(std::memory_order::acquire);
+    ForEach(callback, {0, 0, 0}, SIZE, root);
+  };
+
+  template <typename F>
+    requires ForEachCallback<Node, F>
+  void ForEach(Reader& session, F&& callback) {
+    ForEach(callback, {0, 0, 0}, SIZE, session.Root);
+  };
+
 
   /**
    * Perform a recursive raymarch from the root node of the SVO

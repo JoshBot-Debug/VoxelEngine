@@ -26,6 +26,7 @@ enum Binding {
   S_CHUNKS               = 55,
   S_INDIRECT_DRAW_BUFFER = 56,
   S_INDIRECT_DRAW_COUNT  = 57,
+  S_SVO_HEADER           = 58,
 
   U_CAMERA   = 0,
   U_METADATA = 1,

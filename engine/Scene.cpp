@@ -59,7 +59,7 @@ void Scene::Initialize(const InitializeInfo& init) {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight},
       {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 6},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 8},
   };
 
   VkDescriptorPoolCreateInfo poolInfo {
@@ -137,14 +137,14 @@ void Scene::Initialize(const InitializeInfo& init) {
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
-          // m_ChunksSVOBuffer
+          // m_ChunkSVOBuffer
           VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::S_CHUNKS_SVO,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
-          // m_ChunksBuffer
+          // m_ChunkBuffer
           VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::S_CHUNKS,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -226,9 +226,23 @@ void Scene::Initialize(const InitializeInfo& init) {
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
+          // m_ChunkSVOBuffer
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::S_CHUNKS_SVO,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
+          },
           // m_SVOBuffer
           VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::S_SVO,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
+          },
+          // m_SVOHeaderBuffer
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::S_SVO_HEADER,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -386,6 +400,9 @@ void Scene::Render() {
 
     m_SVOBuffer = buffers.SVOBuffer;
     bufferBarriers.push_back(buffers.SVOBufferBarrier);
+
+    m_SVOHeaderBuffer = buffers.SVOHeaderBuffer;
+    bufferBarriers.push_back(buffers.SVOHeaderBufferBarrier);
 
     m_VertexBuffer = buffers.VertexBuffer;
     bufferBarriers.push_back(buffers.VertexBufferBarrier);
@@ -729,7 +746,7 @@ void Scene::CreateDescriptorSets() {
                   },
               },
           },
-          // m_ChunksSVOBuffer
+          // m_ChunkSVOBuffer
           Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                           .binding = vxen::Binding::S_CHUNKS_SVO,
@@ -864,6 +881,18 @@ void Scene::CreateDescriptorSets() {
                   },
               },
           },
+          // m_ChunkSVOBuffer
+          Pipeline::DescriptorWriteInfo {
+                          .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                          .binding = vxen::Binding::S_CHUNKS_SVO,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_ChunkSVOBuffer,
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
+              },
+          },
           // m_SVOBuffer
           Pipeline::DescriptorWriteInfo {
                           .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
@@ -871,6 +900,18 @@ void Scene::CreateDescriptorSets() {
                           .buffer  = std::vector {
                   VkDescriptorBufferInfo {
                                    .buffer = m_SVOBuffer,
+                                   .offset = 0,
+                                   .range  = VK_WHOLE_SIZE,
+                  },
+              },
+          },
+          // m_SVOHeaderBuffer
+          Pipeline::DescriptorWriteInfo {
+                          .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                          .binding = vxen::Binding::S_SVO_HEADER,
+                          .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                                   .buffer = m_SVOHeaderBuffer,
                                    .offset = 0,
                                    .range  = VK_WHOLE_SIZE,
                   },

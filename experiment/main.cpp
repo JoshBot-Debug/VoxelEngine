@@ -259,35 +259,35 @@ static void BM_SVO_DeepRaymarch(benchmark::State& state) {
   }
 }
 
-BENCHMARK(BM_SVO_Set_With_RCU);
-BENCHMARK(BM_SVO_Set_With_Copy);
-BENCHMARK(BM_SVO_Set_Without_Copy);
+// BENCHMARK(BM_SVO_Set_With_RCU);
+// BENCHMARK(BM_SVO_Set_With_Copy);
+// BENCHMARK(BM_SVO_Set_Without_Copy);
 
-BENCHMARK(BM_SVO_Clear);
-BENCHMARK(BM_SVO_Get);
-BENCHMARK(BM_SVO_Flatten);
-BENCHMARK(BM_SVO_Raymarch);
-BENCHMARK(BM_SVO_DeepRaymarch);
+// BENCHMARK(BM_SVO_Clear);
+// BENCHMARK(BM_SVO_Get);
+// BENCHMARK(BM_SVO_Flatten);
+// BENCHMARK(BM_SVO_Raymarch);
+// BENCHMARK(BM_SVO_DeepRaymarch);
 
-BENCHMARK_MAIN();
+// BENCHMARK_MAIN();
 
-// int main(int argc, char** argv) {
+int main(int argc, char** argv) {
 
-//   SparseOctree<Voxel, 64> svo;
-//   Palette                 palette;
-//   uint32_t                size = 8;
+  SparseOctree<Voxel, 64> svo;
+  Palette                 palette;
+  uint32_t                size = 8;
 
-//   palette.Create(Palette::Item {
-//       .Name = "Brick",
-//       .Mat  = std::make_shared<Material>(Material {
-//            .Albedo = glm::vec4 {0.63f, 0.067f, 0.051f, 1.0f}})});
+  palette.Create(Palette::Item {
+      .Name = "Brick",
+      .Mat  = std::make_shared<Material>(Material {
+           .Albedo = glm::vec4 {0.63f, 0.067f, 0.051f, 1.0f}})});
 
-//   auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
+  auto brick = std::make_shared<Voxel>(palette.Find("Brick")->Id);
 
-//   for (uint8_t x = 0; x < size; x++)
-//     for (uint8_t y = 0; y < size; y++)
-//       for (uint8_t z = 0; z < size; z++)
-//         svo.Set(x, y, z, brick.get());
+  for (uint8_t x = 0; x < size; x++)
+    for (uint8_t y = 0; y < size; y++)
+      for (uint8_t z = 0; z < size; z++)
+        svo.Set(x, y, z, brick.get());
 
-//   return EXIT_SUCCESS;
-// }
+  return EXIT_SUCCESS;
+}

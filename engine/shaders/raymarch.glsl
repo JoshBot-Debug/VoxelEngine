@@ -1,23 +1,43 @@
-struct FlatNode{
-  uint PackedIDC;
-  uint ChildIndex;
+#include "raymarchChunks.glsl"
+
+struct FlatNodeHeader{
+  uint Id;
+  uint Offset;
+  uint Size;
 };
 
-layout(std430,set=1,binding=50)readonly buffer SparseVoxelOctree{
-  uint count;
-  uint padding[3];
+layout(std430,set=1,binding=50)readonly buffer VoxelOctrees{
   FlatNode data[];
 }voxels;
 
-struct StackEntry{
+layout(std430,set=1,binding=58)readonly buffer VoxelOctreeHeaders{
+  uint count;
+  uint padding[3];
+  FlatNodeHeader data[];
+}headers;
+
+struct RaymarchStackEntry{
+  uint ChunkId;
   float TMin;
-  uint Index;
-  vec3 Min;
+  vec3 Origin;
 };
 
-const uint MAX_STACK=24;
+const uint RAYMARCH_MAX_STACK=8;
 
-Hit raymarch(vec3 origin,vec3 direction,float dist)
+uint getChunkId(vec3 origin)
+{
+  // TODO need to pass in 64 as the size of the voxel chunk
+  uint CHUNK_SIZE=64;
+  uint x=uint(origin.x)/CHUNK_SIZE;
+  uint y=uint(origin.y)/CHUNK_SIZE;
+  uint z=uint(origin.z)/CHUNK_SIZE;
+  
+  uint i=x+(y*64+(z*64*64));
+  
+  return i;
+}
+
+Hit raymarchVoxels(uint offset,vec3 origin,vec3 direction,float dist)
 {
   Hit payload;
   payload.IsValid=false;
@@ -34,7 +54,7 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
     StackEntry entry=stack[--stackPtr];
     
     /// TODO: Need to find a way to index voxel svos here
-    FlatNode voxel=voxels.data[entry.Index];
+    FlatNode voxel=voxels.data[offset+entry.Index];
     
     uint depth=0xFFu&(voxel.PackedIDC>>8);
     
@@ -49,8 +69,8 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
       payload.TMin=entry.TMin;
       payload.NodeMin=entry.Min;
       payload.NodeSize=size;
-      payload.NodeIndex=entry.Index;
-      payload.Material=id;
+      payload.NodeIndex=offset+entry.Index;
+      payload.Id=id;
       return payload;
     }
     
@@ -90,6 +110,94 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
     VISIT_CHILD(5);
     VISIT_CHILD(6);
     VISIT_CHILD(7);
+  }
+  
+  StackEntry entry=stack[stackPtr];
+  payload.TMin=entry.TMin;
+  payload.NodeMin=entry.Min;
+  payload.NodeIndex=offset+entry.Index;
+  
+  return payload;
+}
+
+struct GPLCP{
+  uint Id;
+  uint Offset;
+  vec3 LocalPosition;
+  vec3 WorldPosition;
+};
+
+GPLCP globalPositionToLocalChunkPosition(vec3 origin)
+{
+  vec3 worldPosition=origin;
+  vec3 localPosition=mod(worldPosition,64.);
+  uint id=getChunkId(worldPosition);
+  uint offset=headers.data[id].Offset;
+  return GPLCP(id,offset,localPosition,worldPosition);
+}
+
+float tNextBoundary(vec3 origin,vec3 direction){
+  vec3 invDir=1./direction;
+  
+  // Next boundary depending on direction
+  vec3 nextBoundary=vec3(0.);
+  
+  // For each axis: choose next multiple of 64
+  for(int i=0;i<3;i++){
+    if(direction[i]>0.){
+      nextBoundary[i]=floor(origin[i]/64.)*64.+64.;
+    }else{
+      nextBoundary[i]=floor(origin[i]/64.)*64.;
+    }
+  }
+  
+  // Compute t for each axis
+  vec3 tVals=(nextBoundary-origin)*invDir;
+  
+  // Ignore negative or invalid directions
+  if(direction.x==0.)tVals.x=1e30;
+  if(direction.y==0.)tVals.y=1e30;
+  if(direction.z==0.)tVals.z=1e30;
+  
+  // Find smallest t
+  float tMin=tVals.x;
+  
+  if(tVals.y<tMin)
+  tMin=tVals.y;
+  
+  if(tVals.z<tMin)
+  tMin=tVals.z;
+    
+  return tMin;
+}
+
+Hit raymarch(vec3 origin,vec3 direction,float dist)
+{
+  Hit payload;
+  payload.IsValid=false;
+  payload.TMin=0.;
+  
+  RaymarchStackEntry stack[RAYMARCH_MAX_STACK];
+  GPLCP pos=globalPositionToLocalChunkPosition(origin);
+  
+  uint ptr=0;
+  stack[ptr++]=RaymarchStackEntry(pos.Id,0.,pos.LocalPosition);
+  
+  while(ptr>0){
+    RaymarchStackEntry entry=stack[--ptr];
+    uint offset=headers.data[entry.ChunkId].Offset;
+    
+    payload=raymarchVoxels(offset,entry.Origin,direction,dist);
+    if(payload.IsValid)return payload;
+    
+    float tStep = tNextBoundary(entry.Origin, direction);
+    float tGlobal = entry.TMin + tStep + (0.1);
+
+    vec3 globalPos = origin + direction * tGlobal;
+    
+    uint nId=getChunkId(globalPos);
+    vec3 nOrigin=mod(globalPos,64.);
+    stack[ptr++] = RaymarchStackEntry(nId, tGlobal, nOrigin);
   }
   
   return payload;

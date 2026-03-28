@@ -20,12 +20,14 @@
 namespace vxen {
 
 struct ChunkBuffers {
-  VkBuffer SVOBuffer      = VK_NULL_HANDLE;
-  VkBuffer VertexBuffer   = VK_NULL_HANDLE;
-  VkBuffer ChunkSVOBuffer = VK_NULL_HANDLE;
-  VkBuffer ChunkBuffer    = VK_NULL_HANDLE;
+  VkBuffer SVOBuffer       = VK_NULL_HANDLE;
+  VkBuffer SVOHeaderBuffer = VK_NULL_HANDLE;
+  VkBuffer VertexBuffer    = VK_NULL_HANDLE;
+  VkBuffer ChunkSVOBuffer  = VK_NULL_HANDLE;
+  VkBuffer ChunkBuffer     = VK_NULL_HANDLE;
 
   VkBufferMemoryBarrier2 SVOBufferBarrier;
+  VkBufferMemoryBarrier2 SVOHeaderBufferBarrier;
   VkBufferMemoryBarrier2 VertexBufferBarrier;
   VkBufferMemoryBarrier2 ChunkSVOBufferBarrier;
   VkBufferMemoryBarrier2 ChunkBufferBarrier;
@@ -46,11 +48,18 @@ public:
     uint32_t Size[6] {0};
   };
 
+  struct FlatNodeHeader {
+    uint32_t Id;
+    uint32_t Offset;
+    uint32_t Size;
+  };
+
 private:
   static constexpr uint32_t DIV_SS {std::countr_zero(SS)};
   static constexpr uint32_t MOD_SS {SS - 1};
 
   akari::render::BufferPool m_SVOPool {};
+  akari::render::BufferPool m_SVOHeaderPool {};
   akari::render::BufferPool m_VertexPool {};
 
   std::deque<Chunk<SS>>                                       m_ChunkAllocator {};
@@ -59,6 +68,7 @@ private:
   std::vector<ChunkState>                                     m_ChunkState {};
 
   akari::render::Buffer m_SVOBuffer {};
+  akari::render::Buffer m_SVOHeaderBuffer {};
   akari::render::Buffer m_VertexBuffer {};
 
   akari::render::Buffer m_ChunkSVOBuffer {};
@@ -258,6 +268,15 @@ public:
   const std::vector<Vertex>& GreedyMesh(const glm::u8vec3& coordinate, const std::vector<uint32_t>& ids);
 
   /**
+   * Filters across all chunks
+   * @param out The vector in which all filtered nodes will be placed into. Make sure the vector is thread safe.
+   * @param filter The filter callback, must return a boolean.
+   */
+  template <typename F>
+    requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
+  void Filter(std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter);
+
+  /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param out The vector in which all filtered nodes will be placed into. Make sure the vector is thread safe.
    * @param filter The filter callback, must return a boolean.
@@ -380,9 +399,11 @@ template <uint32_t SS, uint8_t CS>
 inline ChunkManager<SS, CS>::ChunkManager()
     : m_Chunks(new SparseOctree<Chunk<SS>, CS>()) {
   m_SVOBuffer.SetPool(&m_SVOPool);
+  m_SVOHeaderBuffer.SetPool(&m_SVOHeaderPool);
   m_VertexBuffer.SetPool(&m_VertexPool);
 
   m_SVOBuffer.CreateBuffer({.Size = 1024 * 1024 * 1, .DebugName = "m_SVOBuffer"});
+  m_SVOHeaderBuffer.CreateBuffer({.Size = 1024 * 1024 * 1, .DebugName = "m_SVOHeaderBuffer"});
   m_VertexBuffer.CreateBuffer({
       .Size      = 1024 * 1024 * 1,
       .Usage     = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
@@ -442,14 +463,16 @@ inline const std::vector<typename SparseOctree<Chunk<SS>, CS>::FlatNode>& ChunkM
 template <uint32_t SS, uint8_t CS>
 inline ChunkBuffers ChunkManager<SS, CS>::GetBuffers() {
   return {
-      .SVOBuffer             = m_SVOBuffer.GetBuffer(),
-      .VertexBuffer          = m_VertexBuffer.GetBuffer(),
-      .ChunkSVOBuffer        = m_ChunkSVOBuffer.GetBuffer(),
-      .ChunkBuffer           = m_ChunkBuffer.GetBuffer(),
-      .SVOBufferBarrier      = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
-      .VertexBufferBarrier   = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT),
-      .ChunkSVOBufferBarrier = m_ChunkSVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
-      .ChunkBufferBarrier    = m_ChunkBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
+      .SVOBuffer              = m_SVOBuffer.GetBuffer(),
+      .SVOHeaderBuffer        = m_SVOHeaderBuffer.GetBuffer(),
+      .VertexBuffer           = m_VertexBuffer.GetBuffer(),
+      .ChunkSVOBuffer         = m_ChunkSVOBuffer.GetBuffer(),
+      .ChunkBuffer            = m_ChunkBuffer.GetBuffer(),
+      .SVOBufferBarrier       = m_SVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
+      .SVOHeaderBufferBarrier = m_SVOHeaderBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
+      .VertexBufferBarrier    = m_VertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT),
+      .ChunkSVOBufferBarrier  = m_ChunkSVOBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
+      .ChunkBufferBarrier     = m_ChunkBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT),
   };
 }
 
@@ -550,6 +573,15 @@ inline const std::vector<Vertex>& ChunkManager<SS, CS>::GreedyMesh(const glm::u8
 template <uint32_t SS, uint8_t CS>
 template <typename F>
   requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
+inline void ChunkManager<SS, CS>::Filter(std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
+  m_Chunks->ForEach([&out, &filter](const SparseOctree<Chunk<SS>, CS>::Node* node) {
+    node->Data->SVO()->Filter(out, filter);
+  });
+}
+
+template <uint32_t SS, uint8_t CS>
+template <typename F>
+  requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
 inline void
 ChunkManager<SS, CS>::Filter(const glm::u8vec3& coordinate, std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
   m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->SVO()->Filter(out, filter);
@@ -597,6 +629,7 @@ inline void ChunkManager<SS, CS>::FlushVertices(const std::vector<uint32_t>& ids
   m_ChunkBuffer.Log();
   m_ChunkSVOBuffer.Log();
   m_SVOBuffer.Log();
+  m_SVOHeaderBuffer.Log();
 
   auto group = akari::thread::ThreadPool::CreateGroup([]() {
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
@@ -624,6 +657,8 @@ inline void ChunkManager<SS, CS>::FlushPreprocessor(VkCommandBuffer commandBuffe
   std::vector<typename SparseOctree<Voxel, SS>::FlatNode> flatNodes;
   std::vector<akari::render::Buffer::Partition>           flatNodeUploads;
 
+  std::vector<FlatNodeHeader> flatNodeHeaders;
+
   for (uint8_t z = 0; z < CHUNK_SIZE; z++)
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
@@ -636,11 +671,14 @@ inline void ChunkManager<SS, CS>::FlushPreprocessor(VkCommandBuffer commandBuffe
           vertices.insert(vertices.end(), v.begin(), v.end());
           vertexUploads.emplace_back(id, v.size() * sizeof(Vertex));
 
+          flatNodeHeaders.emplace_back(id, static_cast<uint32_t>(flatNodes.size()), static_cast<uint32_t>(fn.size()));
+
           flatNodes.insert(flatNodes.end(), fn.begin(), fn.end());
           flatNodeUploads.emplace_back(id, fn.size() * sizeof(typename SparseOctree<Voxel, SS>::FlatNode));
         }
 
-  m_SVOBuffer.Upload(commandBuffer, flatNodeUploads, flatNodes);
+  m_SVOBuffer.Upload(commandBuffer, flatNodeUploads, flatNodes.data());
+  m_SVOHeaderBuffer.Upload(commandBuffer, flatNodeHeaders);
   auto allocations = m_VertexBuffer.Upload(commandBuffer, vertexUploads, vertices.data());
 
   for (auto& alloc : allocations) {

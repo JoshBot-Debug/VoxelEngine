@@ -8,7 +8,7 @@ struct Vertex{
 };
 
 struct FilterNode{
-  uint Material;
+  uint Id;
   uint Depth;
   vec3 Position;
 };
@@ -19,7 +19,7 @@ struct Hit{
   vec3 NodeMin;
   uint NodeSize;
   uint NodeIndex;
-  uint Material;
+  uint Id;
 };
 
 struct Payload{

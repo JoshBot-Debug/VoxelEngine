@@ -42,7 +42,7 @@ void main(){
   
   // Hit position reconstructed world-space position from depth
   vec3 P=depthToWorldSpace(uv,depth);
-  
+
   if(depth<=.000001){
     vec3 rayWorld=normalize(P-camera.position);
     vec3 sky=texture(skyboxTexture,rayWorld).rgb;
@@ -58,7 +58,7 @@ void main(){
   vec3 V=normalize(camera.position-P);
   // Light output
   vec3 Lo=vec3(0.);
-  
+
   for(int i=0;i<lights.count;++i){
     FilterNode light=lights.data[i];
     
@@ -73,9 +73,9 @@ void main(){
     
     Hit hit=raymarch(P+N*EPS,L,Ld);
     
-    float shadow=hit.Material!=light.Material?hit.TMin/Ld:1.;
+    float shadow=hit.Id!=light.Id?hit.TMin/Ld:1.;
     
-    Material lightMaterial=getMaterial(light.Material);
+    Material lightMaterial=getMaterial(light.Id);
     
     vec3 brdf=BRDF(N,V,L,material.Albedo.rgb,material.Metallic,material.Roughness);
     
@@ -95,7 +95,7 @@ void main(){
     Hit hit=raymarch(P+N*EPS,R,FMAX);
     if(hit.IsValid)
     {
-      Material mat=getMaterial(hit.Material);
+      Material mat=getMaterial(hit.Id);
       reflected=mat.Emissive.a>0.?mat.Emissive.rgb*mat.Emissive.a:mat.Albedo.rgb;
     }
     else

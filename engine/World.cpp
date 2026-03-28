@@ -64,8 +64,11 @@ World::World(uint32_t m_ChunkSize)
   // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}); });
 
   ThreadPool::Dispatch([&]() {
-    for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
-      for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
+    // for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
+    //   for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
+    //     GenerateChunk({x, 0, z});
+    for (size_t z = 0; z < 1; z++)
+      for (size_t x = 0; x < 2; x++)
         GenerateChunk({x, 0, z});
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   });
@@ -148,9 +151,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     m_ChunkManager->FlushVertices(ids);
 
     {
-      auto session = m_ChunkManager->BeginRead(wcc);
-
-      m_ChunkManager->Filter(wcc, session, m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
+      m_ChunkManager->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
         auto material = m_Palette.GetMaterial(node->Data->Id);
         return material && material->Emissive.a > 0.0f;
       });
@@ -194,7 +195,8 @@ const void World::GenerateChunk(const glm::ivec3& wcc) {
           m_ChunkManager->Set(wcc, session, x, y, z, lush.get());
       }
 
-    m_ChunkManager->Set(wcc, session, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
+    if (wcc.x == 0)
+      m_ChunkManager->Set(wcc, session, m_ChunkSize / 2, m_ChunkSize - 4, m_ChunkSize / 2, light.get());
   }
 }
 

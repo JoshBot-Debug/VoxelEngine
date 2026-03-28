@@ -3,11 +3,11 @@ struct FlatNode{
   uint ChildIndex;
 };
 
-layout(std430,set=1,binding=54)readonly buffer SparseChunkOctree{
+layout(std430,set=1,binding=54)readonly buffer ChunkOctree{
   uint count;
   uint padding[3];
   FlatNode data[];
-}voxels;
+}chunks;
 
 struct StackEntry{
   float TMin;
@@ -15,9 +15,9 @@ struct StackEntry{
   vec3 Min;
 };
 
-const uint MAX_STACK=24;
+const uint MAX_STACK=64;
 
-Hit raymarch(vec3 origin,vec3 direction,float dist)
+Hit raymarchChunks(vec3 origin,vec3 direction,float dist)
 {
   Hit payload;
   payload.IsValid=false;
@@ -33,14 +33,14 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
   while(stackPtr>0){
     StackEntry entry=stack[--stackPtr];
     
-    /// TODO: Need to find a way to index voxel svos here
-    FlatNode voxel=voxels.data[entry.Index];
+    FlatNode voxel=chunks.data[entry.Index];
     
     uint depth=0xFFu&(voxel.PackedIDC>>8);
     
     uint children=0xFFu&voxel.PackedIDC;
     
-    uint size=(1<<depth);
+    // TODO need to pass this from the CPU side, it's the world size 64x64x64
+    uint size=(1<<depth)*64;
     
     if(children==0u){
       uint id=0xFFFFu&(voxel.PackedIDC>>16);
@@ -50,7 +50,7 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
       payload.NodeMin=entry.Min;
       payload.NodeSize=size;
       payload.NodeIndex=entry.Index;
-      payload.Material=id;
+      payload.Id=id;
       return payload;
     }
     
