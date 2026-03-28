@@ -120,22 +120,6 @@ Hit raymarchVoxels(uint offset,vec3 origin,vec3 direction,float dist)
   return payload;
 }
 
-struct GPLCP{
-  uint Id;
-  uint Offset;
-  vec3 LocalPosition;
-  vec3 WorldPosition;
-};
-
-GPLCP globalPositionToLocalChunkPosition(vec3 origin)
-{
-  vec3 worldPosition=origin;
-  vec3 localPosition=mod(worldPosition,64.);
-  uint id=getChunkId(worldPosition);
-  uint offset=headers.data[id].Offset;
-  return GPLCP(id,offset,localPosition,worldPosition);
-}
-
 float tNextBoundary(vec3 origin,vec3 direction){
   vec3 invDir=1./direction;
   
@@ -177,11 +161,11 @@ Hit raymarch(vec3 origin,vec3 direction,float dist)
   payload.IsValid=false;
   payload.TMin=0.;
   
-  RaymarchStackEntry stack[RAYMARCH_MAX_STACK];
-  GPLCP pos=globalPositionToLocalChunkPosition(origin);
-  
+  RaymarchStackEntry stack[RAYMARCH_MAX_STACK];  
+  uint id=getChunkId(origin);
+
   uint ptr=0;
-  stack[ptr++]=RaymarchStackEntry(pos.Id,0.,pos.LocalPosition);
+  stack[ptr++]=RaymarchStackEntry(id,0.,mod(origin,64.));
   
   while(ptr>0){
     RaymarchStackEntry entry=stack[--ptr];
