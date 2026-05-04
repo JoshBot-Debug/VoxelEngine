@@ -40,6 +40,9 @@ public:
     delete m_SVO;
   };
 
+  Chunk(const Chunk&)            = delete;
+  Chunk& operator=(const Chunk&) = delete;
+
   bool Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids);
 
   const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& FlatNodes();

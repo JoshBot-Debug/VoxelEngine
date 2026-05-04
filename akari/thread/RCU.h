@@ -34,6 +34,8 @@ private:
   std::vector<Retired> m_Retired[2];
 
 public:
+  RCU() = default;
+
   ~RCU() {
     for (auto& retired : m_Retired)
       for (Retired& r : retired) {
@@ -42,6 +44,9 @@ public:
         delete r.Ptr;
       }
   };
+
+  RCU(const RCU&)            = delete;
+  RCU& operator=(const RCU&) = delete;
 
   /**
    * When a reader calls read lock, we hand them the current generation.

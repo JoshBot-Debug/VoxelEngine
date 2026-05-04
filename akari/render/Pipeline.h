@@ -108,7 +108,13 @@ private:
   VkShaderModule CreateShaderModule(const std::string& filename);
 
 public:
+  Pipeline() = default;
   ~Pipeline();
+
+  Pipeline(const Pipeline&)            = delete;
+  Pipeline(Pipeline&&)                 = delete;
+  Pipeline& operator=(const Pipeline&) = delete;
+  Pipeline& operator=(Pipeline&&)      = delete;
 
   void CreateDescriptorSetLayout(const DescriptorSetLayoutInfo& info);
 

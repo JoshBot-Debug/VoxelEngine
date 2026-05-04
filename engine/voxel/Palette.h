@@ -29,6 +29,9 @@ public:
   Palette()  = default;
   ~Palette() = default;
 
+  Palette(const Palette&)            = delete;
+  Palette& operator=(const Palette&) = delete;
+
   void RenderUI();
 
   void Create();

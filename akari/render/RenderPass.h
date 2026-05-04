@@ -50,7 +50,13 @@ private:
   FramebufferCreateInfo m_FramebufferCreateInfo;
 
 public:
+  RenderPass() = default;
   ~RenderPass();
+
+  RenderPass(const RenderPass&)            = delete;
+  RenderPass(RenderPass&&)                 = delete;
+  RenderPass& operator=(const RenderPass&) = delete;
+  RenderPass& operator=(RenderPass&&)      = delete;
 
   void CreateRenderPass(const RenderPassCreateInfo& info);
 

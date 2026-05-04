@@ -38,6 +38,9 @@ public:
   CameraBuffer();
   ~CameraBuffer();
 
+  CameraBuffer(const CameraBuffer&)            = delete;
+  CameraBuffer& operator=(const CameraBuffer&) = delete;
+
   VkBuffer GetBuffer(uint32_t frame) { return m_Buffers[frame]; };
 
   void Render(akari::camera::PerspectiveCamera* camera);

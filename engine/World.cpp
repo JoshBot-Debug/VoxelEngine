@@ -60,18 +60,18 @@ World::World(uint32_t m_ChunkSize)
 
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
-  // ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
+  ThreadPool::Dispatch([&]() { GenerateCornellBox({0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateChunk({0, 0, 0}); });
 
-  ThreadPool::Dispatch([&]() {
-    // for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
-    //   for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
-    //     GenerateChunk({x, 0, z});
-    for (size_t z = 0; z < 1; z++)
-      for (size_t x = 0; x < 2; x++)
-        GenerateChunk({x, 0, z});
-    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
-  });
+  // ThreadPool::Dispatch([&]() {
+  //   // for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
+  //   //   for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
+  //   //     GenerateChunk({x, 0, z});
+  //   for (size_t z = 0; z < 1; z++)
+  //     for (size_t x = 0; x < 2; x++)
+  //       GenerateChunk({x, 0, z});
+  //   TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
+  // });
 }
 
 World::~World() {

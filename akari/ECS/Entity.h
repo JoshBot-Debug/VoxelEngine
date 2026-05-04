@@ -73,6 +73,11 @@ public:
       component.reset();
   }
 
+  Entity(const Entity&)            = delete;
+  Entity(Entity&&)                 = delete;
+  Entity& operator=(const Entity&) = delete;
+  Entity& operator=(Entity&&)      = delete;
+
   /**
    * Retrieves the entity's unique identifier.
    *

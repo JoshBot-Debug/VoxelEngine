@@ -54,6 +54,11 @@ public:
   World(uint32_t chunkSize);
   ~World();
 
+  World(World&&)                 = delete;
+  World(const World&)            = delete;
+  World& operator=(const World&) = delete;
+  World& operator=(World&&)      = delete;
+
   void RenderUI();
 
   void Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport);

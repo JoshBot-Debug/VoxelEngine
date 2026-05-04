@@ -92,6 +92,9 @@ public:
   ChunkManager();
   ~ChunkManager();
 
+  ChunkManager(const ChunkManager&)            = delete;
+  ChunkManager& operator=(const ChunkManager&) = delete;
+
   /**
    * Retrieve an RCU {Reader} session.
    */

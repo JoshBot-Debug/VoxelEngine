@@ -190,7 +190,7 @@ private:
     inline void Clean() { m_Dirty = false; }
   };
 
-  akari::thread::RCU<Node> m_RCU;
+  akari::thread::RCU<Node>* m_RCU {new akari::thread::RCU<Node>()};
 
   /**
    * Pointer to the root node of the Sparse Voxel Octree.
@@ -225,7 +225,7 @@ private:
     /// the entire 64x64x64 octree tree. If in the future we see a bug,
     /// I most likely need to uncomment the line below
     // if (!exclusive) {
-    //   m_RCU.Retire(node, false);
+    //   m_RCU->Retire(node, false);
     //   node = new Node(*node);
     // }
     /// All other retires and copies below are not required, exclusive must be set however, to help save a bit of unnecessary
@@ -237,7 +237,7 @@ private:
        * If other threads can see this node, we need to copy before mutating
        */
       if (!exclusive) {
-        m_RCU.Retire(node);
+        m_RCU->Retire(node);
         node = new Node(*node);
       }
 
@@ -258,7 +258,7 @@ private:
     if (!node->Children[index]) {
 
       if (!exclusive) {
-        m_RCU.Retire(node, false);
+        m_RCU->Retire(node, false);
         node = new Node(*node);
 
         /**
@@ -289,7 +289,7 @@ private:
      * If other threads can see this node, we need to copy before mutating
      */
     if (!exclusive) {
-      m_RCU.Retire(node);
+      m_RCU->Retire(node);
       node = new Node(*node);
 
       /**
@@ -355,7 +355,7 @@ private:
       return nullptr;
 
     if (size == 1) {
-      m_RCU.Retire(node);
+      m_RCU->Retire(node);
       return nullptr;
     }
 
@@ -371,7 +371,7 @@ private:
      */
     if (node->Data) {
       if (!copied) {
-        m_RCU.Retire(node, false);
+        m_RCU->Retire(node, false);
         node   = new Node(*node);
         copied = true;
       }
@@ -393,7 +393,7 @@ private:
       if (node->Children[i])
         return node;
 
-    m_RCU.Retire(node);
+    m_RCU->Retire(node);
     return nullptr;
   };
 
@@ -478,7 +478,6 @@ private:
       Filter(out, filter, childMin, half, node->Children[i]);
     }
   };
-
 
   /**
    * For each
@@ -805,13 +804,13 @@ public:
    * Used for reading in scope
    */
   Reader BeginRead(bool autoUnlock = true) {
-    return Reader(&m_Root, &m_RCU, autoUnlock);
+    return Reader(&m_Root, m_RCU, autoUnlock);
   };
 
   /**
    * RCU Sync
    */
-  void Sync() { m_RCU.Sync(); }
+  void Sync() { m_RCU->Sync(); }
 
   /**
    * Sets a voxel at the given 3D world position.
@@ -1128,7 +1127,6 @@ public:
     Filter(out, filter, {0, 0, 0}, SIZE, session.Root);
   };
 
-
   /**
    * @param callback callback
    */
@@ -1144,7 +1142,6 @@ public:
   void ForEach(Reader& session, F&& callback) {
     ForEach(callback, {0, 0, 0}, SIZE, session.Root);
   };
-
 
   /**
    * Perform a recursive raymarch from the root node of the SVO

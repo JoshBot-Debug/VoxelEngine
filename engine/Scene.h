@@ -43,15 +43,15 @@ private:
   akari::render::Buffer m_OverlayVertexBuffer {};
   uint32_t              m_OverlayVertexCount {0};
 
-  akari::render::RenderPass m_GBufferPass;
-  akari::render::Pipeline   m_GeometryPipeline;
+  akari::render::RenderPass m_GBufferPass {};
+  akari::render::Pipeline   m_GeometryPipeline {};
 
-  akari::render::Pipeline m_PreprocessorPipeline;
-  akari::render::Pipeline m_LightingPipeline;
-  akari::render::Pipeline m_ShadingPipeline;
+  akari::render::Pipeline m_PreprocessorPipeline {};
+  akari::render::Pipeline m_LightingPipeline {};
+  akari::render::Pipeline m_ShadingPipeline {};
 
-  akari::render::RenderPass m_OverlayPass;
-  akari::render::Pipeline   m_OverlayPipeline;
+  akari::render::RenderPass m_OverlayPass {};
+  akari::render::Pipeline   m_OverlayPipeline {};
 
   std::shared_ptr<akari::window::Image> m_Skybox {
       std::make_shared<akari::window::Image>(akari::window::Image::Specification {
@@ -115,6 +115,11 @@ private:
 public:
   Scene();
   ~Scene();
+
+  Scene(Scene&&)                 = delete;
+  Scene(const Scene&)            = delete;
+  Scene& operator=(Scene&&)      = delete;
+  Scene& operator=(const Scene&) = delete;
 
   void Initialize(const InitializeInfo& init);
 

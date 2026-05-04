@@ -19,8 +19,13 @@ private:
 
 public:
   BufferPool();
-  BufferPool(const Specification &specification);
+  BufferPool(const Specification& specification);
   ~BufferPool();
+
+  BufferPool(BufferPool&&)                 = delete;
+  BufferPool(const BufferPool&)            = delete;
+  BufferPool& operator=(BufferPool&&)      = delete;
+  BufferPool& operator=(const BufferPool&) = delete;
 
   const VmaPool GetHostPool() const;
 

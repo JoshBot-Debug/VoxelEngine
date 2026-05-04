@@ -62,6 +62,9 @@ public:
   Image(const Specification& specification);
   ~Image();
 
+  Image(const Image&)            = delete;
+  Image& operator=(const Image&) = delete;
+
   void Initialize(const Specification& specification);
   void SetData(const void* data, uint32_t mipLevel = 0, uint32_t currentLayer = 0);
   void CopyToImage(VkCommandBuffer commandBuffer);

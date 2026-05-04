@@ -74,6 +74,9 @@ public:
     m_FreeEntitySlotsByETID.clear();
   };
 
+  Registry(const Registry&)            = delete;
+  Registry& operator=(const Registry&) = delete;
+
   /**
    * Creates a new entity with a given name.
    *

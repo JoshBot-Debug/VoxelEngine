@@ -7,7 +7,13 @@
 namespace akari::ecs {
 class System {
 public:
-  virtual ~System()               = default;
+  virtual ~System() = default;
+
+  System(const System&)            = delete;
+  System(System&&)                 = delete;
+  System& operator=(const System&) = delete;
+  System& operator=(System&&)      = delete;
+
   virtual void Update(void* data) = 0;
   virtual void Free() {};
 };
