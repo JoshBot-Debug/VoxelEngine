@@ -140,7 +140,7 @@ public:
 
 Application* akari::window::CreateApplication(int argc, char** argv) {
 
-  const ApplicationSpecification applicationSpecification = {
+  const ApplicationSpecification applicationSpecification {
       .Width {1440},
       .Height {300},
       .EnableDocking {true},
