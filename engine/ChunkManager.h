@@ -40,6 +40,9 @@ class ChunkManager {
   static_assert(CS != 0 && (CS & (CS - 1)) == 0, "CS must be a power of two");
 
 public:
+using ChunkNode = SparseOctree<Chunk<SS>, CS>::Node;
+
+public:
   static constexpr uint32_t SVO_SIZE {SS};
   static constexpr uint32_t CHUNK_SIZE {CS};
 
@@ -80,13 +83,13 @@ private:
    * Enures that a chunk will be returned, creates one if it does not exist.
    * @param x,y,z The position of the chunk.
    */
-  SparseOctree<Chunk<SS>, CS>::Node* Ensure(uint8_t x, uint8_t y, uint8_t z);
+  ChunkNode* Ensure(uint8_t x, uint8_t y, uint8_t z);
 
   /**
    * Enures that a chunk will be returned, creates one if it does not exist.
    * @param position The position of the chunk.
    */
-  SparseOctree<Chunk<SS>, CS>::Node* Ensure(const glm::u8vec3& position);
+  ChunkNode* Ensure(const glm::u8vec3& position);
 
 public:
   ChunkManager();
@@ -113,24 +116,24 @@ public:
   /**
    * @param x,y,z The position of the chunk.
    */
-  SparseOctree<Chunk<SS>, CS>::Node* Get(uint8_t x, uint8_t y, uint8_t z);
+  ChunkNode* Get(uint8_t x, uint8_t y, uint8_t z);
 
   /**
    * @param position The position of the chunk.
    */
-  SparseOctree<Chunk<SS>, CS>::Node* Get(const glm::u8vec3& position);
+  ChunkNode* Get(const glm::u8vec3& position);
 
   /**
    * @param session The {Reader} session received from BeginRead(...)
    * @param position The position of the chunk.
    */
-  SparseOctree<Chunk<SS>, CS>::Node* Get(SparseOctree<Chunk<SS>, CS>::Reader& session, const glm::u8vec3& position);
+  ChunkNode* Get(SparseOctree<Chunk<SS>, CS>::Reader& session, const glm::u8vec3& position);
 
   /**
    * @param session The {Reader} session received from BeginRead(...)
    * @param x,y,z The position of the chunk.
    */
-  SparseOctree<Chunk<SS>, CS>::Node* Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z);
+  ChunkNode* Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z);
 
   /**
    * Flatten the Chunks in to a vector for the GPU
@@ -382,8 +385,8 @@ public:
 };
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(uint8_t x, uint8_t y, uint8_t z) {
-  typename SparseOctree<Chunk<SS>, CS>::Node* chunk = m_Chunks->Get(x, y, z);
+inline typename ChunkManager<SS, CS>::ChunkNode* ChunkManager<SS, CS>::Ensure(uint8_t x, uint8_t y, uint8_t z) {
+  typename ChunkManager<SS, CS>::ChunkNode* chunk = m_Chunks->Get(x, y, z);
   if (chunk)
     return chunk;
   uint32_t index = x + (y * CHUNK_SIZE + (z * CHUNK_SIZE * CHUNK_SIZE));
@@ -392,7 +395,7 @@ inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Ensure(const glm::u8vec3& position) {
+inline typename ChunkManager<SS, CS>::ChunkNode* ChunkManager<SS, CS>::Ensure(const glm::u8vec3& position) {
   return Ensure(position.x, position.y, position.z);
 }
 
@@ -436,22 +439,22 @@ inline void ChunkManager<SS, CS>::Sync() {
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(uint8_t x, uint8_t y, uint8_t z) {
+inline typename ChunkManager<SS, CS>::ChunkNode* ChunkManager<SS, CS>::Get(uint8_t x, uint8_t y, uint8_t z) {
   return m_Chunks->Get(x, y, z);
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(const glm::u8vec3& position) {
+inline typename ChunkManager<SS, CS>::ChunkNode* ChunkManager<SS, CS>::Get(const glm::u8vec3& position) {
   return m_Chunks->Get(position.x, position.y, position.z);
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(SparseOctree<Chunk<SS>, CS>::Reader& session, const glm::u8vec3& position) {
+inline typename ChunkManager<SS, CS>::ChunkNode* ChunkManager<SS, CS>::Get(SparseOctree<Chunk<SS>, CS>::Reader& session, const glm::u8vec3& position) {
   return m_Chunks->Get(session, position.x, position.y, position.z);
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Chunk<SS>, CS>::Node* ChunkManager<SS, CS>::Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
+inline typename ChunkManager<SS, CS>::ChunkNode* ChunkManager<SS, CS>::Get(SparseOctree<Chunk<SS>, CS>::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
   return m_Chunks->Get(session, x, y, z);
 }
 
@@ -575,7 +578,7 @@ template <uint32_t SS, uint8_t CS>
 template <typename F>
   requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
 inline void ChunkManager<SS, CS>::Filter(std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
-  m_Chunks->ForEach([&out, &filter](const SparseOctree<Chunk<SS>, CS>::Node* node) {
+  m_Chunks->ForEach([&out, &filter](const ChunkNode* node) {
     std::vector<typename SparseOctree<Voxel, SS>::FilterNode> tmp;
     node->Data->SVO()->Filter(tmp, filter);
     for (auto& n : tmp) {
