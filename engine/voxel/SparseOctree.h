@@ -23,10 +23,43 @@ concept ForEachCallback = requires(F f, const N* node) {
 };
 
 /**
+ * The nodes in the SVO
+ * @tparam T The datatype of the pointer stored
+ */
+template <typename T>
+struct Node {
+  uint8_t Depth {0};
+  /// NOTE: For allignment, sizeof(Node) = 80; Feel free (or rather, remember) to use up these 7 bytes.
+  uint8_t  Padding[7] {};
+  T*       Data {nullptr};
+  Node<T>* Children[8] {nullptr};
+
+  consteval Node() noexcept = default;
+
+  Node(uint8_t depth, T* data = nullptr)
+      : Depth(depth)
+      , Data(data) {};
+
+  bool operator==(const Node<T>& other) const { return Data.Id == other.Data.Id; };
+  bool operator!=(const Node<T>& other) const { return Data.Id != other.Data.Id; };
+
+  void Destroy() {
+    Data = nullptr;
+
+    for (int i = 0; i < 8; i++)
+      if (Children[i]) {
+        Children[i]->Destroy();
+        delete Children[i];
+        Children[i] = nullptr;
+      }
+  };
+};
+
+/**
  * @tparam T The datatype of the pointer stored
  * @tparam S The size of the SVO
  */
-template <Data T, uint8_t S = 64>
+template <Data T, uint8_t S = 64, template <typename> class TNode = Node>
 class SparseOctree {
 
   static_assert(S != 0 && (S & (S - 1)) == 0, "S must be a power of two");
@@ -45,38 +78,6 @@ public:
     glm::vec3 Normal {glm::vec3(0.0f)};
     T*        Data {nullptr};
     uint32_t  Size {0};
-  };
-
-  /**
-   * The nodes in the SVO
-   * @tparam T The datatype of the pointer stored
-   */
-  struct Node {
-    uint8_t Depth {0};
-    /// NOTE: For allignment, sizeof(Node) = 80; Feel free (or rather, remember) to use up these 7 bytes.
-    uint8_t Padding[7] {};
-    T*      Data {nullptr};
-    Node*   Children[8] {nullptr};
-
-    Node() = default;
-
-    Node(uint8_t depth, T* data = nullptr)
-        : Depth(depth)
-        , Data(data) {};
-
-    bool operator==(const Node& other) const { return Data.Id == other.Data.Id; };
-    bool operator!=(const Node& other) const { return Data.Id != other.Data.Id; };
-
-    void Destroy() {
-      Data = nullptr;
-
-      for (int i = 0; i < 8; i++)
-        if (Children[i]) {
-          Children[i]->Destroy();
-          delete Children[i];
-          Children[i] = nullptr;
-        }
-    };
   };
 
   struct FlatNode {
@@ -119,12 +120,12 @@ public:
 
   class Writer {
   private:
-    std::atomic<SparseOctree<T, S>::Node*>* m_Atomic {nullptr};
+    std::atomic<TNode<T>*>* m_Atomic {nullptr};
 
   public:
-    SparseOctree<T, S>::Node* Root = nullptr;
+    TNode<T>* Root = nullptr;
 
-    Writer(std::atomic<SparseOctree<T, S>::Node*>* atomic)
+    Writer(std::atomic<TNode<T>*>* atomic)
         : m_Atomic(atomic)
         , Root(atomic->load(std::memory_order::acquire)) {}
 
@@ -135,14 +136,14 @@ public:
 
   class Reader {
   private:
-    akari::thread::RCU<Node>* m_RCU {nullptr};
-    uint64_t                  m_Generation {0};
-    bool                      m_AutoUnlock {true};
+    akari::thread::RCU<TNode<T>>* m_RCU {nullptr};
+    uint64_t                      m_Generation {0};
+    bool                          m_AutoUnlock {true};
 
   public:
-    SparseOctree<T, S>::Node* Root {nullptr};
+    TNode<T>* Root {nullptr};
 
-    Reader(std::atomic<SparseOctree<T, S>::Node*>* atomic, akari::thread::RCU<Node>* rcu, bool autoUnlock = true)
+    Reader(std::atomic<TNode<T>*>* atomic, akari::thread::RCU<TNode<T>>* rcu, bool autoUnlock = true)
         : m_RCU(rcu)
         , Root(atomic->load(std::memory_order::acquire))
         , m_AutoUnlock(autoUnlock) {
@@ -190,12 +191,12 @@ private:
     inline void Clean() { m_Dirty = false; }
   };
 
-  akari::thread::RCU<Node>* m_RCU {new akari::thread::RCU<Node>()};
+  akari::thread::RCU<TNode<T>>* m_RCU {new akari::thread::RCU<TNode<T>>()};
 
   /**
    * Pointer to the root node of the Sparse Voxel Octree.
    */
-  std::atomic<Node*> m_Root {new Node(DIV)};
+  std::atomic<TNode<T>*> m_Root {new TNode<T>(DIV)};
 
   /**
    * A mask that can tell you if a voxel exists at x,y,z or if a voxel at x,y,z is hidden
@@ -213,7 +214,7 @@ private:
    * @param size      The size of the region represented by this node.
    * @param exclusive A flag used to determine if nodes beyond this recursive iteration are exclusive to this thread (When a new node is created, all nodes under it are exclusive. No copies need beyond that point.)
    */
-  Node* Set(Node* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size, bool exclusive = false) {
+  TNode<T>* Set(TNode<T>* node, uint8_t x, uint8_t y, uint8_t z, T* data, uint8_t size, bool exclusive = false) {
     /// NOTE: I'm not copying the entire path downward so this isn't exactly correct but
     /// It will not cause a segment fault because I retire nodes and copy before updating.
     /// This may produce visual glitches or incorrect meshes, not crashes so I'm allowing it.
@@ -226,7 +227,7 @@ private:
     /// I most likely need to uncomment the line below
     // if (!exclusive) {
     //   m_RCU->Retire(node, false);
-    //   node = new Node(*node);
+    //   node = new TNode<T>(*node);
     // }
     /// All other retires and copies below are not required, exclusive must be set however, to help save a bit of unnecessary
     /// allocations. ~300k allocations
@@ -238,7 +239,7 @@ private:
        */
       if (!exclusive) {
         m_RCU->Retire(node);
-        node = new Node(*node);
+        node = new TNode<T>(*node);
       }
 
       node->Data = data;
@@ -259,7 +260,7 @@ private:
 
       if (!exclusive) {
         m_RCU->Retire(node, false);
-        node = new Node(*node);
+        node = new TNode<T>(*node);
 
         /**
          * We are about to make a new node
@@ -269,7 +270,7 @@ private:
          */
         exclusive = true;
       }
-      node->Children[index] = new Node(node->Depth - 1);
+      node->Children[index] = new TNode<T>(node->Depth - 1);
     }
 
     node->Children[index] = Set(node->Children[index], x & mod, y & mod, z & mod, data, half, exclusive);
@@ -290,7 +291,7 @@ private:
      */
     if (!exclusive) {
       m_RCU->Retire(node);
-      node = new Node(*node);
+      node = new TNode<T>(*node);
 
       /**
        * Merge all children
@@ -321,7 +322,7 @@ private:
    * @return        Pointer to the node at the target position, or nullptr if
    * not found or filtered out.
    */
-  Node* Get(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size) {
+  TNode<T>* Get(TNode<T>* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size) {
     int half = size >> 1;
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
@@ -350,7 +351,7 @@ private:
    * @param x, y, z   Local voxel-space coordinates at this level.
    * @param size      The size of the region represented by this node.
    */
-  Node* Clear(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size, bool copied = false) {
+  TNode<T>* Clear(TNode<T>* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size, bool copied = false) {
     if (!node)
       return nullptr;
 
@@ -372,12 +373,12 @@ private:
     if (node->Data) {
       if (!copied) {
         m_RCU->Retire(node, false);
-        node   = new Node(*node);
+        node   = new TNode<T>(*node);
         copied = true;
       }
 
       for (int i = 0; i < 8; i++) {
-        node->Children[i]       = new Node(node->Depth - 1);
+        node->Children[i]       = new TNode<T>(node->Depth - 1);
         node->Children[i]->Data = node->Data;
       }
 
@@ -403,11 +404,11 @@ private:
    *
    * @param node A pointer to the node to start flattening from
    */
-  void Flatten(Node* node, std::vector<FlatNode>& out) {
+  void Flatten(TNode<T>* node, std::vector<FlatNode>& out) {
 
     int childCount = -1;
 
-    for (Node* child : node->Children) {
+    for (TNode<T>* child : node->Children) {
       if (!child)
         continue;
 
@@ -451,8 +452,8 @@ private:
    * @param node Pointer to the node from which to start a recursive search
    */
   template <typename F>
-    requires FilterCallback<Node, F>
-  void Filter(std::vector<FilterNode>& out, F&& filter, const glm::vec3& position, uint8_t size, Node* node) {
+    requires FilterCallback<TNode<T>, F>
+  void Filter(std::vector<FilterNode>& out, F&& filter, const glm::vec3& position, uint8_t size, TNode<T>* node) {
     if (!node)
       return;
 
@@ -489,8 +490,8 @@ private:
    * @param node Pointer to the node from which to start a recursive search
    */
   template <typename F>
-    requires ForEachCallback<Node, F>
-  void ForEach(F&& callback, const glm::vec3& position, uint8_t size, Node* node) {
+    requires ForEachCallback<TNode<T>, F>
+  void ForEach(F&& callback, const glm::vec3& position, uint8_t size, TNode<T>* node) {
     if (!node)
       return;
 
@@ -553,7 +554,7 @@ private:
   /**
    * Perform a recursive raymarch on the SVO
    */
-  Hit Raymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size) {
+  Hit Raymarch(TNode<T>* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size) {
 
     float     tMin, tMax;
     glm::vec3 normal;
@@ -592,7 +593,7 @@ private:
     for (int j = 0; j < 8; j++) {
       int i = order[j];
 
-      Node* child = node->Children[i];
+      TNode<T>* child = node->Children[i];
 
       if (!child)
         continue;
@@ -610,7 +611,7 @@ private:
     return Hit();
   };
 
-  bool Raymarch2(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, Hit& hit) {
+  bool Raymarch2(TNode<T>* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, Hit& hit) {
 
     float     tMin, tMax;
     glm::vec3 normal;
@@ -649,7 +650,7 @@ private:
     for (int j = 0; j < 8; j++) {
       int i = order[j];
 
-      Node* child = node->Children[i];
+      TNode<T>* child = node->Children[i];
 
       if (!child)
         continue;
@@ -668,7 +669,7 @@ private:
   /**
    * Perform a recursive raymarch on the SVO
    */
-  Hit DeepRaymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, T* data = nullptr) {
+  Hit DeepRaymarch(TNode<T>* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, T* data = nullptr) {
 
     float     tMin, tMax;
     glm::vec3 normal;
@@ -706,7 +707,7 @@ private:
     for (int j = 0; j < 8; j++) {
       int i = order[j];
 
-      Node* child = node ? node->Children[i] : nullptr;
+      TNode<T>* child = node ? node->Children[i] : nullptr;
 
       glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, i & 1);
 
@@ -724,7 +725,7 @@ private:
   /**
    * Perform a recursive raymarch on the SVO
    */
-  bool DeepRaymarch2(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, Hit& hit) {
+  bool DeepRaymarch2(TNode<T>* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, Hit& hit) {
 
     float     tMin, tMax;
     glm::vec3 normal;
@@ -762,7 +763,7 @@ private:
     for (int j = 0; j < 8; j++) {
       int i = order[j];
 
-      Node* child = node ? node->Children[i] : nullptr;
+      TNode<T>* child = node ? node->Children[i] : nullptr;
 
       glm::vec3 offset = glm::vec3((i >> 2) & 1, (i >> 1) & 1, i & 1);
 
@@ -785,7 +786,7 @@ public:
    * Destroys the Sparse Voxel Octree and frees all allocated nodes.
    */
   ~SparseOctree() {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
     root->Destroy();
     delete root;
   };
@@ -819,8 +820,8 @@ public:
    * @param data      The data to insert.
    */
   void Set(uint8_t x, uint8_t y, uint8_t z, T* data) {
-    Node* root = m_Root.load(std::memory_order::acquire);
-    Node* next = Set(root, x, y, z, data, SIZE);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* next = Set(root, x, y, z, data, SIZE);
     m_Mask.Set(x, y, z);
     m_Root.store(next, std::memory_order::release);
   };
@@ -847,8 +848,8 @@ public:
    * @param x, y, z   The world-space position to query.
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
-  Node* Get(uint8_t x, uint8_t y, uint8_t z) {
-    Node* root = m_Root.load(std::memory_order::acquire);
+  TNode<T>* Get(uint8_t x, uint8_t y, uint8_t z) {
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
     return Get(root, x, y, z, SIZE);
   };
 
@@ -858,7 +859,7 @@ public:
    * @param x, y, z   The world-space position to query.
    * @return          Pointer to the node at that position, or nullptr if not found or filtered out.
    */
-  Node* Get(Reader& session, uint8_t x, uint8_t y, uint8_t z) {
+  TNode<T>* Get(Reader& session, uint8_t x, uint8_t y, uint8_t z) {
     return Get(session.Root, x, y, z, SIZE);
   };
 
@@ -905,7 +906,7 @@ public:
 
     for (uint8_t z = 0; z < SIZE; z++)
       for (uint8_t y = 0; y < SIZE; y++) {
-        Node* match = nullptr;
+        TNode<T>* match = nullptr;
 
         for (uint8_t x = 0; x < SIZE; x++) {
 
@@ -930,7 +931,7 @@ public:
 
     for (uint8_t z = 0; z < SIZE; z++)
       for (uint8_t x = 0; x < SIZE; x++) {
-        Node* match = nullptr;
+        TNode<T>* match = nullptr;
 
         for (uint8_t y = 0; y < SIZE; y++) {
 
@@ -955,7 +956,7 @@ public:
 
     for (uint8_t x = 0; x < SIZE; x++)
       for (uint8_t y = 0; y < SIZE; y++) {
-        Node* match = nullptr;
+        TNode<T>* match = nullptr;
 
         for (uint8_t z = 0; z < SIZE; z++) {
 
@@ -984,8 +985,8 @@ public:
    * @param x, y, z   Voxel-space coordinates to clear.
    */
   void Clear(uint8_t x, uint8_t y, uint8_t z) {
-    Node* root = m_Root.load(std::memory_order::acquire);
-    Node* next = Clear(root, x, y, z, SIZE);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* next = Clear(root, x, y, z, SIZE);
     m_Mask.Clear(x, y, z);
     m_Root.store(next, std::memory_order::release);
   };
@@ -1066,7 +1067,7 @@ public:
    * +-------+-------+----------+-----------+------------+
    */
   void Flatten(std::vector<FlatNode>& out) {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
 
     if (!root)
       return;
@@ -1115,14 +1116,14 @@ public:
    * @param filter Filter callback
    */
   template <typename F>
-    requires FilterCallback<Node, F>
+    requires FilterCallback<TNode<T>, F>
   void Filter(std::vector<FilterNode>& out, F&& filter) {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
     Filter(out, filter, {0, 0, 0}, SIZE, root);
   };
 
   template <typename F>
-    requires FilterCallback<Node, F>
+    requires FilterCallback<TNode<T>, F>
   void Filter(Reader& session, std::vector<FilterNode>& out, F&& filter) {
     Filter(out, filter, {0, 0, 0}, SIZE, session.Root);
   };
@@ -1131,14 +1132,14 @@ public:
    * @param callback callback
    */
   template <typename F>
-    requires ForEachCallback<Node, F>
+    requires ForEachCallback<TNode<T>, F>
   void ForEach(F&& callback) {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
     ForEach(callback, {0, 0, 0}, SIZE, root);
   };
 
   template <typename F>
-    requires ForEachCallback<Node, F>
+    requires ForEachCallback<TNode<T>, F>
   void ForEach(Reader& session, F&& callback) {
     ForEach(callback, {0, 0, 0}, SIZE, session.Root);
   };
@@ -1149,8 +1150,8 @@ public:
    * @brief Quick raymarch
    */
   Hit Raymarch2(const glm::vec3& origin, const glm::vec3& direction) {
-    Node* root = m_Root.load(std::memory_order::acquire);
-    Hit   hit;
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
+    Hit       hit;
     Raymarch2(root, origin, direction, glm::vec3(0.0f), SIZE, hit);
     return hit;
   };
@@ -1167,8 +1168,8 @@ public:
    * @brief Slower raymarch
    */
   Hit DeepRaymarch2(const glm::vec3& origin, const glm::vec3& direction) {
-    Node* root = m_Root.load(std::memory_order::acquire);
-    Hit   hit;
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
+    Hit       hit;
     DeepRaymarch2(root, origin, direction, glm::vec3(0.0f), SIZE, hit);
     return hit;
   };
@@ -1185,7 +1186,7 @@ public:
    * @brief Quick raymarch
    */
   Hit Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
     return Raymarch(root, origin, direction, glm::vec3(0.0f), SIZE);
   };
 
@@ -1199,7 +1200,7 @@ public:
    * @brief Slower raymarch
    */
   Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
     return DeepRaymarch(root, origin, direction, glm::vec3(0.0f), SIZE);
   };
 
@@ -1208,7 +1209,7 @@ public:
   };
 
   bool Empty() {
-    Node* root = m_Root.load(std::memory_order::acquire);
+    TNode<T>* root = m_Root.load(std::memory_order::acquire);
 
     for (size_t i = 0; i < 8; i++)
       if (root->Children[i])

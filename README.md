@@ -2,11 +2,15 @@
 
 ### Setup
 
+Clone the project
+```bash
+git clone https://github.com/JoshBot-Debug/VoxelEngine.git
+cd VoxelEngine
+```
+
 Initialize all submodules
 
 ```bash
-git submodule add https://github.com/ocornut/imgui.git vendor/imgui
-git submodule add https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git vendor/VulkanMemoryAllocator
 git submodule update --init --recursive
 cd vendor/imgui
 git checkout docking
@@ -16,7 +20,8 @@ cd ../..
 Compile shaders
 
 ```bash
-bash compileShaders.sh
+sudo chmod u+x ./compileShaders.sh
+./compileShaders.sh
 ```
 
 Build project
@@ -28,7 +33,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Debug && cmake --build build
 Run the project
 
 ```bash
-./build/Kitagawa
+./build/vxen
 ```
 
 Benchmark / Performance
@@ -268,4 +273,10 @@ layout(std430,set=1,binding=50)readonly buffer SparseOctreeLUT{
 layout(std430,set=1,binding=50)readonly buffer SparseOctree{
   FlatNode nodes[];
 };
+```
+
+Add submodules (for me to remember)
+```bash
+git submodule add https://github.com/ocornut/imgui.git vendor/imgui
+git submodule add https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator.git vendor/VulkanMemoryAllocator
 ```

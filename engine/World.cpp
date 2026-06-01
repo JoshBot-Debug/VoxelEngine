@@ -151,7 +151,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     m_ChunkManager->FlushVertices(ids);
 
     {
-      m_ChunkManager->Filter(m_Lights, [this](const SparseOctree<Voxel>::Node* node) {
+      m_ChunkManager->Filter(m_Lights, [this](const Node<Voxel>* node) {
         auto material = m_Palette.GetMaterial(node->Data->Id);
         return material && material->Emissive.a > 0.0f;
       });

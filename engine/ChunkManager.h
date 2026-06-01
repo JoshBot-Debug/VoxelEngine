@@ -40,7 +40,7 @@ class ChunkManager {
   static_assert(CS != 0 && (CS & (CS - 1)) == 0, "CS must be a power of two");
 
 public:
-using ChunkNode = SparseOctree<Chunk<SS>, CS>::Node;
+using ChunkNode = Node<Chunk<SS>>;
 
 public:
   static constexpr uint32_t SVO_SIZE {SS};
@@ -206,27 +206,27 @@ public:
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param x,y,z The position of the voxel in the chunk. i.e. 0 - 63.
    */
-  typename SparseOctree<Voxel, SS>::Node* Get(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z);
+  Node<Voxel>* Get(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z);
 
   /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param position The position of the voxel in the chunk. i.e. 0 - 63.
    */
-  typename SparseOctree<Voxel, SS>::Node* Get(const glm::u8vec3& coordinate, const glm::u8vec3& position);
+  Node<Voxel>* Get(const glm::u8vec3& coordinate, const glm::u8vec3& position);
 
   /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param session The {Reader} session received from BeginRead(...)
    * @param position The position of the voxel in the chunk. i.e. 0 - 63.
    */
-  typename SparseOctree<Voxel, SS>::Node* Get(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::u8vec3& position);
+  Node<Voxel>* Get(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::u8vec3& position);
 
   /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param session The {Reader} session received from BeginRead(...)
    * @param x,y,z The position of the voxel in the chunk. i.e. 0 - 63.
    */
-  typename SparseOctree<Voxel, SS>::Node* Get(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, uint8_t x, uint8_t y, uint8_t z);
+  Node<Voxel>* Get(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, uint8_t x, uint8_t y, uint8_t z);
 
   /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
@@ -280,7 +280,7 @@ public:
    * @param filter The filter callback, must return a boolean.
    */
   template <typename F>
-    requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
+    requires FilterCallback<Node<Voxel>, F>
   void Filter(std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter);
 
   /**
@@ -289,7 +289,7 @@ public:
    * @param filter The filter callback, must return a boolean.
    */
   template <typename F>
-    requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
+    requires FilterCallback<Node<Voxel>, F>
   void Filter(const glm::u8vec3& coordinate, std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter);
 
   /**
@@ -299,7 +299,7 @@ public:
    * @param filter The filter callback, must return a boolean.
    */
   template <typename F>
-    requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
+    requires FilterCallback<Node<Voxel>, F>
   void Filter(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter);
 
   /**
@@ -520,22 +520,22 @@ inline void ChunkManager<SS, CS>::Set(const glm::u8vec3& coordinate, typename Sp
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Voxel, SS>::Node* ChunkManager<SS, CS>::Get(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z) {
+inline Node<Voxel>* ChunkManager<SS, CS>::Get(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z) {
   return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->SVO()->Get(x, y, z);
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Voxel, SS>::Node* ChunkManager<SS, CS>::Get(const glm::u8vec3& coordinate, const glm::u8vec3& position) {
+inline Node<Voxel>* ChunkManager<SS, CS>::Get(const glm::u8vec3& coordinate, const glm::u8vec3& position) {
   return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->SVO()->Get(position.x, position.y, position.z);
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Voxel, SS>::Node* ChunkManager<SS, CS>::Get(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::u8vec3& position) {
+inline Node<Voxel>* ChunkManager<SS, CS>::Get(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, const glm::u8vec3& position) {
   return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->SVO()->Get(session, position.x, position.y, position.z);
 }
 
 template <uint32_t SS, uint8_t CS>
-inline typename SparseOctree<Voxel, SS>::Node* ChunkManager<SS, CS>::Get(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
+inline Node<Voxel>* ChunkManager<SS, CS>::Get(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
   return m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->SVO()->Get(session, x, y, z);
 }
 
@@ -576,7 +576,7 @@ inline const std::vector<Vertex>& ChunkManager<SS, CS>::GreedyMesh(const glm::u8
 
 template <uint32_t SS, uint8_t CS>
 template <typename F>
-  requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
+  requires FilterCallback<Node<Voxel>, F>
 inline void ChunkManager<SS, CS>::Filter(std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
   m_Chunks->ForEach([&out, &filter](const ChunkNode* node) {
     std::vector<typename SparseOctree<Voxel, SS>::FilterNode> tmp;
@@ -592,7 +592,7 @@ inline void ChunkManager<SS, CS>::Filter(std::vector<typename SparseOctree<Voxel
 
 template <uint32_t SS, uint8_t CS>
 template <typename F>
-  requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
+  requires FilterCallback<Node<Voxel>, F>
 inline void
 ChunkManager<SS, CS>::Filter(const glm::u8vec3& coordinate, std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
   m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->SVO()->Filter(out, filter);
@@ -600,7 +600,7 @@ ChunkManager<SS, CS>::Filter(const glm::u8vec3& coordinate, std::vector<typename
 
 template <uint32_t SS, uint8_t CS>
 template <typename F>
-  requires FilterCallback<typename SparseOctree<Voxel, SS>::Node, F>
+  requires FilterCallback<Node<Voxel>, F>
 inline void
 ChunkManager<SS, CS>::Filter(const glm::u8vec3& coordinate, typename SparseOctree<Voxel, SS>::Reader& session, std::vector<typename SparseOctree<Voxel, SS>::FilterNode>& out, F&& filter) {
   m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Data->SVO()->Filter(session, out, filter);
