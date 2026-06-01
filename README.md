@@ -1,6 +1,6 @@
 # Vk Voxel Playground
 
-### Setup
+### Setup (Linux)
 
 Clone the project
 ```bash
