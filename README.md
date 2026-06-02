@@ -8,6 +8,21 @@ git clone https://github.com/JoshBot-Debug/VoxelEngine.git
 cd VoxelEngine
 ```
 
+Install dependencies
+```bash
+sudo apt install \
+   glslang-tools \
+   glslc \
+   libtbb-dev \
+   libnoise-dev \
+   libglx-dev \
+   libglm-dev \
+   libstb-dev
+
+// You will also need to alias libnoise to noise (old package, new package problem)
+sudo ln -s /usr/include/libnoise /usr/include/noise
+```
+
 Initialize all submodules
 
 ```bash
