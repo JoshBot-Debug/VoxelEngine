@@ -1,7 +1,7 @@
 #pragma once
 
 #include <noise/noise.h>
-#include <noise/noiseutils.h>
+#include <noiseutils/noiseutils.h>
 
 struct TerrainSpecification {
   int Seed {50};
