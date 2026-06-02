@@ -43,7 +43,7 @@ endif()
 
 # === Add vendor libraries ===
 add_subdirectory(vendor/imgui-cmake)
-add_subdirectory (vendor/tracy)
+add_subdirectory(vendor/tracy)
 
 # === Source Files ===
 file(GLOB_RECURSE SRC_FILES_AKARI ${CMAKE_SOURCE_DIR}/akari/*.cpp)
@@ -63,7 +63,6 @@ find_package(glfw3 REQUIRED)
 find_package(TBB REQUIRED)
 find_package(benchmark REQUIRED)
 find_library(NOISE_LIB noise REQUIRED)
-find_library(NOISEUTILS_LIB noiseutils REQUIRED)
 
 target_link_libraries(akari PUBLIC
   vulkan
@@ -77,7 +76,6 @@ target_link_libraries(vxengine PUBLIC
   imgui
   Tracy::TracyClient
   ${NOISE_LIB}
-  ${NOISEUTILS_LIB}
 )
 
 target_link_libraries(vxen PRIVATE vxengine)
