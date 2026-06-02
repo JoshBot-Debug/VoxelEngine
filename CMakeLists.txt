@@ -62,8 +62,8 @@ find_package(Vulkan REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(TBB REQUIRED)
 find_package(benchmark REQUIRED)
-find_library(NOISE_LIB noise PATHS /usr/local/lib REQUIRED)
-find_library(NOISEUTILS_LIB noiseutils PATHS /usr/local/lib REQUIRED)
+find_library(NOISE_LIB noise REQUIRED)
+find_library(NOISEUTILS_LIB noiseutils REQUIRED)
 
 target_link_libraries(akari PUBLIC
   vulkan
