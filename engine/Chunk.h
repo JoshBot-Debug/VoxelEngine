@@ -3,6 +3,10 @@
 #include <memory>
 #include <vector>
 
+#include <algorithm>
+#include <execution>
+#include <future>
+
 #include "voxel/GreedyMesh64.h"
 #include "voxel/SparseOctree.h"
 #include "voxel/Voxel.h"
@@ -40,7 +44,7 @@ public:
   Chunk(const Chunk&)            = delete;
   Chunk& operator=(const Chunk&) = delete;
 
-  bool Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids);
+  bool Flush(const glm::ivec3& offset, const std::vector<uint32_t>& ids);
 
   const std::vector<typename SparseOctree::FlatNode>& FlatNodes();
 
@@ -49,17 +53,15 @@ public:
   SparseOctree* SVO();
 };
 
-inline bool Chunk::Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
+inline bool Chunk::Flush(const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
 
   if (m_SVO->Empty() || !m_SVO->Dirty())
     return false;
 
-  group->Add();
-
   m_ThreadVertices.clear();
   m_ThreadVertices.resize(ids.size());
 
-  auto session = std::make_shared<typename SparseOctree::Reader>(m_SVO->BeginRead(false));
+  auto session = std::make_shared<SparseOctree::Reader>(m_SVO->BeginRead(false));
 
   auto flatten = [session, &svo = m_SVO, &flatNodes = m_FlatNodes]() {
     svo->Flatten(*session, flatNodes);
@@ -73,20 +75,20 @@ inline bool Chunk::Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group
     GreedyMesh64::Generate(tVertices[i], offset, id, rows, columns, layers, padding);
   };
 
-  auto onComplete = [group, session, &svo = m_SVO, &tVertices = m_ThreadVertices, &vertices = m_Vertices]() {
+  auto onComplete = [session, &svo = m_SVO, &tVertices = m_ThreadVertices, &vertices = m_Vertices]() {
     vertices.clear();
 
     for (auto& v : tVertices)
       vertices.insert(vertices.end(), v.begin(), v.end());
 
     svo->Clean();
-    group->Done();
     session->Unlock();
   };
 
-  auto handle = akari::thread::ThreadPool::CreateGroup(onComplete);
-  akari::thread::ThreadPool::ForEach(handle, ids, greedyMesh);
-  akari::thread::ThreadPool::Dispatch(handle, flatten);
+  for (size_t i = 0; i < ids.size(); i++)
+    greedyMesh(i, ids[i]);
+  flatten();
+  onComplete();
 
   return true;
 }

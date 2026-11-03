@@ -1,6 +1,4 @@
 #include "World.h"
-#include "thread/ThreadPool.h"
-
 #include <imgui.h>
 
 using namespace akari::thread;
@@ -59,7 +57,8 @@ World::World() {
 
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
-  ThreadPool::Dispatch([&]() { GenerateCornellBox(64, {0, 0, 0}); });
+  GenerateCornellBox(128, {0, 0, 0});
+  // ThreadPool::Dispatch([&]() { GenerateCornellBox(64, {0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateSphere(64, {0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateCube(1, {0, 0, 0}); });
 
@@ -221,24 +220,22 @@ const void World::GenerateCornellBox(const uint32_t size, const glm::u8vec3& ori
   auto light     = m_Voxels.emplace_back(lightMaterial->Id);
 
   {
-    auto session = m_ChunkManager->BeginWrite(origin);
-
-    m_ChunkManager->Set(origin, session, size / 2, size - 4, size / 2, light);
+    m_ChunkManager->Set(size / 2, size - 4, size / 2, light);
 
     for (int a = 0; a < size; a++) {
       for (int b = 0; b < size; b++) {
         // Top wall
-        m_ChunkManager->Set(origin, session, a, size - 1, b, wall);
+        m_ChunkManager->Set(a, size - 1, b, wall);
         // Bottom wall
-        m_ChunkManager->Set(origin, session, a, 0, b, wall);
+        m_ChunkManager->Set(a, 0, b, wall);
         // Left wall
-        m_ChunkManager->Set(origin, session, 0, a, b, leftWall);
+        m_ChunkManager->Set(0, a, b, leftWall);
         // Right wall
-        m_ChunkManager->Set(origin, session, size - 1, a, b, rightWall);
+        m_ChunkManager->Set(size - 1, a, b, rightWall);
         // Back wall
-        m_ChunkManager->Set(origin, session, a, b, 0, wall);
+        m_ChunkManager->Set(a, b, 0, wall);
         // Front wall
-        // m_ChunkManager->Set(origin, session, a, b, size - 1, wall);
+        // m_ChunkManager->Set(a, b, size - 1, wall);
       }
     }
     const glm::ivec2 blockDistanceFromWall = {size / 4, size / 6};
@@ -249,7 +246,7 @@ const void World::GenerateCornellBox(const uint32_t size, const glm::u8vec3& ori
     for (int z = 0; z < blockSize; z++)
       for (int x = 0; x < blockSize; x++)
         for (int y = 0; y < blockHeight; y++)
-          m_ChunkManager->Set(origin, session, x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube);
+          m_ChunkManager->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube);
 
     // Add the sphere
     int radius = size / 8;
@@ -264,17 +261,17 @@ const void World::GenerateCornellBox(const uint32_t size, const glm::u8vec3& ori
           float dy = y - cy;
           float dz = z - cz;
           if (dx * dx + dy * dy + dz * dz <= radius * radius)
-            m_ChunkManager->Set(origin, session, x, y + 1, z, sphere);
+            m_ChunkManager->Set(x, y + 1, z, sphere);
         }
       }
     }
 
-    m_ChunkManager->Set(origin, session, 16, 0, 48, wall);
-    m_ChunkManager->Set(origin, session, 16, 1, 48, wall);
-    m_ChunkManager->Set(origin, session, 16, 2, 48, leftWall);
-    m_ChunkManager->Set(origin, session, 16, 3, 48, leftWall);
-    m_ChunkManager->Set(origin, session, 16, 4, 48, rightWall);
-    m_ChunkManager->Set(origin, session, 16, 5, 48, rightWall);
+    m_ChunkManager->Set(16, 0, 48, wall);
+    m_ChunkManager->Set(16, 1, 48, wall);
+    m_ChunkManager->Set(16, 2, 48, leftWall);
+    m_ChunkManager->Set(16, 3, 48, leftWall);
+    m_ChunkManager->Set(16, 4, 48, rightWall);
+    m_ChunkManager->Set(16, 5, 48, rightWall);
   }
 
   TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);

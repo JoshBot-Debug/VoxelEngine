@@ -169,6 +169,12 @@ public:
   void Sync(const glm::u8vec3& coordinate);
 
   /**
+   * @param x,y,z The position of the voxel in the chunk. i.e. 0 - 63.
+   * @param data The voxel node to insert.
+   */
+  void Set(uint8_t x, uint8_t y, uint8_t z, uint32_t id);
+
+  /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param x,y,z The position of the voxel in the chunk. i.e. 0 - 63.
    * @param data The voxel node to insert.
@@ -450,7 +456,7 @@ inline typename SparseOctree::Reader ChunkManager::BeginRead(const glm::u8vec3& 
 }
 
 inline typename SparseOctree::Writer ChunkManager::BeginWrite(const glm::u8vec3& coordinate) {
-  auto chunk = Ensure(coordinate.x, coordinate.y, coordinate.z);
+  auto     chunk   = Ensure(coordinate.x, coordinate.y, coordinate.z);
   uint32_t chunkId = chunk->Id - 1;
   return m_ChunkAllocator[chunkId].SVO()->BeginWrite();
 }
@@ -458,6 +464,12 @@ inline typename SparseOctree::Writer ChunkManager::BeginWrite(const glm::u8vec3&
 inline void ChunkManager::Sync(const glm::u8vec3& coordinate) {
   uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
   m_ChunkAllocator[chunkId].SVO()->Sync();
+}
+
+inline void ChunkManager::Set(uint8_t x, uint8_t y, uint8_t z, uint32_t id) {
+  const glm::u8vec3 coordinate {x / SVO_SIZE, y / SVO_SIZE, z / SVO_SIZE};
+  auto              chunkId = Ensure(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  m_ChunkAllocator[chunkId].SVO()->Set(x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE, id);
 }
 
 inline void ChunkManager::Set(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z, uint32_t id) {
@@ -525,7 +537,7 @@ template <typename F>
 inline void ChunkManager::Filter(std::vector<typename SparseOctree::FilterNode>& out, F&& filter) {
   m_Chunks->ForEach([&out, &filter, &chunkAllocator = m_ChunkAllocator](const ChunkNode* node) {
     std::vector<typename SparseOctree::FilterNode> tmp;
-    uint32_t chunkIndex = node->Id - 1;
+    uint32_t                                       chunkIndex = node->Id - 1;
     chunkAllocator[chunkIndex].SVO()->Filter(tmp, filter);
     for (auto& n : tmp) {
       n.Position.x += SVO_SIZE * (chunkIndex % CHUNK_SIZE);
@@ -597,26 +609,23 @@ inline typename SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::u8vec3& 
 }
 
 inline void ChunkManager::FlushVertices(const std::vector<uint32_t>& ids) {
-  m_VertexBuffer.Log();
-  m_ChunkBuffer.Log();
-  m_ChunkSVOBuffer.Log();
-  m_SVOBuffer.Log();
-  m_SVOHeaderBuffer.Log();
-
-  auto group = akari::thread::ThreadPool::CreateGroup([]() {
-    TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
-  });
+  // m_VertexBuffer.Log();
+  // m_ChunkBuffer.Log();
+  // m_ChunkSVOBuffer.Log();
+  // m_SVOBuffer.Log();
+  // m_SVOHeaderBuffer.Log();
 
   auto session = m_Chunks->BeginRead();
 
   for (uint8_t z = 0; z < CHUNK_SIZE; z++)
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
-        if (m_Chunks->Exists(x, y, z))
-        {
+        if (m_Chunks->Exists(x, y, z)) {
           uint32_t chunkId = m_Chunks->Get(session, x, y, z)->Id - 1;
-          m_ChunkAllocator[chunkId].Flush(group, {x, y, z}, ids);
+          m_ChunkAllocator[chunkId].Flush({x, y, z}, ids);
         }
+
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
 }
 
 inline void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
@@ -637,10 +646,10 @@ inline void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
         if (m_Chunks->Exists(x, y, z)) {
-          uint32_t id = m_Chunks->Get(x, y, z)->Id;
+          uint32_t id    = m_Chunks->Get(x, y, z)->Id;
           uint32_t index = id - 1;
-          auto&    v  = m_ChunkAllocator[index].Verticies();
-          auto&    fn = m_ChunkAllocator[index].FlatNodes();
+          auto&    v     = m_ChunkAllocator[index].Verticies();
+          auto&    fn    = m_ChunkAllocator[index].FlatNodes();
 
           vertices.insert(vertices.end(), v.begin(), v.end());
           vertexUploads.emplace_back(id, v.size() * sizeof(Vertex));

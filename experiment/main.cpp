@@ -9,7 +9,9 @@
 // bool g_ApplicationRunning {false};
 
 #include "render/Buffer.h"
+#include "thread/ThreadPool.h"
 #include "voxel/Palette.h"
+#include "ChunkManager.h"
 #include "voxel/SparseOctree.h"
 #include "voxel/SparseOctreeWithoutRCU.h"
 #include "voxel/Voxel.h"
