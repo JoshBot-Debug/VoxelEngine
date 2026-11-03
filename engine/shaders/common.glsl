@@ -303,7 +303,6 @@ vec3 BRDF(vec3 N,vec3 V,vec3 L,vec3 albedo,float metallic,float roughness){
   
   float NdotL=max(dot(N,L),0.);
   float NdotV=max(dot(N,V),0.);
-  float NdotH=max(dot(N,H),0.);
   float VdotH=max(dot(V,H),0.);
   
   // Fresnel

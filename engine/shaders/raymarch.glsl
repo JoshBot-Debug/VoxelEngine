@@ -22,7 +22,7 @@ struct RaymarchStackEntry{
   vec3 Origin;
 };
 
-const uint RAYMARCH_MAX_STACK=8;
+const uint RAYMARCH_MAX_STACK=64;
 
 uint getChunkId(vec3 origin)
 {

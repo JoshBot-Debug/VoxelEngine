@@ -38,7 +38,7 @@ void main(){
   ivec3 coord=ivec3(gl_GlobalInvocationID.xyz);
 
   // TODO: Need to pass 8 from the CPU side, it's the chunk size 8x8x8
-  uint i=coord.x+(coord.y*8+(coord.z*8*8));
+  uint i=coord.x+(coord.y*64+(coord.z*64*64));
   
   if(i>=chunks.count)return;
 

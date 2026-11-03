@@ -2,11 +2,6 @@
 
 #include "Face.h"
 
-#include <cstring>
-#include <glm/glm.hpp>
-#include <immintrin.h>
-#include <vector>
-
 template <typename F>
 concept ExistsCallback =
     requires(F f, int x, int y, int z) {

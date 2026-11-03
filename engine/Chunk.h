@@ -24,6 +24,7 @@ public:
 private:
   SparseOctree* m_SVO {nullptr};
   uint8_t       m_Padding[SIZE * SIZE] {0};
+  glm::u8vec3   m_Coordinate {};
 
   std::vector<typename SparseOctree::FlatNode> m_FlatNodes {};
   std::vector<Vertex>                          m_Vertices {};
@@ -33,9 +34,10 @@ public:
   uint32_t Id {0};
 
 public:
-  Chunk(uint32_t id)
+  Chunk(uint32_t id, const glm::u8vec3& coordinate)
       : m_SVO(new SparseOctree())
-      , Id(id) {};
+      , Id(id)
+      , m_Coordinate(coordinate) {}
 
   ~Chunk() {
     delete m_SVO;
@@ -49,6 +51,7 @@ public:
   const std::vector<typename SparseOctree::FlatNode>& FlatNodes();
 
   const std::vector<Vertex>& Verticies();
+  const glm::u8vec3&         GetCoordinate() { return m_Coordinate; };
 
   SparseOctree* SVO();
 };

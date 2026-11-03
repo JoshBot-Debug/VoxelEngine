@@ -6,7 +6,6 @@
 #include <glm/glm.hpp>
 
 #include <vk_mem_alloc.h>
-#include <vulkan/vulkan.h>
 
 #include "Chunk.h"
 
@@ -14,6 +13,7 @@
 #include "voxel/Type.h"
 #include "voxel/Voxel.h"
 
+#include "Debug.h"
 #include "Signal.h"
 #include "render/BufferPool.h"
 #include "thread/ThreadPool.h"
@@ -371,7 +371,7 @@ inline typename ChunkManager::ChunkNode* ChunkManager::Ensure(uint8_t x, uint8_t
   if (chunk)
     return chunk;
   uint32_t index = x + (y * CHUNK_SIZE + (z * CHUNK_SIZE * CHUNK_SIZE));
-  m_ChunkAllocator.emplace_back(index);
+  m_ChunkAllocator.emplace_back(index, glm::u8vec3{x, y, z});
   m_Chunks->Set(x, y, z, static_cast<uint32_t>(m_ChunkAllocator.size()));
   return m_Chunks->Get(x, y, z);
 }
@@ -538,11 +538,13 @@ inline void ChunkManager::Filter(std::vector<typename SparseOctree::FilterNode>&
   m_Chunks->ForEach([&out, &filter, &chunkAllocator = m_ChunkAllocator](const ChunkNode* node) {
     std::vector<typename SparseOctree::FilterNode> tmp;
     uint32_t                                       chunkIndex = node->Id - 1;
-    chunkAllocator[chunkIndex].SVO()->Filter(tmp, filter);
+    Chunk&                                         chunk      = chunkAllocator[chunkIndex];
+    chunk.SVO()->Filter(tmp, filter);
     for (auto& n : tmp) {
-      n.Position.x += SVO_SIZE * (chunkIndex % CHUNK_SIZE);
-      n.Position.y += SVO_SIZE * ((chunkIndex / CHUNK_SIZE) % CHUNK_SIZE);
-      n.Position.z += SVO_SIZE * (chunkIndex / (CHUNK_SIZE * CHUNK_SIZE));
+      auto offset = chunk.GetCoordinate();
+      n.Position.x += (offset.x * CHUNK_SIZE) + (SVO_SIZE * (chunkIndex % CHUNK_SIZE));
+      n.Position.y += (offset.y * CHUNK_SIZE) + (SVO_SIZE * ((chunkIndex / CHUNK_SIZE) % CHUNK_SIZE));
+      n.Position.z += (offset.z * CHUNK_SIZE) + (SVO_SIZE * (chunkIndex / (CHUNK_SIZE * CHUNK_SIZE)));
     }
     out.insert(out.end(), std::make_move_iterator(tmp.begin()), std::make_move_iterator(tmp.end()));
   });
