@@ -45,6 +45,8 @@ private:
   const void GenerateChunk(const uint32_t size, const glm::ivec3& coord);
 
   const void GenerateSphere(const uint32_t size, const glm::ivec3& coord);
+  
+  const void GenerateCube(const uint32_t size, const glm::ivec3& coord);
 
   const void GenerateNoiseSphere(const uint32_t size, const glm::ivec3& coord);
 
@@ -69,7 +71,7 @@ public:
 
   ChunkBuffers GetChunkBuffers();
 
-  WorldChunkManager* GetChunkManager() { return m_ChunkManager; };
+  SparseOctree::Hit Raycast(const glm::vec2& origin);
 
   void FlushPreprocessor(VkCommandBuffer commandBuffer);
 

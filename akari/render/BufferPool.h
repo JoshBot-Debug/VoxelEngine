@@ -18,7 +18,7 @@ private:
   VmaPool       m_DevicePool {nullptr};
 
 public:
-  BufferPool();
+  BufferPool() = default;
   BufferPool(const Specification& specification);
   ~BufferPool();
 

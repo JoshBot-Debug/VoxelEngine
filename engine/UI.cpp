@@ -1,6 +1,4 @@
 #include "UI.h"
-
-// #include "ChunkManager.h"
 #include <imgui.h>
 
 namespace vxen {
@@ -55,13 +53,8 @@ void UI::ConstructHighlightVertices(const glm::vec3& voxelMin, const glm::vec3& 
 }
 
 void UI::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport) {
-  glm::vec3 rayOrigin    = m_Camera->Position;
-  glm::vec3 rayDirection = m_Camera->GetRayDirection(mouse.x, mouse.y);
-
-  bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
-
-  if (isCtrlPressed) {
-    SparseOctree::Hit hit = m_World->GetChunkManager()->DeepRaymarch(rayOrigin, rayDirection);
+  if (ImGui::IsKeyPressed(ImGuiKey_LeftCtrl)) {
+    SparseOctree::Hit hit = m_World->Raycast(mouse);
     if (!hit.Id)
       return;
     ConstructHighlightVertices(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);

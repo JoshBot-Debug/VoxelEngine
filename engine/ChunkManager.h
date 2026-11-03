@@ -380,10 +380,10 @@ inline ChunkManager::ChunkManager()
   m_SVOHeaderBuffer.SetPool(&m_SVOHeaderPool);
   m_VertexBuffer.SetPool(&m_VertexPool);
 
-  m_SVOBuffer.CreateBuffer({.Size = 1024 * 1024 * 1, .DebugName = "m_SVOBuffer"});
-  m_SVOHeaderBuffer.CreateBuffer({.Size = 1024 * 1024 * 1, .DebugName = "m_SVOHeaderBuffer"});
+  m_SVOBuffer.CreateBuffer({.Size = 1024 * 1024 * 1024, .DebugName = "m_SVOBuffer"});
+  m_SVOHeaderBuffer.CreateBuffer({.Size = 1024 * 1024 * 1024, .DebugName = "m_SVOHeaderBuffer"});
   m_VertexBuffer.CreateBuffer({
-      .Size      = 1024 * 1024 * 1,
+      .Size      = 1024 * 1024 * 1024,
       .Usage     = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
       .DebugName = "m_VertexBuffer",
   });

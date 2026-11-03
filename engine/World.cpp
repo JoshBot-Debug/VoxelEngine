@@ -61,6 +61,7 @@ World::World() {
 
   ThreadPool::Dispatch([&]() { GenerateCornellBox(64, {0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateSphere(64, {0, 0, 0}); });
+  // ThreadPool::Dispatch([&]() { GenerateCube(1, {0, 0, 0}); });
 
   // ThreadPool::Dispatch([&]() {
   //   // for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
@@ -160,6 +161,12 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
 ChunkBuffers World::GetChunkBuffers() {
   return m_ChunkManager->GetBuffers();
+}
+
+SparseOctree::Hit World::Raycast(const glm::vec2& origin) {
+  glm::vec3 rayOrigin    = m_Camera->Position;
+  glm::vec3 rayDirection = m_Camera->GetRayDirection(origin.x, origin.y);
+  return m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
 }
 
 void World::FlushPreprocessor(VkCommandBuffer commandBuffer) {
@@ -302,6 +309,17 @@ const void World::GenerateSphere(const uint32_t size, const glm::ivec3& wcc) {
         if (dist2 <= r2)
           m_ChunkManager->Set(wcc, session, x, y, z, solid);
       }
+
+  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
+}
+
+const void World::GenerateCube(const uint32_t size, const glm::ivec3& wcc) {
+  const auto light = m_Voxels.emplace_back(m_Palette.Find("Light")->Id);
+  const auto solid = m_Voxels.emplace_back(m_Palette.Find("Grass Lush")->Id);
+
+  m_ChunkManager->Set(wcc, 2, 2, 2, light);
+
+  m_ChunkManager->Set(wcc, size, size, size, solid);
 
   TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }

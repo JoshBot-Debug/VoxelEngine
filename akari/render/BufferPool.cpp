@@ -5,9 +5,6 @@
 using namespace akari::window;
 
 namespace akari::render {
-BufferPool::BufferPool() {
-}
-
 BufferPool::BufferPool(const Specification& specification)
     : m_Specification(specification) {
   auto* allocator = Application::GetVmaAllocator();
