@@ -324,43 +324,4 @@ const void World::GenerateCube(const uint32_t size, const glm::ivec3& wcc) {
   TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }
 
-const void World::GenerateNoiseSphere(const uint32_t size, const glm::ivec3& wcc) {
-  auto solid = m_Voxels.emplace_back(m_Palette.Find("Grass Lush")->Id);
-  auto light = m_Voxels.emplace_back(m_Palette.Find("Light")->Id);
-  {
-    auto session = m_ChunkManager->BeginWrite(wcc);
-
-    const glm::ivec3 center      = glm::ivec3((WorldChunkManager::CHUNK_SIZE >> 1) * WorldChunkManager::SVO_SIZE);
-    const int        radius      = ((WorldChunkManager::CHUNK_SIZE >> 1) * WorldChunkManager::SVO_SIZE) - (WorldChunkManager::SVO_SIZE >> 1);
-    const int        heightScale = size / 2;
-
-    glm::ivec3 min = wcc * (int)WorldChunkManager::SVO_SIZE;
-
-    auto noise = m_HeightMap.Build(wcc.x, wcc.x + 1.0f, wcc.z, wcc.z + 1.0f);
-
-    for (int z = 0; z < WorldChunkManager::SVO_SIZE; z++)
-      for (int y = 0; y < WorldChunkManager::SVO_SIZE; y++)
-        for (int x = 0; x < WorldChunkManager::SVO_SIZE; x++) {
-          glm::ivec3 worldPos = min + glm::ivec3(x, y, z);
-
-          glm::ivec3 d    = worldPos - center;
-          float      dist = glm::length(glm::vec3(d));
-
-          // Direction on sphere
-          glm::vec3 dir = glm::normalize(glm::vec3(d));
-
-          // Sample noise using spherical projection
-          float n = noise.GetValue(dir.x, dir.y); // simple version
-
-          float surfaceRadius = radius + n * heightScale;
-
-          if (dist <= surfaceRadius) {
-            m_ChunkManager->Set(wcc, session, x, y, z, solid);
-          }
-        }
-  }
-
-  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
-}
-
 } // namespace vxen

@@ -48,8 +48,6 @@ private:
   
   const void GenerateCube(const uint32_t size, const glm::ivec3& coord);
 
-  const void GenerateNoiseSphere(const uint32_t size, const glm::ivec3& coord);
-
 public:
   World();
   ~World();
