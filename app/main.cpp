@@ -21,8 +21,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 
-const int WORLD_SIZE {64};
-
 using namespace akari::window;
 
 class ViewportLayer : public Layer {
@@ -30,7 +28,7 @@ class ViewportLayer : public Layer {
 private:
   akari::camera::PerspectiveCamera m_Camera;
   vxen::Controller                 m_Controller;
-  vxen::World                      m_World {WORLD_SIZE};
+  vxen::World                      m_World;
   vxen::UI                         m_UI;
   Scene                            m_Scene;
 
@@ -45,7 +43,7 @@ public:
 
   virtual void OnAttach() override {
     m_Camera.SetProjection(45.0f, 0.01f, 2048.0f);
-    m_Camera.SetPosition(WORLD_SIZE / 2, WORLD_SIZE / 2, (WORLD_SIZE * 2) + (WORLD_SIZE / 4));
+    m_Camera.SetPosition(32, 32, 144);
     m_Camera.SetRotation(0.0f, 0.0f, 0.0f);
     m_Controller.SetMovementSpeed(150.0f);
 

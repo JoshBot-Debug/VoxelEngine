@@ -61,8 +61,8 @@ void UI::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport)
   bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
 
   if (isCtrlPressed) {
-    SparseOctree<Voxel>::Hit hit = m_World->GetChunkManager()->DeepRaymarch(rayOrigin, rayDirection);
-    if (!hit.Data)
+    SparseOctree::Hit hit = m_World->GetChunkManager()->DeepRaymarch(rayOrigin, rayDirection);
+    if (!hit.Id)
       return;
     ConstructHighlightVertices(hit.Position, hit.Normal, glm::vec3(1.0f, 0.0f, 0.0f), hit.Size);
   }

@@ -13,27 +13,24 @@
 
 namespace vxen {
 
-template <uint32_t SS>
 class Chunk {
-  static_assert(SS != 0 && (SS & (SS - 1)) == 0, "SS must be a power of two");
-
 public:
-  static constexpr uint32_t SIZE = SS;
+  static constexpr uint32_t SIZE = 64;
 
 private:
-  SparseOctree<Voxel, SS>* m_SVO {nullptr};
-  uint8_t                  m_Padding[SIZE * SIZE] {0};
+  SparseOctree* m_SVO {nullptr};
+  uint8_t       m_Padding[SIZE * SIZE] {0};
 
-  std::vector<typename SparseOctree<Voxel, SS>::FlatNode> m_FlatNodes {};
-  std::vector<Vertex>                                     m_Vertices {};
-  std::vector<std::vector<Vertex>>                        m_ThreadVertices {};
+  std::vector<typename SparseOctree::FlatNode> m_FlatNodes {};
+  std::vector<Vertex>                          m_Vertices {};
+  std::vector<std::vector<Vertex>>             m_ThreadVertices {};
 
 public:
   uint32_t Id {0};
 
 public:
   Chunk(uint32_t id)
-      : m_SVO(new SparseOctree<Voxel, SS>())
+      : m_SVO(new SparseOctree())
       , Id(id) {};
 
   ~Chunk() {
@@ -45,15 +42,14 @@ public:
 
   bool Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids);
 
-  const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& FlatNodes();
+  const std::vector<typename SparseOctree::FlatNode>& FlatNodes();
 
   const std::vector<Vertex>& Verticies();
 
-  SparseOctree<Voxel, SS>* SVO();
+  SparseOctree* SVO();
 };
 
-template <uint32_t SS>
-inline bool Chunk<SS>::Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
+inline bool Chunk::Flush(std::shared_ptr<akari::thread::ThreadPool::Group> group, const glm::ivec3& offset, const std::vector<uint32_t>& ids) {
 
   if (m_SVO->Empty() || !m_SVO->Dirty())
     return false;
@@ -63,7 +59,7 @@ inline bool Chunk<SS>::Flush(std::shared_ptr<akari::thread::ThreadPool::Group> g
   m_ThreadVertices.clear();
   m_ThreadVertices.resize(ids.size());
 
-  auto session = std::make_shared<typename SparseOctree<Voxel, SS>::Reader>(m_SVO->BeginRead(false));
+  auto session = std::make_shared<typename SparseOctree::Reader>(m_SVO->BeginRead(false));
 
   auto flatten = [session, &svo = m_SVO, &flatNodes = m_FlatNodes]() {
     svo->Flatten(*session, flatNodes);
@@ -95,18 +91,15 @@ inline bool Chunk<SS>::Flush(std::shared_ptr<akari::thread::ThreadPool::Group> g
   return true;
 }
 
-template <uint32_t SS>
-inline const std::vector<typename SparseOctree<Voxel, SS>::FlatNode>& Chunk<SS>::FlatNodes() {
+inline const std::vector<typename SparseOctree::FlatNode>& Chunk::FlatNodes() {
   return m_FlatNodes;
 }
 
-template <uint32_t SS>
-inline const std::vector<Vertex>& Chunk<SS>::Verticies() {
+inline const std::vector<Vertex>& Chunk::Verticies() {
   return m_Vertices;
 }
 
-template <uint32_t SS>
-inline SparseOctree<Voxel, SS>* Chunk<SS>::SVO() {
+inline SparseOctree* Chunk::SVO() {
   return m_SVO;
 }
 

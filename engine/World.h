@@ -10,14 +10,12 @@
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"
 
-using WorldChunkManager = vxen::ChunkManager<64, 8>;
+using WorldChunkManager = vxen::ChunkManager;
 
 namespace vxen {
 
 class World {
 private:
-  uint32_t m_ChunkSize {0};
-
   Palette   m_Palette;
   HeightMap m_HeightMap {
       64,
@@ -34,24 +32,24 @@ private:
 
   akari::camera::PerspectiveCamera* m_Camera {nullptr};
 
-  std::vector<std::shared_ptr<Voxel>> m_Voxels {};
-  WorldChunkManager*                  m_ChunkManager {nullptr};
+  std::vector<uint32_t> m_Voxels {};
+  WorldChunkManager*    m_ChunkManager {nullptr};
 
-  std::vector<Material>                        m_Materials {};
-  std::vector<uint32_t>                        m_MaterialsLUT {};
-  std::vector<SparseOctree<Voxel>::FilterNode> m_Lights {};
+  std::vector<Material>                 m_Materials {};
+  std::vector<uint32_t>                 m_MaterialsLUT {};
+  std::vector<SparseOctree::FilterNode> m_Lights {};
 
 private:
-  const void GenerateCornellBox(const glm::u8vec3& origin);
+  const void GenerateCornellBox(const uint32_t size, const glm::u8vec3& origin);
 
-  const void GenerateChunk(const glm::ivec3& coord);
+  const void GenerateChunk(const uint32_t size, const glm::ivec3& coord);
 
-  const void GenerateSphere(const glm::ivec3& coord);
+  const void GenerateSphere(const uint32_t size, const glm::ivec3& coord);
 
-  const void GenerateNoiseSphere(const glm::ivec3& coord);
+  const void GenerateNoiseSphere(const uint32_t size, const glm::ivec3& coord);
 
 public:
-  World(uint32_t chunkSize);
+  World();
   ~World();
 
   World(World&&)                 = delete;
@@ -65,9 +63,9 @@ public:
 
   void SetCamera(akari::camera::PerspectiveCamera* camera) { m_Camera = camera; };
 
-  const std::vector<Material>&                        GetMaterials() { return m_Materials; };
-  const std::vector<uint32_t>&                        GetMaterialsLUT() { return m_MaterialsLUT; };
-  const std::vector<SparseOctree<Voxel>::FilterNode>& GetLights() { return m_Lights; };
+  const std::vector<Material>&                 GetMaterials() { return m_Materials; };
+  const std::vector<uint32_t>&                 GetMaterialsLUT() { return m_MaterialsLUT; };
+  const std::vector<SparseOctree::FilterNode>& GetLights() { return m_Lights; };
 
   ChunkBuffers GetChunkBuffers();
 
