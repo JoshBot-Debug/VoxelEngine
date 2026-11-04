@@ -1,6 +1,8 @@
 #include "World.h"
 #include <imgui.h>
 
+#include "VoxLoader.h"
+
 using namespace akari::thread;
 
 namespace vxen {
@@ -66,20 +68,20 @@ World::World() {
   config.light.position.y = 70;
   // config.include.ceiling = false;
   GenerateCornellBox(config);
-  
-  // ThreadPool::Dispatch([&]() { GenerateCornellBox(64, {0, 0, 0}); });
-  // ThreadPool::Dispatch([&]() { GenerateSphere(64, {0, 0, 0}); });
-  // ThreadPool::Dispatch([&]() { GenerateCube(1, {0, 0, 0}); });
 
-  // ThreadPool::Dispatch([&]() {
-  //   // for (size_t z = 0; z < WorldChunkManager::CHUNK_SIZE; z++)
-  //   //   for (size_t x = 0; x < WorldChunkManager::CHUNK_SIZE; x++)
-  //   //     GenerateChunk({x, 0, z});
-  //   for (size_t z = 0; z < 1; z++)
-  //     for (size_t x = 0; x < 2; x++)
-  //       GenerateChunk({x, 0, z});
-  //   TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
+  // auto light = m_Palette.Create(Palette::Item {
+  //     .Name = "Light",
+  //     .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(1.0f), .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
   // });
+
+  // VoxLoader loader;
+  // loader.SetPalette(&m_Palette);
+  // loader.SetChunkManager(m_ChunkManager);
+  // loader.Load("assets/sponza.vox");
+
+  // m_ChunkManager->Set({110, 110, 110}, light);
+
+  // TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | PALETTE_FLUSH_UPDATE);
 }
 
 World::~World() {
@@ -213,7 +215,6 @@ const void World::GenerateChunk(const uint32_t size, const glm::ivec3& wcc) {
   }
 }
 
-
 const void World::GenerateCornellBox(const CornellBoxConfig& config) {
   auto leftWallMaterial  = m_Palette.Find("Left Wall");
   auto rightWallMaterial = m_Palette.Find("Right Wall");
@@ -230,25 +231,28 @@ const void World::GenerateCornellBox(const CornellBoxConfig& config) {
   auto light     = m_Voxels.emplace_back(lightMaterial->Id);
 
   // Cache dimensions for cleaner loop syntax
-  const uint32_t w = config.width;
-  const uint32_t h = config.height;
-  const uint32_t d = config.depth;
+  const uint32_t    w = config.width;
+  const uint32_t    h = config.height;
+  const uint32_t    d = config.depth;
   const glm::u8vec3 o = config.origin;
 
   {
     // 1. Lighting Placement (Uses absolute position or origin offset)
     if (config.light.include) {
-      m_ChunkManager->Set(o.x + config.light.position.x, 
-                          o.y + config.light.position.y, 
-                          o.z + config.light.position.z, light);
+      m_ChunkManager->Set(o.x + config.light.position.x,
+                          o.y + config.light.position.y,
+                          o.z + config.light.position.z,
+                          light);
     }
 
     // 2. Shell Wall Generation (Offsets loops using the origin vector)
     if (config.include.floor || config.include.ceiling) {
       for (uint32_t x = 0; x < w; x++) {
         for (uint32_t z = 0; z < d; z++) {
-          if (config.include.floor)   m_ChunkManager->Set(o.x + x, o.y + 0,     o.z + z, wall);
-          if (config.include.ceiling) m_ChunkManager->Set(o.x + x, o.y + h - 1, o.z + z, wall);
+          if (config.include.floor)
+            m_ChunkManager->Set(o.x + x, o.y + 0, o.z + z, wall);
+          if (config.include.ceiling)
+            m_ChunkManager->Set(o.x + x, o.y + h - 1, o.z + z, wall);
         }
       }
     }
@@ -256,8 +260,10 @@ const void World::GenerateCornellBox(const CornellBoxConfig& config) {
     if (config.include.leftWall || config.include.rightWall) {
       for (uint32_t y = 0; y < h; y++) {
         for (uint32_t z = 0; z < d; z++) {
-          if (config.include.leftWall)  m_ChunkManager->Set(o.x + 0,     o.y + y, o.z + z, leftWall);
-          if (config.include.rightWall) m_ChunkManager->Set(o.x + w - 1, o.y + y, o.z + z, rightWall);
+          if (config.include.leftWall)
+            m_ChunkManager->Set(o.x + 0, o.y + y, o.z + z, leftWall);
+          if (config.include.rightWall)
+            m_ChunkManager->Set(o.x + w - 1, o.y + y, o.z + z, rightWall);
         }
       }
     }
@@ -265,15 +271,17 @@ const void World::GenerateCornellBox(const CornellBoxConfig& config) {
     if (config.include.backWall || config.include.frontWall) {
       for (uint32_t x = 0; x < w; x++) {
         for (uint32_t y = 0; y < h; y++) {
-          if (config.include.backWall)  m_ChunkManager->Set(o.x + x, o.y + y, o.z + 0,     wall);
-          if (config.include.frontWall) m_ChunkManager->Set(o.x + x, o.y + y, o.z + d - 1, wall);
+          if (config.include.backWall)
+            m_ChunkManager->Set(o.x + x, o.y + y, o.z + 0, wall);
+          if (config.include.frontWall)
+            m_ChunkManager->Set(o.x + x, o.y + y, o.z + d - 1, wall);
         }
       }
     }
 
     // 3. Proportional Inner Elements
     if (config.include.cube) {
-      const glm::ivec2 blockDistanceFromWall = { w / 4, d / 6 };
+      const glm::ivec2 blockDistanceFromWall = {w / 4, d / 6};
       const int        blockSizeX            = w / 4;
       const int        blockSizeZ            = d / 4;
       const int        blockHeight           = h / 3;
@@ -281,9 +289,10 @@ const void World::GenerateCornellBox(const CornellBoxConfig& config) {
       for (int z = 0; z < blockSizeZ; z++) {
         for (int x = 0; x < blockSizeX; x++) {
           for (int y = 0; y < blockHeight; y++) {
-            m_ChunkManager->Set(o.x + x + blockDistanceFromWall.x, 
-                                o.y + y + 1, 
-                                o.z + z + blockDistanceFromWall.y, cube);
+            m_ChunkManager->Set(o.x + x + blockDistanceFromWall.x,
+                                o.y + y + 1,
+                                o.z + z + blockDistanceFromWall.y,
+                                cube);
           }
         }
       }

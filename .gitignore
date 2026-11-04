@@ -3,3 +3,5 @@ perf.*
 heaptrack.*
 /*.json
 .cache
+
+assets/*

@@ -34,9 +34,9 @@ public:
 
   void RenderUI();
 
-  void Create();
+  uint32_t Create();
 
-  void Create(Item item);
+  uint32_t Create(Item item);
 
   std::shared_ptr<Material> Find(const std::string& name);
 

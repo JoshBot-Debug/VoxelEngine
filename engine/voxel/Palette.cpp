@@ -34,7 +34,7 @@ void Palette::RenderPalette() {
     ImVec2 pMin = ImGui::GetItemRectMin();
     ImVec2 pMax = ImGui::GetItemRectMax();
     ImU32  col =
-        ImGui::GetColorU32(ImVec4{item.Mat->Albedo.r, item.Mat->Albedo.g, item.Mat->Albedo.b, item.Mat->Albedo.a});
+        ImGui::GetColorU32(ImVec4 {item.Mat->Albedo.r, item.Mat->Albedo.g, item.Mat->Albedo.b, item.Mat->Albedo.a});
     ImGui::GetWindowDrawList()->AddRectFilled(pMin, pMax, col);
 
     if (m_SelectedItem == item.Id) {
@@ -173,19 +173,21 @@ void Palette::RenderUI() {
   RenderEditor();
 }
 
-void Palette::Create() {
+uint32_t Palette::Create() {
   uint32_t nextId = static_cast<uint32_t>(m_Items.size()) + 1;
-  m_Items.emplace_back(Item{
+  m_Items.emplace_back(Item {
       .Id   = nextId,
       .Name = "Material #" + std::to_string(nextId),
       .Mat  = std::make_shared<Material>(nextId),
   });
+  return nextId;
 }
 
-void Palette::Create(Item item) {
+uint32_t Palette::Create(Item item) {
   item.Id      = static_cast<uint32_t>(m_Items.size()) + 1;
   item.Mat->Id = item.Id;
   m_Items.emplace_back(item);
+  return item.Id;
 }
 
 std::shared_ptr<Material> Palette::Find(const std::string& name) {
