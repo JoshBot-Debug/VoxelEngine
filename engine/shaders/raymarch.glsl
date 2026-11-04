@@ -36,6 +36,18 @@ headers;
 
 const uint MAX_STACK = 64;
 
+float tNextBoundary(vec3 origin, vec3 direction) {
+  vec3 stepDir = sign(direction);
+
+  vec3 nextBoundary = mix(vec3(0.), vec3(64.), greaterThan(direction, vec3(0.)));
+
+  vec3 tVals = (nextBoundary - origin) / direction;
+
+  tVals = mix(vec3(1e30), tVals, notEqual(direction, vec3(0.)));
+
+  return min(tVals.x, min(tVals.y, tVals.z));
+}
+
 Hit raymarchChunks(vec3 origin, vec3 direction, float dist) {
   Hit payload;
   payload.IsValid = false;
@@ -193,18 +205,6 @@ Hit raymarchVoxels(uint offset, vec3 origin, vec3 direction, float dist) {
   payload.NodeIndex = offset + entry.Index;
 
   return payload;
-}
-
-float tNextBoundary(vec3 origin, vec3 direction) {
-  vec3 stepDir = sign(direction);
-
-  vec3 nextBoundary = mix(vec3(0.), vec3(64.), greaterThan(direction, vec3(0.)));
-
-  vec3 tVals = (nextBoundary - origin) / direction;
-
-  tVals = mix(vec3(1e30), tVals, notEqual(direction, vec3(0.)));
-
-  return min(tVals.x, min(tVals.y, tVals.z));
 }
 
 Hit raymarch(vec3 origin, vec3 direction, float dist) {
