@@ -57,7 +57,16 @@ World::World() {
 
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
-  GenerateCornellBox(128, {0, 0, 0});
+  CornellBoxConfig config;
+  config.width  = 128;
+  config.height = 128;
+  config.depth  = 128;
+  config.light.position.x = 16;
+  config.light.position.z = 16;
+  config.light.position.y = 70;
+  // config.include.ceiling = false;
+  GenerateCornellBox(config);
+  
   // ThreadPool::Dispatch([&]() { GenerateCornellBox(64, {0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateSphere(64, {0, 0, 0}); });
   // ThreadPool::Dispatch([&]() { GenerateCube(1, {0, 0, 0}); });
@@ -97,21 +106,21 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (ImGui::IsKeyPressed(ImGuiKey_T)) {
-    SparseOctree::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
+    SparseOctree::Hit hit      = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
     auto              position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
-    m_ChunkManager->Set(wcc, position, hit.Id);
+    m_ChunkManager->Set(position, hit.Id);
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   }
 
   if (ImGui::IsKeyPressed(ImGuiKey_Y)) {
-    SparseOctree::Hit hit      = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
+    SparseOctree::Hit hit      = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
     auto              position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
     m_ChunkManager->Clear(wcc, position);
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   }
 
   if (isCtrlPressed && isActing) {
-    SparseOctree::Hit hit = m_ChunkManager->DeepRaymarch(wcc, rayOrigin, rayDirection);
+    SparseOctree::Hit hit = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
       auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
@@ -204,7 +213,8 @@ const void World::GenerateChunk(const uint32_t size, const glm::ivec3& wcc) {
   }
 }
 
-const void World::GenerateCornellBox(const uint32_t size, const glm::u8vec3& origin) {
+
+const void World::GenerateCornellBox(const CornellBoxConfig& config) {
   auto leftWallMaterial  = m_Palette.Find("Left Wall");
   auto rightWallMaterial = m_Palette.Find("Right Wall");
   auto wallMaterial      = m_Palette.Find("Wall");
@@ -219,59 +229,85 @@ const void World::GenerateCornellBox(const uint32_t size, const glm::u8vec3& ori
   auto sphere    = m_Voxels.emplace_back(sphereMaterial->Id);
   auto light     = m_Voxels.emplace_back(lightMaterial->Id);
 
+  // Cache dimensions for cleaner loop syntax
+  const uint32_t w = config.width;
+  const uint32_t h = config.height;
+  const uint32_t d = config.depth;
+  const glm::u8vec3 o = config.origin;
+
   {
-    m_ChunkManager->Set(size / 2, size - 4, size / 2, light);
-
-    for (int a = 0; a < size; a++) {
-      for (int b = 0; b < size; b++) {
-        // Top wall
-        m_ChunkManager->Set(a, size - 1, b, wall);
-        // Bottom wall
-        m_ChunkManager->Set(a, 0, b, wall);
-        // Left wall
-        m_ChunkManager->Set(0, a, b, leftWall);
-        // Right wall
-        m_ChunkManager->Set(size - 1, a, b, rightWall);
-        // Back wall
-        m_ChunkManager->Set(a, b, 0, wall);
-        // Front wall
-        // m_ChunkManager->Set(a, b, size - 1, wall);
-      }
+    // 1. Lighting Placement (Uses absolute position or origin offset)
+    if (config.light.include) {
+      m_ChunkManager->Set(o.x + config.light.position.x, 
+                          o.y + config.light.position.y, 
+                          o.z + config.light.position.z, light);
     }
-    const glm::ivec2 blockDistanceFromWall = {size / 4, size / 6};
-    const int        blockSize             = size / 4;
-    const int        blockHeight           = size / 2;
 
-    // Add the rectangle
-    for (int z = 0; z < blockSize; z++)
-      for (int x = 0; x < blockSize; x++)
-        for (int y = 0; y < blockHeight; y++)
-          m_ChunkManager->Set(x + blockDistanceFromWall.x, y + 1, z + blockDistanceFromWall.y, cube);
-
-    // Add the sphere
-    int radius = size / 8;
-    int cx     = blockDistanceFromWall.x + (size / 2);
-    int cy     = radius;
-    int cz     = blockDistanceFromWall.y + (size / 2);
-
-    for (int z = 0; z < size; ++z) {
-      for (int y = 0; y < size; ++y) {
-        for (int x = 0; x < size; ++x) {
-          float dx = x - cx;
-          float dy = y - cy;
-          float dz = z - cz;
-          if (dx * dx + dy * dy + dz * dz <= radius * radius)
-            m_ChunkManager->Set(x, y + 1, z, sphere);
+    // 2. Shell Wall Generation (Offsets loops using the origin vector)
+    if (config.include.floor || config.include.ceiling) {
+      for (uint32_t x = 0; x < w; x++) {
+        for (uint32_t z = 0; z < d; z++) {
+          if (config.include.floor)   m_ChunkManager->Set(o.x + x, o.y + 0,     o.z + z, wall);
+          if (config.include.ceiling) m_ChunkManager->Set(o.x + x, o.y + h - 1, o.z + z, wall);
         }
       }
     }
 
-    m_ChunkManager->Set(16, 0, 48, wall);
-    m_ChunkManager->Set(16, 1, 48, wall);
-    m_ChunkManager->Set(16, 2, 48, leftWall);
-    m_ChunkManager->Set(16, 3, 48, leftWall);
-    m_ChunkManager->Set(16, 4, 48, rightWall);
-    m_ChunkManager->Set(16, 5, 48, rightWall);
+    if (config.include.leftWall || config.include.rightWall) {
+      for (uint32_t y = 0; y < h; y++) {
+        for (uint32_t z = 0; z < d; z++) {
+          if (config.include.leftWall)  m_ChunkManager->Set(o.x + 0,     o.y + y, o.z + z, leftWall);
+          if (config.include.rightWall) m_ChunkManager->Set(o.x + w - 1, o.y + y, o.z + z, rightWall);
+        }
+      }
+    }
+
+    if (config.include.backWall || config.include.frontWall) {
+      for (uint32_t x = 0; x < w; x++) {
+        for (uint32_t y = 0; y < h; y++) {
+          if (config.include.backWall)  m_ChunkManager->Set(o.x + x, o.y + y, o.z + 0,     wall);
+          if (config.include.frontWall) m_ChunkManager->Set(o.x + x, o.y + y, o.z + d - 1, wall);
+        }
+      }
+    }
+
+    // 3. Proportional Inner Elements
+    if (config.include.cube) {
+      const glm::ivec2 blockDistanceFromWall = { w / 4, d / 6 };
+      const int        blockSizeX            = w / 4;
+      const int        blockSizeZ            = d / 4;
+      const int        blockHeight           = h / 3;
+
+      for (int z = 0; z < blockSizeZ; z++) {
+        for (int x = 0; x < blockSizeX; x++) {
+          for (int y = 0; y < blockHeight; y++) {
+            m_ChunkManager->Set(o.x + x + blockDistanceFromWall.x, 
+                                o.y + y + 1, 
+                                o.z + z + blockDistanceFromWall.y, cube);
+          }
+        }
+      }
+    }
+
+    if (config.include.sphere) {
+      int radius = w / 8;
+      int cx     = (w / 4) + (w / 2);
+      int cy     = radius;
+      int cz     = (d / 6) + (d / 2);
+
+      for (uint32_t z = 0; z < d; ++z) {
+        for (uint32_t y = 0; y < h; ++y) {
+          for (uint32_t x = 0; x < w; ++x) {
+            float dx = (float)x - cx;
+            float dy = (float)y - cy;
+            float dz = (float)z - cz;
+            if (dx * dx + dy * dy + dz * dz <= radius * radius) {
+              m_ChunkManager->Set(o.x + x, o.y + y + 1, o.z + z, sphere);
+            }
+          }
+        }
+      }
+    }
   }
 
   TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);

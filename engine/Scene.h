@@ -18,6 +18,12 @@ private:
     uint32_t      Height;
   };
 
+  struct DebugRay {
+    glm::vec4 Start;
+    glm::vec4 End;
+    glm::vec4 Color;
+  };
+
 private:
   akari::camera::PerspectiveCamera* m_Camera {nullptr};
   vxen::World*                      m_World {nullptr};
@@ -37,6 +43,8 @@ private:
   VkBuffer m_ChunkSVOBuffer {};
   VkBuffer m_ChunkBuffer {};
 
+  akari::render::Buffer m_DebugRayBuffer {};
+
   akari::render::Buffer m_IndirectBuffer {};
   akari::render::Buffer m_IndirectDrawCountBuffer {};
 
@@ -52,6 +60,9 @@ private:
 
   akari::render::RenderPass m_OverlayPass {};
   akari::render::Pipeline   m_OverlayPipeline {};
+
+  akari::render::RenderPass m_DebugRayPass {};
+  akari::render::Pipeline   m_DebugRayPipeline {};
 
   std::shared_ptr<akari::window::Image> m_Skybox {
       std::make_shared<akari::window::Image>(akari::window::Image::Specification {

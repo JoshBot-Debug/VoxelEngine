@@ -62,10 +62,18 @@ private:
   akari::render::BufferPool m_SVOHeaderPool {};
   akari::render::BufferPool m_VertexPool {};
 
-  std::deque<Chunk>                            m_ChunkAllocator {};
-  SparseOctree*                                m_Chunks {nullptr};
-  std::vector<typename SparseOctree::FlatNode> m_FlatChunkNodes {};
-  std::vector<ChunkState>                      m_ChunkState {};
+  /**
+   * Keeps the Chunk allocations, [index + 1] is used as the ID for SCO
+   */
+  std::deque<Chunk> m_ChunkAllocations {};
+
+  /**
+   * SCO
+   * Sparse Chunk Octree
+   */
+  SparseOctree*                       m_SCO {nullptr};
+  std::vector<SparseOctree::FlatNode> m_SCONodes {};
+  std::vector<ChunkState>             m_ChunkState {};
 
   akari::render::Buffer m_SVOBuffer {};
   akari::render::Buffer m_SVOHeaderBuffer {};
@@ -134,7 +142,7 @@ public:
   /**
    * Flatten the Chunks in to a vector for the GPU
    */
-  const std::vector<typename SparseOctree::FlatNode>& Flatten();
+  const std::vector<SparseOctree::FlatNode>& Flatten();
 
   /**
    * Get all buffers
@@ -170,21 +178,35 @@ public:
 
   /**
    * @param x,y,z The position of the voxel in the chunk. i.e. 0 - 63.
-   * @param data The voxel node to insert.
+   * @param id The voxel node to insert.
    */
   void Set(uint8_t x, uint8_t y, uint8_t z, uint32_t id);
 
   /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param x,y,z The position of the voxel in the chunk. i.e. 0 - 63.
-   * @param data The voxel node to insert.
+   * @param id The voxel node to insert.
    */
   void Set(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z, uint32_t id);
 
   /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
+   * @param session The {Writer} session received from BeginWrite(...)
+   * @param x,y,z The position of the voxel in the chunk. i.e. 0 - 63.
+   * @param id The voxel node to insert.
+   */
+  void Set(const glm::u8vec3& coordinate, typename SparseOctree::Writer& session, uint8_t x, uint8_t y, uint8_t z, uint32_t id);
+
+  /**
    * @param position The position of the voxel in the chunk. i.e. 0 - 63.
-   * @param data The voxel node to insert.
+   * @param id The voxel node to insert.
+   */
+  void Set(const glm::u8vec3& position, uint32_t id);
+
+  /**
+   * @param coordinate The coordinate of the node in the the Chunk SVO.
+   * @param position The position of the voxel in the chunk. i.e. 0 - 63.
+   * @param id The voxel node to insert.
    */
   void Set(const glm::u8vec3& coordinate, const glm::u8vec3& position, uint32_t id);
 
@@ -192,17 +214,9 @@ public:
    * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param session The {Writer} session received from BeginWrite(...)
    * @param position The position of the voxel in the chunk. i.e. 0 - 63.
-   * @param data The voxel node to insert.
+   * @param id The voxel node to insert.
    */
   void Set(const glm::u8vec3& coordinate, typename SparseOctree::Writer& session, const glm::u8vec3& position, uint32_t id);
-
-  /**
-   * @param coordinate The coordinate of the node in the the Chunk SVO.
-   * @param session The {Writer} session received from BeginWrite(...)
-   * @param x,y,z The position of the voxel in the chunk. i.e. 0 - 63.
-   * @param data The voxel node to insert.
-   */
-  void Set(const glm::u8vec3& coordinate, typename SparseOctree::Writer& session, uint8_t x, uint8_t y, uint8_t z, uint32_t id);
 
   /**
    * @param coordinate The coordinate of the node in the the Chunk SVO.
@@ -367,13 +381,13 @@ public:
 };
 
 inline typename ChunkManager::ChunkNode* ChunkManager::Ensure(uint8_t x, uint8_t y, uint8_t z) {
-  typename ChunkManager::ChunkNode* chunk = m_Chunks->Get(x, y, z);
+  typename ChunkManager::ChunkNode* chunk = m_SCO->Get(x, y, z);
   if (chunk)
     return chunk;
-  uint32_t index = x + (y * CHUNK_SIZE + (z * CHUNK_SIZE * CHUNK_SIZE));
-  m_ChunkAllocator.emplace_back(index, glm::u8vec3{x, y, z});
-  m_Chunks->Set(x, y, z, static_cast<uint32_t>(m_ChunkAllocator.size()));
-  return m_Chunks->Get(x, y, z);
+  uint32_t cid = m_ChunkAllocations.size() + 1;
+  m_ChunkAllocations.emplace_back(cid, glm::u8vec3 {x, y, z});
+  m_SCO->Set(x, y, z, cid);
+  return m_SCO->Get(x, y, z);
 }
 
 inline typename ChunkManager::ChunkNode* ChunkManager::Ensure(const glm::u8vec3& position) {
@@ -381,7 +395,7 @@ inline typename ChunkManager::ChunkNode* ChunkManager::Ensure(const glm::u8vec3&
 }
 
 inline ChunkManager::ChunkManager()
-    : m_Chunks(new SparseOctree()) {
+    : m_SCO(new SparseOctree()) {
   m_SVOBuffer.SetPool(&m_SVOPool);
   m_SVOHeaderBuffer.SetPool(&m_SVOHeaderPool);
   m_VertexBuffer.SetPool(&m_VertexPool);
@@ -399,40 +413,40 @@ inline ChunkManager::ChunkManager()
 }
 
 inline ChunkManager::~ChunkManager() {
-  delete m_Chunks;
+  delete m_SCO;
 }
 
 inline SparseOctree::Reader ChunkManager::BeginRead() {
-  return m_Chunks->BeginRead();
+  return m_SCO->BeginRead();
 }
 
 inline SparseOctree::Writer ChunkManager::BeginWrite() {
-  return m_Chunks->BeginWrite();
+  return m_SCO->BeginWrite();
 }
 
 inline void ChunkManager::Sync() {
-  m_Chunks->Sync();
+  m_SCO->Sync();
 }
 
 inline typename ChunkManager::ChunkNode* ChunkManager::Get(uint8_t x, uint8_t y, uint8_t z) {
-  return m_Chunks->Get(x, y, z);
+  return m_SCO->Get(x, y, z);
 }
 
 inline typename ChunkManager::ChunkNode* ChunkManager::Get(const glm::u8vec3& position) {
-  return m_Chunks->Get(position.x, position.y, position.z);
+  return m_SCO->Get(position.x, position.y, position.z);
 }
 
 inline typename ChunkManager::ChunkNode* ChunkManager::Get(SparseOctree::Reader& session, const glm::u8vec3& position) {
-  return m_Chunks->Get(session, position.x, position.y, position.z);
+  return m_SCO->Get(session, position.x, position.y, position.z);
 }
 
 inline typename ChunkManager::ChunkNode* ChunkManager::Get(SparseOctree::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
-  return m_Chunks->Get(session, x, y, z);
+  return m_SCO->Get(session, x, y, z);
 }
 
-inline const std::vector<typename SparseOctree::FlatNode>& ChunkManager::Flatten() {
-  m_Chunks->Flatten(m_FlatChunkNodes);
-  return m_FlatChunkNodes;
+inline const std::vector<SparseOctree::FlatNode>& ChunkManager::Flatten() {
+  m_SCO->Flatten(m_SCONodes);
+  return m_SCONodes;
 }
 
 inline ChunkBuffers ChunkManager::GetBuffers() {
@@ -451,94 +465,96 @@ inline ChunkBuffers ChunkManager::GetBuffers() {
 }
 
 inline typename SparseOctree::Reader ChunkManager::BeginRead(const glm::u8vec3& coordinate) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocator[chunkId].SVO()->BeginRead();
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  return m_ChunkAllocations[chunkId].SVO()->BeginRead();
 }
 
 inline typename SparseOctree::Writer ChunkManager::BeginWrite(const glm::u8vec3& coordinate) {
   auto     chunk   = Ensure(coordinate.x, coordinate.y, coordinate.z);
   uint32_t chunkId = chunk->Id - 1;
-  return m_ChunkAllocator[chunkId].SVO()->BeginWrite();
+  return m_ChunkAllocations[chunkId].SVO()->BeginWrite();
 }
 
 inline void ChunkManager::Sync(const glm::u8vec3& coordinate) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Sync();
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  m_ChunkAllocations[chunkId].SVO()->Sync();
 }
 
 inline void ChunkManager::Set(uint8_t x, uint8_t y, uint8_t z, uint32_t id) {
   const glm::u8vec3 coordinate {x / SVO_SIZE, y / SVO_SIZE, z / SVO_SIZE};
   auto              chunkId = Ensure(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Set(x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE, id);
+  m_ChunkAllocations[chunkId].SVO()->Set(x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE, id);
 }
 
 inline void ChunkManager::Set(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z, uint32_t id) {
   auto chunkId = Ensure(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Set(x, y, z, id);
-}
-
-inline void ChunkManager::Set(const glm::u8vec3& coordinate, const glm::u8vec3& position, uint32_t id) {
-  auto chunkId = Ensure(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Set(position.x, position.y, position.z, id);
-}
-
-inline void ChunkManager::Set(const glm::u8vec3& coordinate, typename SparseOctree::Writer& session, const glm::u8vec3& position, uint32_t id) {
-  auto chunkId = Ensure(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Set(session, position.x, position.y, position.z, id);
+  m_ChunkAllocations[chunkId].SVO()->Set(x, y, z, id);
 }
 
 inline void ChunkManager::Set(const glm::u8vec3& coordinate, typename SparseOctree::Writer& session, uint8_t x, uint8_t y, uint8_t z, uint32_t id) {
   auto chunkId = Ensure(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Set(session, x, y, z, id);
+  m_ChunkAllocations[chunkId].SVO()->Set(session, x, y, z, id);
+}
+
+inline void ChunkManager::Set(const glm::u8vec3& coordinate, const glm::u8vec3& position, uint32_t id) {
+  Set(coordinate, position.x, position.y, position.z, id);
+}
+
+inline void ChunkManager::Set(const glm::u8vec3& position, uint32_t id) {
+  Set(position.x, position.y, position.z, id);
+}
+
+inline void ChunkManager::Set(const glm::u8vec3& coordinate, typename SparseOctree::Writer& session, const glm::u8vec3& position, uint32_t id) {
+  Set(coordinate, session, position.x, position.y, position.z, id);
 }
 
 inline Node* ChunkManager::Get(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocator[chunkId].SVO()->Get(x, y, z);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  return m_ChunkAllocations[chunkId].SVO()->Get(x, y, z);
 }
 
 inline Node* ChunkManager::Get(const glm::u8vec3& coordinate, const glm::u8vec3& position) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocator[chunkId].SVO()->Get(position.x, position.y, position.z);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  return m_ChunkAllocations[chunkId].SVO()->Get(position.x, position.y, position.z);
 }
 
 inline Node* ChunkManager::Get(const glm::u8vec3& coordinate, typename SparseOctree::Reader& session, const glm::u8vec3& position) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocator[chunkId].SVO()->Get(session, position.x, position.y, position.z);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  return m_ChunkAllocations[chunkId].SVO()->Get(session, position.x, position.y, position.z);
 }
 
 inline Node* ChunkManager::Get(const glm::u8vec3& coordinate, typename SparseOctree::Reader& session, uint8_t x, uint8_t y, uint8_t z) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocator[chunkId].SVO()->Get(session, x, y, z);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  return m_ChunkAllocations[chunkId].SVO()->Get(session, x, y, z);
 }
 
 inline void ChunkManager::Clear(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Clear(x, y, z);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  m_ChunkAllocations[chunkId].SVO()->Clear(x, y, z);
 }
 
 inline void ChunkManager::Clear(const glm::u8vec3& coordinate, const glm::u8vec3& position) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Clear(position.x, position.y, position.z);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  m_ChunkAllocations[chunkId].SVO()->Clear(position.x, position.y, position.z);
 }
 
 inline void ChunkManager::Clear(const glm::u8vec3& coordinate, typename SparseOctree::Writer& session, const glm::u8vec3& position) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Clear(session, position.x, position.y, position.z);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  m_ChunkAllocations[chunkId].SVO()->Clear(session, position.x, position.y, position.z);
 }
 
 inline void ChunkManager::Clear(const glm::u8vec3& coordinate, typename SparseOctree::Writer& session, uint8_t x, uint8_t y, uint8_t z) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Clear(session, x, y, z);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  m_ChunkAllocations[chunkId].SVO()->Clear(session, x, y, z);
 }
 
 template <typename F>
   requires FilterCallback<Node, F>
 inline void ChunkManager::Filter(std::vector<typename SparseOctree::FilterNode>& out, F&& filter) {
-  m_Chunks->ForEach([&out, &filter, &chunkAllocator = m_ChunkAllocator](const ChunkNode* node) {
+  m_SCO->ForEach([&out, &filter, &chunkAllocator = m_ChunkAllocations](const ChunkNode* node) {
     std::vector<typename SparseOctree::FilterNode> tmp;
     uint32_t                                       chunkIndex = node->Id - 1;
-    Chunk&                                         chunk      = chunkAllocator[chunkIndex];
+    vxen::Chunk&                                   chunk      = chunkAllocator[chunkIndex];
     chunk.SVO()->Filter(tmp, filter);
     for (auto& n : tmp) {
       auto offset = chunk.GetCoordinate();
@@ -554,23 +570,23 @@ template <typename F>
   requires FilterCallback<Node, F>
 inline void
 ChunkManager::Filter(const glm::u8vec3& coordinate, std::vector<typename SparseOctree::FilterNode>& out, F&& filter) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Filter(out, filter);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  m_ChunkAllocations[chunkId].SVO()->Filter(out, filter);
 }
 
 template <typename F>
   requires FilterCallback<Node, F>
 inline void
 ChunkManager::Filter(const glm::u8vec3& coordinate, typename SparseOctree::Reader& session, std::vector<typename SparseOctree::FilterNode>& out, F&& filter) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocator[chunkId].SVO()->Filter(session, out, filter);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  m_ChunkAllocations[chunkId].SVO()->Filter(session, out, filter);
 }
 
 inline typename SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
 
   glm::vec3 SIZE = glm::vec3(SVO_SIZE);
 
-  auto check = [&chunks = m_Chunks, &origin, &direction, &SIZE, &chunkAllocator = m_ChunkAllocator](auto&& self, const glm::vec3& localOrigin, const glm::vec3& coordinate, float tMin) {
+  auto check = [&chunks = m_SCO, &origin, &direction, &SIZE, &chunkAllocator = m_ChunkAllocations](auto&& self, const glm::vec3& localOrigin, const glm::vec3& coordinate, float tMin) {
     auto chunk = chunks->DeepRaymarch(coordinate, direction);
 
     if (!chunk.Id)
@@ -601,13 +617,13 @@ inline typename SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::vec3& or
 }
 
 inline typename SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::u8vec3& coordinate, const glm::vec3& origin, const glm::vec3& direction) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocator[chunkId].SVO()->DeepRaymarch(origin, direction);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  return m_ChunkAllocations[chunkId].SVO()->DeepRaymarch(origin, direction);
 }
 
 inline typename SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::u8vec3& coordinate, typename SparseOctree::Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
-  uint32_t chunkId = m_Chunks->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocator[chunkId].SVO()->DeepRaymarch(session, origin, direction);
+  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  return m_ChunkAllocations[chunkId].SVO()->DeepRaymarch(session, origin, direction);
 }
 
 inline void ChunkManager::FlushVertices(const std::vector<uint32_t>& ids) {
@@ -617,68 +633,68 @@ inline void ChunkManager::FlushVertices(const std::vector<uint32_t>& ids) {
   // m_SVOBuffer.Log();
   // m_SVOHeaderBuffer.Log();
 
-  auto session = m_Chunks->BeginRead();
+  auto session = m_SCO->BeginRead();
 
   for (uint8_t z = 0; z < CHUNK_SIZE; z++)
     for (uint8_t y = 0; y < CHUNK_SIZE; y++)
       for (uint8_t x = 0; x < CHUNK_SIZE; x++)
-        if (m_Chunks->Exists(x, y, z)) {
-          uint32_t chunkId = m_Chunks->Get(session, x, y, z)->Id - 1;
-          m_ChunkAllocator[chunkId].Flush({x, y, z}, ids);
+        if (m_SCO->Exists(x, y, z)) {
+          uint32_t chunkId = m_SCO->Get(session, x, y, z)->Id - 1;
+          m_ChunkAllocations[chunkId].Flush({x, y, z}, ids);
         }
 
   TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
 }
 
 inline void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
-  m_Chunks->Flatten(m_FlatChunkNodes);
+  using namespace akari::render;
+
+  m_SCO->Flatten(m_SCONodes);
 
   m_ChunkState.clear();
   m_ChunkState.resize(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
 
-  std::vector<Vertex>                           vertices;
-  std::vector<akari::render::Buffer::Partition> vertexUploads;
+  std::vector<Vertex>                           vertex;
+  std::vector<akari::render::Buffer::Partition> vertexChunkPartitions;
 
-  std::vector<typename SparseOctree::FlatNode>  flatNodes;
-  std::vector<akari::render::Buffer::Partition> flatNodeUploads;
+  std::vector<SparseOctree::FlatNode>           svo;
+  std::vector<akari::render::Buffer::Partition> svoChunkPartitions;
+  std::vector<FlatNodeHeader>                   svoChunkPartitionHeaders;
 
-  std::vector<FlatNodeHeader> flatNodeHeaders;
+  const size_t AllocatedChunksCount = m_ChunkAllocations.size();
 
-  for (uint8_t z = 0; z < CHUNK_SIZE; z++)
-    for (uint8_t y = 0; y < CHUNK_SIZE; y++)
-      for (uint8_t x = 0; x < CHUNK_SIZE; x++)
-        if (m_Chunks->Exists(x, y, z)) {
-          uint32_t id    = m_Chunks->Get(x, y, z)->Id;
-          uint32_t index = id - 1;
-          auto&    v     = m_ChunkAllocator[index].Verticies();
-          auto&    fn    = m_ChunkAllocator[index].FlatNodes();
+  for (size_t i = 0; i < AllocatedChunksCount; i++) {
+    Chunk&         chunk = m_ChunkAllocations[i];
 
-          vertices.insert(vertices.end(), v.begin(), v.end());
-          vertexUploads.emplace_back(id, v.size() * sizeof(Vertex));
+    auto& v = chunk.Verticies();
+    auto& s = chunk.FlatNodes();
 
-          flatNodes.insert(flatNodes.end(), fn.begin(), fn.end());
-          flatNodeUploads.emplace_back(id, fn.size() * sizeof(typename SparseOctree::FlatNode));
-        }
+    vertex.insert(vertex.end(), v.begin(), v.end());
+    vertexChunkPartitions.emplace_back(chunk.Id, v.size() * sizeof(Vertex));
 
-  auto svoAllocations = m_SVOBuffer.Upload(commandBuffer, flatNodeUploads, flatNodes.data());
-
-  auto vertexAllocations = m_VertexBuffer.Upload(commandBuffer, vertexUploads, vertices.data());
-
-  for (auto& alloc : vertexAllocations) {
-    m_ChunkState[alloc.Id - 1].Empty     = 0;
-    m_ChunkState[alloc.Id - 1].Offset[0] = alloc.Offset / sizeof(Vertex);
-    m_ChunkState[alloc.Id - 1].Size[0]   = alloc.Size / sizeof(Vertex);
+    svo.insert(svo.end(), s.begin(), s.end());
+    svoChunkPartitions.emplace_back(chunk.Id, s.size() * sizeof(SparseOctree::FlatNode));
   }
 
-  /// TODO: The id mostly won't sync with the index. Need to sort so that ids go from 0 - whatever. Id is index is chunk scalar coordinate location
-  for (auto& alloc : svoAllocations) {
-    uint32_t offset = alloc.Offset / sizeof(typename SparseOctree::FlatNode);
-    uint32_t size   = alloc.Size / sizeof(typename SparseOctree::FlatNode);
-    flatNodeHeaders.emplace_back(alloc.Id, offset, size);
+  auto svoAllocations    = m_SVOBuffer.Upload(commandBuffer, svoChunkPartitions, svo.data());
+  auto vertexAllocations = m_VertexBuffer.Upload(commandBuffer, vertexChunkPartitions, vertex.data());
+
+  for (size_t i = 0; i < AllocatedChunksCount; i++) {
+    // Vertex allocation partition data
+    Buffer::Allocation& va            = vertexAllocations[i];
+    m_ChunkState[va.Id - 1].Empty     = 0;
+    m_ChunkState[va.Id - 1].Offset[0] = va.Offset / sizeof(Vertex);
+    m_ChunkState[va.Id - 1].Size[0]   = va.Size / sizeof(Vertex);
+
+    // SVO allocation partition data
+    Buffer::Allocation& sa     = svoAllocations[i];
+    uint32_t            offset = sa.Offset / sizeof(SparseOctree::FlatNode);
+    uint32_t            size   = sa.Size / sizeof(SparseOctree::FlatNode);
+    svoChunkPartitionHeaders.emplace_back(sa.Id, offset, size);
   }
 
-  m_SVOHeaderBuffer.Upload(commandBuffer, flatNodeHeaders);
-  m_ChunkSVOBuffer.Upload(commandBuffer, m_FlatChunkNodes);
+  m_SVOHeaderBuffer.Upload(commandBuffer, svoChunkPartitionHeaders);
+  m_ChunkSVOBuffer.Upload(commandBuffer, m_SCONodes);
   m_ChunkBuffer.Upload(commandBuffer, m_ChunkState);
 }
 

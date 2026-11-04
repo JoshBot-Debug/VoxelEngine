@@ -12,6 +12,30 @@
 
 using WorldChunkManager = vxen::ChunkManager;
 
+struct CornellBoxConfig {
+
+  uint32_t    width  = 64;
+  uint32_t    height = 64;
+  uint32_t    depth  = 64;
+  glm::u8vec3 origin = glm::u8vec3(0, 0, 0);
+
+  struct StructuralIncludes {
+    bool leftWall  = true;
+    bool rightWall = true;
+    bool backWall  = true;
+    bool frontWall = false;
+    bool floor     = true;
+    bool ceiling   = true;
+    bool cube      = true;
+    bool sphere    = true;
+  } include;
+
+  struct LightParams {
+    bool         include  = true;
+    glm::u32vec3 position = glm::u32vec3(32, 60, 32);
+  } light;
+};
+
 namespace vxen {
 
 class World {
@@ -40,12 +64,12 @@ private:
   std::vector<SparseOctree::FilterNode> m_Lights {};
 
 private:
-  const void GenerateCornellBox(const uint32_t size, const glm::u8vec3& origin);
+  const void GenerateCornellBox(const CornellBoxConfig& config);
 
   const void GenerateChunk(const uint32_t size, const glm::ivec3& coord);
 
   const void GenerateSphere(const uint32_t size, const glm::ivec3& coord);
-  
+
   const void GenerateCube(const uint32_t size, const glm::ivec3& coord);
 
 public:
