@@ -5,7 +5,6 @@
 #include "World.h"
 #include "window/Application.h"
 
-#include "stb/stb.h"
 #include "stb/stb_image.h"
 #include <vulkan/vulkan_core.h>
 
@@ -37,11 +36,6 @@ Scene::Scene() {
       .Usage     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
       .DebugName = "m_IndirectDrawCountBuffer",
   });
-  m_DebugRayBuffer.CreateBuffer({
-      .Size      = sizeof(DebugRay) * (1920 * 1024),
-      .Usage     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
-      .DebugName = "m_DebugRayBuffer",
-  });
 }
 
 Scene::~Scene() {
@@ -62,12 +56,12 @@ void Scene::Initialize(const InitializeInfo& init) {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight},
       {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 9},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 7},
   };
 
   VkDescriptorPoolCreateInfo poolInfo {
       .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-      .maxSets       = 6 + (framesInFlight * 5),
+      .maxSets       = 4 + (framesInFlight * 5),
       .poolSizeCount = static_cast<uint32_t>(std::size(sizes)),
       .pPoolSizes    = sizes,
   };
@@ -249,12 +243,6 @@ void Scene::Initialize(const InitializeInfo& init) {
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
           },
-          VkDescriptorSetLayoutBinding {
-              .binding         = vxen::Binding::S_DEBUG_RAYS,
-              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .descriptorCount = 1,
-              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
-          },
       },
   });
 
@@ -304,41 +292,6 @@ void Scene::Initialize(const InitializeInfo& init) {
           VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::U_CAMERA,
               .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-              .descriptorCount = 1,
-              .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT,
-          },
-      },
-  });
-
-  m_DebugRayPass.CreateRenderPass({
-      .attachments = std::vector<RenderPass::AttachmentDescription2> {
-          {
-              .format        = m_OutputImage->GetSpecification().Format,
-              .loadOp        = VK_ATTACHMENT_LOAD_OP_LOAD,
-              .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-              .finalLayout   = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-          },
-      },
-  });
-
-  m_DebugRayPipeline.CreateDescriptorSetLayout({
-      .index          = 0,
-      .layoutBindings = {
-          // m_Camera
-          VkDescriptorSetLayoutBinding {
-              .binding         = vxen::Binding::U_CAMERA,
-              .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-              .descriptorCount = 1,
-              .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT,
-          }},
-  });
-
-  m_DebugRayPipeline.CreateDescriptorSetLayout({
-      .index          = 1,
-      .layoutBindings = {
-          VkDescriptorSetLayoutBinding {
-              .binding         = Binding::S_DEBUG_RAYS,
-              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT,
           },
@@ -397,21 +350,6 @@ void Scene::Initialize(const InitializeInfo& init) {
       .depthBias            = VK_TRUE,
       .depthBiasSlopeFactor = 2.0f,
       .cullMode             = VK_CULL_MODE_NONE,
-  });
-
-  m_DebugRayPipeline.CreatePipeline({
-      .vertexStride          = 0,
-      .attribs               = {},
-      .renderPass            = m_DebugRayPass.GetRenderPass(),
-      .vertexShaderFile      = GetExecutableDir() + "/../engine/shaders/pipeline/debugRay.vert.spv",
-      .fragmentShaderFile    = GetExecutableDir() + "/../engine/shaders/pipeline/debugRay.frag.spv",
-      .colorBlendAttachments = {
-          {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
-      },
-      .depthTestEnable  = VK_FALSE,
-      .depthWriteEnable = VK_FALSE,
-      .depthBias        = VK_FALSE,
-      .cullMode         = VK_CULL_MODE_NONE,
   });
 
   {
@@ -651,26 +589,6 @@ void Scene::Render() {
             m_OverlayPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
         },
         .vertexCount = m_OverlayVertexCount,
-    });
-
-    vkCmdEndRenderPass(commandBuffer);
-  }
-
-  // Debug ray pass
-  {
-    m_OutputImage->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
-
-    m_DebugRayPass.BeginRenderPass({.commandBuffer = commandBuffer});
-
-    uint32_t rayCount = m_OutputImage->GetWidth() * m_OutputImage->GetHeight();
-
-    m_DebugRayPipeline.Draw({
-        .commandBuffer  = commandBuffer,
-        .descriptorSets = {
-            m_DebugRayPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
-            m_DebugRayPipeline.GetDescriptorSet(1, 0),
-        },
-        .vertexCount = rayCount * 2,
     });
 
     vkCmdEndRenderPass(commandBuffer);
@@ -995,18 +913,6 @@ void Scene::CreateDescriptorSets() {
                   },
               },
           },
-          // m_DebugRayBuffer
-          Pipeline::DescriptorWriteInfo {
-              .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .binding = vxen::Binding::S_DEBUG_RAYS,
-              .buffer  = std::vector {
-                  VkDescriptorBufferInfo {
-                      .buffer = m_DebugRayBuffer.GetBuffer(),
-                      .offset = 0,
-                      .range  = VK_WHOLE_SIZE,
-                  },
-              },
-          },
       },
   });
 
@@ -1016,35 +922,6 @@ void Scene::CreateDescriptorSets() {
       .descriptorPool     = m_DescriptorPool,
       .descriptorSetCount = framesInFlight,
       .writes             = cameraWrites,
-  });
-
-  m_DebugRayPipeline.CreateDescriptorSet({
-      .id                 = 0,
-      .layoutIndex        = 0,
-      .descriptorPool     = m_DescriptorPool,
-      .descriptorSetCount = framesInFlight,
-      .writes             = cameraWrites,
-  });
-
-  m_DebugRayPipeline.CreateDescriptorSet({
-      .id                 = 1,
-      .layoutIndex        = 1,
-      .descriptorPool     = m_DescriptorPool,
-      .descriptorSetCount = 1,
-      .writes             = {
-          // m_DebugRayBuffer
-          Pipeline::DescriptorWriteInfo {
-              .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .binding = vxen::Binding::S_DEBUG_RAYS,
-              .buffer  = std::vector {
-                  VkDescriptorBufferInfo {
-                      .buffer = m_DebugRayBuffer.GetBuffer(),
-                      .offset = 0,
-                      .range  = VK_WHOLE_SIZE,
-                  },
-              },
-          },
-      },
   });
 }
 
@@ -1096,17 +973,6 @@ void Scene::OnResize(uint32_t width, uint32_t height) {
         .height          = height,
         .pAttachments    = pAttachments,
         .attachmentCount = 2,
-    });
-  }
-
-  {
-    VkImageView pAttachments[1] = {m_OutputImage->m_ImageView};
-
-    m_DebugRayPass.CreateFramebuffer({
-        .width           = width,
-        .height          = height,
-        .pAttachments    = pAttachments,
-        .attachmentCount = 1,
     });
   }
 

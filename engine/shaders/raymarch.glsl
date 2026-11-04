@@ -1,63 +1,116 @@
-#include "raymarchChunks.glsl"
+struct SVONode {
+  uint PackedIDC;
+  uint ChildIndex;
+};
 
-struct FlatNodeHeader {
+struct StackEntry {
+  float TMin;
+  uint  Index;
+  vec3  Min;
+};
+
+struct VoxelsHeader {
   uint Id;
   uint Offset;
   uint Size;
 };
 
+layout(std430, set = 1, binding = 54) readonly buffer ChunkOctree {
+  uint    count;
+  uint    padding[3];
+  SVONode data[];
+}
+chunks;
+
 layout(std430, set = 1, binding = 50) readonly buffer VoxelOctrees {
-  FlatNode data[];
+  SVONode data[];
 }
 voxels;
 
 layout(std430, set = 1, binding = 58) readonly buffer VoxelOctreeHeaders {
-  uint           count;
-  uint           padding[3];
-  FlatNodeHeader data[];
+  uint         count;
+  uint         padding[3];
+  VoxelsHeader data[];
 }
 headers;
 
-struct RaymarchStackEntry {
-  uint  ChunkId;
-  float TMin;
-  vec3  Origin;
-};
+const uint MAX_STACK = 64;
 
-struct DebugRay {
-  vec4 Start;
-  vec4 End;
-  vec4 Color;
-};
+Hit raymarchChunks(vec3 origin, vec3 direction, float dist) {
+  Hit payload;
+  payload.IsValid = false;
+  payload.TMin    = 0.;
 
-layout(std430, set = 1, binding = 59) buffer DebugRayBuffer {
-  DebugRay rays[];
-}
-debugRayBuffer;
+  StackEntry stack[MAX_STACK];
 
-void debugRay(ivec3 voxel, vec3 rayStart, vec3 rayEnd, vec3 color, uint index) {
-  ivec3 originVoxel = ivec3(floor(rayStart));
-  if (any(notEqual(originVoxel, voxel)))
-    return;
-  if (debugRayBuffer.rays[index].Color.a != 0.0)
-    return;
-  debugRayBuffer.rays[index].Start = vec4(rayStart, 1.0);
-  debugRayBuffer.rays[index].End   = vec4(rayEnd, 1.0);
-  debugRayBuffer.rays[index].Color = vec4(color, 1.0);
-}
+  uint stackPtr     = 0;
+  stack[stackPtr++] = StackEntry(0., 0, vec3(0.));
 
-const uint RAYMARCH_MAX_STACK = 64;
+  uint order[8];
 
-uint getChunkId(vec3 origin) {
-  // TODO need to pass in 64 as the size of the voxel chunk
-  uint CHUNK_SIZE = 64;
-  uint x          = uint(origin.x) / CHUNK_SIZE;
-  uint y          = uint(origin.y) / CHUNK_SIZE;
-  uint z          = uint(origin.z) / CHUNK_SIZE;
+  while (stackPtr > 0) {
+    StackEntry entry = stack[--stackPtr];
 
-  uint i = x + (y * 64 + (z * 64 * 64));
+    SVONode voxel = chunks.data[entry.Index];
 
-  return i;
+    uint depth = 0xFFu & (voxel.PackedIDC >> 8);
+
+    uint children = 0xFFu & voxel.PackedIDC;
+
+    uint size = (1 << depth);
+
+    if (children == 0u) {
+      uint id = 0xFFFFu & (voxel.PackedIDC >> 16);
+
+      payload.IsValid   = true;
+      payload.TMin      = entry.TMin;
+      payload.NodeMin   = entry.Min;
+      payload.NodeSize  = size;
+      payload.NodeIndex = entry.Index;
+      payload.Id        = id;
+      return payload;
+    }
+
+    uint dirX = direction.x >= 0. ? 1u : 0u;
+    uint dirY = direction.y >= 0. ? 1u : 0u;
+    uint dirZ = direction.z >= 0. ? 1u : 0u;
+
+    order[0] = ((0 ^ dirX) << 2) | ((0 ^ dirY) << 1) | (0 ^ dirZ);
+    order[1] = ((0 ^ dirX) << 2) | ((0 ^ dirY) << 1) | (1 ^ dirZ);
+    order[2] = ((0 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (0 ^ dirZ);
+    order[3] = ((0 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (1 ^ dirZ);
+    order[4] = ((1 ^ dirX) << 2) | ((0 ^ dirY) << 1) | (0 ^ dirZ);
+    order[5] = ((1 ^ dirX) << 2) | ((0 ^ dirY) << 1) | (1 ^ dirZ);
+    order[6] = ((1 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (0 ^ dirZ);
+    order[7] = ((1 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (1 ^ dirZ);
+
+#define VISIT_CHILD(i)                                                                                           \
+  {                                                                                                              \
+    uint childOctant = order[i];                                                                                 \
+    uint childMask   = 1u << childOctant;                                                                        \
+    if ((children & childMask) != 0u) {                                                                          \
+      vec3  offset    = vec3((childOctant >> 2) & 1, (childOctant >> 1) & 1, (childOctant >> 0) & 1);            \
+      float childSize = float(size / 2);                                                                         \
+      vec3  childMin  = entry.Min + offset * childSize;                                                          \
+      vec3  childMax  = childMin + childSize;                                                                    \
+      float tMin      = 0.;                                                                                      \
+      if (intersectAABB(origin, direction, childMin, childMax, tMin) && tMin <= dist) {                          \
+        stack[stackPtr++] = StackEntry(tMin, voxel.ChildIndex + bitCount(children & (childMask - 1)), childMin); \
+      }                                                                                                          \
+    }                                                                                                            \
+  }
+
+    VISIT_CHILD(0);
+    VISIT_CHILD(1);
+    VISIT_CHILD(2);
+    VISIT_CHILD(3);
+    VISIT_CHILD(4);
+    VISIT_CHILD(5);
+    VISIT_CHILD(6);
+    VISIT_CHILD(7);
+  }
+
+  return payload;
 }
 
 Hit raymarchVoxels(uint offset, vec3 origin, vec3 direction, float dist) {
@@ -75,8 +128,7 @@ Hit raymarchVoxels(uint offset, vec3 origin, vec3 direction, float dist) {
   while (stackPtr > 0) {
     StackEntry entry = stack[--stackPtr];
 
-    /// TODO: Need to find a way to index voxel svos here
-    FlatNode voxel = voxels.data[offset + entry.Index];
+    SVONode voxel = voxels.data[offset + entry.Index];
 
     uint depth = 0xFFu & (voxel.PackedIDC >> 8);
 
