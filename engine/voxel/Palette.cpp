@@ -28,7 +28,7 @@ void Palette::RenderPalette() {
     ImGui::BeginGroup();
 
     if (ImGui::Selectable("##cell", m_SelectedItem == item.Id, ImGuiSelectableFlags_None, ImVec2(CELL_SIZE, CELL_SIZE))) {
-      m_SelectedItem = item.Id;
+      m_SelectedItem = m_SelectedItem == 0 ? item.Id : 0;
     }
 
     ImVec2 pMin = ImGui::GetItemRectMin();

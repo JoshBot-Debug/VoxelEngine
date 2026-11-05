@@ -423,7 +423,6 @@ private:
 
       if (child->Id)
         out[index].SetId(child->Id);
-      // out[index].SetId(child->Id->Id);
 
       for (size_t i = 0; i < 8; i++)
         if (child->Children[i])
@@ -559,8 +558,8 @@ private:
    */
   Hit Raymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size) {
 
-    float     tMin, tMax;
-    glm::vec3 normal;
+    float     tMin {0.0f}, tMax {0.0f};
+    glm::vec3 normal {0.0f};
 
     if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
       return Hit();
@@ -619,8 +618,8 @@ private:
    */
   Hit DeepRaymarch(Node* node, const glm::vec3& origin, const glm::vec3& direction, glm::vec3 nodeMin, uint32_t size, uint32_t id = 0) {
 
-    float     tMin, tMax;
-    glm::vec3 normal;
+    float     tMin {0.0f}, tMax {0.0f};
+    glm::vec3 normal {0.0f};
 
     if (!intersectAABB(origin, direction, nodeMin, nodeMin + glm::vec3(size), tMin, tMax, normal))
       return Hit();

@@ -552,13 +552,19 @@ inline Node* ChunkManager::Get(const glm::u8vec3& coordinate, SparseOctree::Read
 
 inline void ChunkManager::Clear(uint8_t x, uint8_t y, uint8_t z) {
   const glm::u8vec3 coordinate {x / SVO_SIZE, y / SVO_SIZE, z / SVO_SIZE};
-  uint32_t          chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  auto              chunkNode = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z);
+  if (!chunkNode)
+    return;
+  uint32_t chunkId = chunkNode->Id - 1;
   m_ChunkAllocations[chunkId].SVO()->Clear(x, y, z);
 }
 
 inline void ChunkManager::Clear(SparseOctree::Writer& session, uint8_t x, uint8_t y, uint8_t z) {
   const glm::u8vec3 coordinate {x / SVO_SIZE, y / SVO_SIZE, z / SVO_SIZE};
-  uint32_t          chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  auto              chunkNode = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z);
+  if (!chunkNode)
+    return;
+  uint32_t chunkId = chunkNode->Id - 1;
   m_ChunkAllocations[chunkId].SVO()->Clear(session, x, y, z);
 }
 
@@ -571,23 +577,27 @@ inline void ChunkManager::Clear(SparseOctree::Writer& session, const glm::u8vec3
 }
 
 inline void ChunkManager::Clear(const glm::u8vec3& coordinate, uint8_t x, uint8_t y, uint8_t z) {
-  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  auto chunkNode = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z);
+  if (!chunkNode)
+    return;
+  uint32_t chunkId = chunkNode->Id - 1;
   m_ChunkAllocations[chunkId].SVO()->Clear(x, y, z);
 }
 
 inline void ChunkManager::Clear(const glm::u8vec3& coordinate, const glm::u8vec3& position) {
-  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocations[chunkId].SVO()->Clear(position.x, position.y, position.z);
-}
-
-inline void ChunkManager::Clear(const glm::u8vec3& coordinate, SparseOctree::Writer& session, const glm::u8vec3& position) {
-  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocations[chunkId].SVO()->Clear(session, position.x, position.y, position.z);
+  Clear(coordinate, position.x, position.y, position.z);
 }
 
 inline void ChunkManager::Clear(const glm::u8vec3& coordinate, SparseOctree::Writer& session, uint8_t x, uint8_t y, uint8_t z) {
-  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
+  auto chunkNode = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z);
+  if (!chunkNode)
+    return;
+  uint32_t chunkId = chunkNode->Id - 1;
   m_ChunkAllocations[chunkId].SVO()->Clear(session, x, y, z);
+}
+
+inline void ChunkManager::Clear(const glm::u8vec3& coordinate, SparseOctree::Writer& session, const glm::u8vec3& position) {
+  Clear(coordinate, session, position.x, position.y, position.z);
 }
 
 template <typename F>
@@ -709,9 +719,9 @@ inline void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
   for (size_t i = 0; i < AllocatedChunksCount; i++) {
     Chunk& chunk = m_ChunkAllocations[i];
 
-    bool dirty = chunk.SVO()->Dirty();
-    auto& v = chunk.Verticies();
-    auto& s = chunk.FlatNodes();
+    bool  dirty = chunk.SVO()->Dirty();
+    auto& v     = chunk.Verticies();
+    auto& s     = chunk.FlatNodes();
 
     vertex.insert(vertex.end(), v.begin(), v.end());
     vertexChunkPartitions.emplace_back(chunk.Id, v.size() * sizeof(Vertex), dirty);

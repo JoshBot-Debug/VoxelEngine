@@ -109,6 +109,24 @@ public:
     ImGui::Text("FPS: %f", 1000 / m_RenderTime);
     ImGui::Text("Mouse Position %f, %f", m_ViewportMouse.x, m_ViewportMouse.y);
 
+    {
+      const auto hit = m_UI.GetMouseHit();
+
+      ImGui::Text("Mouse Hit");
+
+      ImGui::Text("ID: %u", hit->Id);
+      ImGui::Text("Position: %.3f, %.3f, %.3f",
+                  hit->Position.x,
+                  hit->Position.y,
+                  hit->Position.z);
+
+      ImGui::Text("Normal: %.3f, %.3f, %.3f",
+                  hit->Normal.x,
+                  hit->Normal.y,
+                  hit->Normal.z);
+      ImGui::Text("Size: %u", hit->Size);
+    }
+
     ImGui::Spacing();
 
     m_Controller.RenderUI(m_Camera);

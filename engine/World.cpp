@@ -103,7 +103,8 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
   if (ImGui::IsKeyPressed(ImGuiKey_T)) {
     auto position = m_MouseHit->Position + m_MouseHit->Normal;
-    auto id       = m_Palette.GetSelectedMaterial();
+    auto selected = m_Palette.GetSelectedMaterial();
+    auto id       = selected ? selected : m_MouseHit->Id;
     m_ChunkManager->Set(position, id);
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   }
@@ -121,7 +122,8 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
       auto position = m_MouseHit->Position + m_MouseHit->Normal;
-      auto id       = m_MouseHit->Id ? m_MouseHit->Id : 1;
+      auto selected = m_Palette.GetSelectedMaterial();
+      auto id       = selected ? selected : m_MouseHit->Id;
       m_ChunkManager->Set(position, id);
       TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
     }
