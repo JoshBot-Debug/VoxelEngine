@@ -38,6 +38,8 @@ public:
 
   uint32_t Create(Item item);
 
+  uint32_t GetSelectedMaterial() { return m_SelectedItem; };
+
   std::shared_ptr<Material> Find(const std::string& name);
 
   std::vector<Material> GetMaterials();

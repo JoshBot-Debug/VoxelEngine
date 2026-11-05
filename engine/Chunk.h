@@ -84,7 +84,6 @@ inline bool Chunk::Flush(const glm::ivec3& offset, const std::vector<uint32_t>& 
     for (auto& v : tVertices)
       vertices.insert(vertices.end(), v.begin(), v.end());
 
-    svo->Clean();
     session->Unlock();
   };
 

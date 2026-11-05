@@ -63,6 +63,8 @@ private:
   std::vector<uint32_t>                 m_MaterialsLUT {};
   std::vector<SparseOctree::FilterNode> m_Lights {};
 
+  const SparseOctree::Hit* m_MouseHit {nullptr};
+
 private:
   const void GenerateCornellBox(const CornellBoxConfig& config);
 
@@ -86,6 +88,8 @@ public:
   void Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport);
 
   void SetCamera(akari::camera::PerspectiveCamera* camera) { m_Camera = camera; };
+
+  void SetMouseHit(const SparseOctree::Hit* hit) { m_MouseHit = hit; };
 
   const std::vector<Material>&                 GetMaterials() { return m_Materials; };
   const std::vector<uint32_t>&                 GetMaterialsLUT() { return m_MaterialsLUT; };

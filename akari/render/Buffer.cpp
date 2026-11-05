@@ -1,6 +1,7 @@
 #include "Buffer.h"
 
 #include "window/Application.h"
+#include <algorithm>
 
 using namespace akari::window;
 
@@ -21,9 +22,9 @@ void Buffer::CreateDeviceBuffer(uint32_t size, VkCommandBuffer commandBuffer) {
   uint32_t blocks = (grow + m_Specification.Size - 1) / m_Specification.Size;
   m_DeviceSize += blocks * m_Specification.Size;
 
-// #ifdef DEBUG
-//   std::cout << "Allocating device buffer: " << m_DeviceSize << " bytes" << std::endl;
-// #endif
+  // #ifdef DEBUG
+  //   std::cout << "Allocating device buffer: " << m_DeviceSize << " bytes" << std::endl;
+  // #endif
 
   VkBufferCreateInfo bufferInfo {};
   bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -56,9 +57,9 @@ void Buffer::CreateDeviceBuffer(uint32_t size, VkCommandBuffer commandBuffer) {
     copyRegion.size      = previousSize;
     vkCmdCopyBuffer(commandBuffer, previousBuffer, m_DeviceBuffer, 1, &copyRegion);
 
-// #ifdef DEBUG
-//     std::cout << "Copying previous device buffer to new buffer: " << previousSize << " bytes" << std::endl;
-// #endif
+    // #ifdef DEBUG
+    //     std::cout << "Copying previous device buffer to new buffer: " << previousSize << " bytes" << std::endl;
+    // #endif
 
     {
       auto barrier = VkBufferMemoryBarrier2 {
@@ -103,9 +104,9 @@ void Buffer::CreateHostBuffer(uint32_t size, VkCommandBuffer commandBuffer) {
   uint32_t blocks = (grow + m_Specification.Size - 1) / m_Specification.Size;
   m_HostSize += blocks * m_Specification.Size;
 
-// #ifdef DEBUG
-//   std::cout << "Allocating host buffer: " << m_HostSize << " bytes" << std::endl;
-// #endif
+  // #ifdef DEBUG
+  //   std::cout << "Allocating host buffer: " << m_HostSize << " bytes" << std::endl;
+  // #endif
 
   VkBufferCreateInfo bufferInfo {};
   bufferInfo.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
@@ -137,9 +138,9 @@ void Buffer::CreateHostBuffer(uint32_t size, VkCommandBuffer commandBuffer) {
   if (previousBuffer && commandBuffer && previousSize) {
     memcpy(m_HostAllocationInfo.pMappedData, previousAllocationInfo.pMappedData, previousSize);
 
-// #ifdef DEBUG
-//     std::cout << "Copying previous host buffer to new buffer: " << previousSize << " bytes" << std::endl;
-// #endif
+    // #ifdef DEBUG
+    //     std::cout << "Copying previous host buffer to new buffer: " << previousSize << " bytes" << std::endl;
+    // #endif
 
     {
       auto barrier = VkBufferMemoryBarrier2 {
@@ -191,9 +192,9 @@ void Buffer::HostToDevice(VkCommandBuffer commandBuffer, const Buffer::Allocatio
   copyRegion.dstOffset = allocation.Offset;
   copyRegion.size      = allocation.Size;
 
-// #ifdef DEBUG
-//   std::cout << "Copying from host to device, offset: " << allocation.Offset << ", bytes: " << allocation.Size << std::endl;
-// #endif
+  // #ifdef DEBUG
+  //   std::cout << "Copying from host to device, offset: " << allocation.Offset << ", bytes: " << allocation.Size << std::endl;
+  // #endif
 
   vkCmdCopyBuffer(commandBuffer, m_HostBuffer, m_DeviceBuffer, 1, &copyRegion);
 }
@@ -249,42 +250,49 @@ Buffer::Allocation Buffer::Upload(VkCommandBuffer commandBuffer, uint32_t id, si
 std::vector<Buffer::Allocation> Buffer::Upload(VkCommandBuffer commandBuffer, const std::vector<Buffer::Partition>& partitions, const void* data) {
 
   auto*                           allocator = Application::GetVmaAllocator();
-  size_t                          offset {0};
-  size_t                          size {0};
   bool                            resized {false};
   std::vector<Buffer::Allocation> allocations {partitions.size()};
 
   for (size_t i = 0; i < partitions.size(); i++) {
     allocations[i] = m_Blocks.Allocate(partitions[i].Id, partitions[i].Size);
-
-    if (i == 0)
-      offset = allocations[0].Offset;
-
     if (allocations[i].Resized)
       resized = true;
-
-    if (i == partitions.size() - 1)
-      size = allocations[i].Offset + allocations[i].Size;
   }
 
   if (resized) {
-    auto currentSize = offset + size;
+    auto it          = std::max_element(allocations.begin(), allocations.end(), [](const auto& a, const auto& b) { return a.Offset < b.Offset; });
+    auto currentSize = it->Offset + it->Size;
     CreateHostBuffer(currentSize, commandBuffer);
     CreateDeviceBuffer(currentSize, commandBuffer);
   }
 
-  vmaCopyMemoryToAllocation(allocator, data, m_HostBufferAllocation, offset, size);
+  uint32_t sourceOffset = 0;
+  for (size_t i = 0; i < partitions.size(); i++) {
+    auto& partition = partitions[i];
+    auto& allocaion = allocations[i];
 
-  VkBufferCopy copyRegion {};
-  copyRegion.srcOffset = offset;
-  copyRegion.dstOffset = offset;
-  copyRegion.size      = size;
+    if (!partition.Dirty) {
+      sourceOffset += partition.Size;
+      continue;
+    }
 
-// #ifdef DEBUG
-//   std::cout << "Copying from host to device, offset: " << offset << ", bytes: " << size << std::endl;
-// #endif
+    const auto* src = static_cast<const uint8_t*>(data) + sourceOffset;
 
-  vkCmdCopyBuffer(commandBuffer, m_HostBuffer, m_DeviceBuffer, 1, &copyRegion);
+    vmaCopyMemoryToAllocation(allocator, src, m_HostBufferAllocation, allocaion.Offset, allocaion.Size);
+
+    VkBufferCopy copyRegion {};
+    copyRegion.srcOffset = allocaion.Offset;
+    copyRegion.dstOffset = allocaion.Offset;
+    copyRegion.size      = allocaion.Size;
+
+    // #ifdef DEBUG
+    //   std::cout << "Copying from host to device, offset: " << offset << ", bytes: " << size << std::endl;
+    // #endif
+
+    vkCmdCopyBuffer(commandBuffer, m_HostBuffer, m_DeviceBuffer, 1, &copyRegion);
+
+    sourceOffset += partition.Size;
+  }
 
   return allocations;
 }
@@ -305,9 +313,9 @@ VkBufferMemoryBarrier2 Buffer::GetBarrier(VkPipelineStageFlags2 dstStageMask, Vk
 }
 
 Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
-// #ifdef DEBUG
-//   std::cout << "\nBuffer::Blocks::Allocate(" << id << ", " << bytes << ")" << std::endl;
-// #endif
+  // #ifdef DEBUG
+  //   std::cout << "\nBuffer::Blocks::Allocate(" << id << ", " << bytes << ")" << std::endl;
+  // #endif
 
   auto mi = Id.size();
 
@@ -353,9 +361,9 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
     // Just update the size
     if (i + 1 == Id.size()) {
       Size[i] = bytes;
-// #ifdef DEBUG
-//       std::cout << "Expanding block " << i << " to " << bytes << " bytes" << std::endl;
-// #endif
+      // #ifdef DEBUG
+      //       std::cout << "Expanding block " << i << " to " << bytes << " bytes" << std::endl;
+      // #endif
       // Resized
       return true;
     }
@@ -363,9 +371,9 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
     while (i + 1 < Id.size() && Free[i + 1]) {
       Size[i] += Size[i + 1];
 
-// #ifdef DEBUG
-//       std::cout << "Merging block " << i << " with " << i + 1 << ". Aquired additional " << Size[i + 1] << " bytes" << std::endl;
-// #endif
+      // #ifdef DEBUG
+      //       std::cout << "Merging block " << i << " with " << i + 1 << ". Aquired additional " << Size[i + 1] << " bytes" << std::endl;
+      // #endif
 
       Id.erase(Id.begin() + i + 1);
       Size.erase(Size.begin() + i + 1);
@@ -379,15 +387,15 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
 
   // A matching block was found
   if (mi < Id.size()) {
-// #ifdef DEBUG
-//     std::cout << "Existing id found" << std::endl;
-// #endif
+    // #ifdef DEBUG
+    //     std::cout << "Existing id found" << std::endl;
+    // #endif
     // If there is sufficient space in the block that was found
     // assign it and return it.
     if (Size[mi] >= bytes) {
-// #ifdef DEBUG
-//       std::cout << "Reusing existing block(" << mi << ")" << std::endl;
-// #endif
+      // #ifdef DEBUG
+      //       std::cout << "Reusing existing block(" << mi << ")" << std::endl;
+      // #endif
       return insertBlock(mi, id, bytes);
     }
 
@@ -396,9 +404,9 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
 
     // Try to insert the block again after merging
     if (Size[mi] >= bytes) {
-// #ifdef DEBUG
-//       std::cout << "Reusing existing block(" << mi << ") after growing" << std::endl;
-// #endif
+      // #ifdef DEBUG
+      //       std::cout << "Reusing existing block(" << mi << ") after growing" << std::endl;
+      // #endif
       return insertBlock(mi, id, bytes, resized);
     }
 
@@ -407,9 +415,9 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
     Id[mi]   = UINT32_MAX;
     Free[mi] = true;
 
-// #ifdef DEBUG
-//     std::cout << "Existing block unusable" << std::endl;
-// #endif
+    // #ifdef DEBUG
+    //     std::cout << "Existing block unusable" << std::endl;
+    // #endif
   }
 
   // No matching block was found
@@ -420,9 +428,9 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
     // Look for a block that is free and has enough space
     // If we find one, assign it and return it.
     if (Size[i] >= bytes) {
-// #ifdef DEBUG
-//       std::cout << "Reusing empty block(" << i << ")" << std::endl;
-// #endif
+      // #ifdef DEBUG
+      //       std::cout << "Reusing empty block(" << i << ")" << std::endl;
+      // #endif
       return insertBlock(i, id, bytes);
     }
 
@@ -431,9 +439,9 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
 
     // Try to insert the block again after merging
     if (Size[i] >= bytes) {
-// #ifdef DEBUG
-//       std::cout << "Reusing empty block(" << i << ") after growing" << std::endl;
-// #endif
+      // #ifdef DEBUG
+      //       std::cout << "Reusing empty block(" << i << ") after growing" << std::endl;
+      // #endif
       return insertBlock(i, id, bytes, resized);
     }
   }
@@ -447,9 +455,9 @@ Buffer::Allocation Buffer::Blocks::Allocate(uint32_t id, uint32_t bytes) {
   Offset.emplace_back(offset);
   Free.emplace_back(false);
 
-// #ifdef DEBUG
-//   std::cout << "Allocating new block" << std::endl;
-// #endif
+  // #ifdef DEBUG
+  //   std::cout << "Allocating new block" << std::endl;
+  // #endif
 
   return Allocation {
       .Id      = id,

@@ -60,9 +60,9 @@ World::World() {
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
   CornellBoxConfig config;
-  config.width  = 64;
-  config.height = 96;
-  config.depth  = 64;
+  config.width            = 128;
+  config.height           = 128;
+  config.depth            = 128;
   config.light.position.x = 32;
   config.light.position.z = 32;
   config.light.position.y = 90;
@@ -94,12 +94,6 @@ void World::RenderUI() {
 
 void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewport) {
 
-  glm::vec3 rayOrigin    = m_Camera->Position;
-  glm::vec3 rayDirection = m_Camera->GetRayDirection(mouse.x, mouse.y);
-
-  // glm::ivec3 wcc = getWorldChunkCoordinate(rayOrigin);
-  glm::ivec3 wcc = {0, 0, 0};
-
   bool isCtrlPressed = ImGui::IsKeyPressed(ImGuiKey_LeftCtrl);
   bool isActing      = ImGui::IsMouseDown(ImGuiMouseButton_Right) || ImGui::IsMouseDown(ImGuiMouseButton_Left);
 
@@ -108,31 +102,27 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (ImGui::IsKeyPressed(ImGuiKey_T)) {
-    SparseOctree::Hit hit      = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
-    auto              position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
-    m_ChunkManager->Set(position, hit.Id);
+    auto position = m_MouseHit->Position + m_MouseHit->Normal;
+    auto id       = m_Palette.GetSelectedMaterial();
+    m_ChunkManager->Set(position, id);
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   }
 
   if (ImGui::IsKeyPressed(ImGuiKey_Y)) {
-    SparseOctree::Hit hit      = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
-    auto              position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
-    m_ChunkManager->Clear(wcc, position);
+    m_ChunkManager->Clear(m_MouseHit->Position);
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
   }
 
   if (isCtrlPressed && isActing) {
-    SparseOctree::Hit hit = m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
-
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-      auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position);
-      m_ChunkManager->Clear(wcc, position);
+      m_ChunkManager->Clear(m_MouseHit->Position);
       TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
     }
 
     if (ImGui::IsMouseDown(ImGuiMouseButton_Left)) {
-      auto position = m_ChunkManager->WorldToLocalCoordinate(hit.Position + hit.Normal);
-      m_ChunkManager->Set(wcc, position, hit.Id);
+      auto position = m_MouseHit->Position + m_MouseHit->Normal;
+      auto id       = m_MouseHit->Id ? m_MouseHit->Id : 1;
+      m_ChunkManager->Set(position, id);
       TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
     }
   }

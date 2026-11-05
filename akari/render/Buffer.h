@@ -16,6 +16,7 @@ public:
   struct Partition {
     uint32_t Id;
     size_t   Size;
+    bool     Dirty;
   };
 
   struct Allocation {
@@ -60,8 +61,6 @@ private:
   VkDeviceSize m_HostSize {0};
 
   VmaAllocationInfo m_HostAllocationInfo;
-
-  std::string m_DebugName = "";
 
 private:
   /**
