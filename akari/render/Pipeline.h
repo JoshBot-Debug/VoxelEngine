@@ -46,10 +46,18 @@ public:
     VkBool32                                         depthBias {VK_FALSE};
     float                                            depthBiasSlopeFactor {0.0f};
     VkCullModeFlags                                  cullMode {VK_CULL_MODE_BACK_BIT};
+    std::vector<VkPushConstantRange>                 pushConstantRanges;
   };
 
   struct ComputePipelineInfo {
     std::string computeShaderFile;
+  };
+
+  struct PushConstants {
+    VkShaderStageFlags stageFlags;
+    uint32_t           offset;
+    uint32_t           size;
+    const void*        pValues {nullptr};
   };
 
   struct DrawInfo {
@@ -58,6 +66,7 @@ public:
     std::vector<VkDeviceSize>    offsets;
     std::vector<VkDescriptorSet> descriptorSets;
     uint32_t                     vertexCount {0};
+    std::vector<PushConstants>   pushConstants;
   };
 
   struct DrawIndirectInfo {

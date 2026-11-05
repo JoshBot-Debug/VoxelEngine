@@ -132,9 +132,11 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
   VkResult result = VK_ERROR_UNKNOWN;
 
   VkPipelineLayoutCreateInfo pipelineLayoutInfo {
-      .sType          = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
-      .setLayoutCount = static_cast<uint32_t>(m_DescriptorSetLayouts.size()),
-      .pSetLayouts    = m_DescriptorSetLayouts.data(),
+      .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+      .setLayoutCount         = static_cast<uint32_t>(m_DescriptorSetLayouts.size()),
+      .pSetLayouts            = m_DescriptorSetLayouts.data(),
+      .pushConstantRangeCount = static_cast<uint32_t>(info.pushConstantRanges.size()),
+      .pPushConstantRanges    = info.pushConstantRanges.data(),
   };
 
   result = vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &m_PipelineLayout);
@@ -308,6 +310,8 @@ void Pipeline::Draw(const DrawInfo& info) {
   if (info.vertexBuffer != VK_NULL_HANDLE)
     vkCmdBindVertexBuffers(info.commandBuffer, 0, 1, &info.vertexBuffer, info.offsets.data());
   vkCmdBindDescriptorSets(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, static_cast<uint32_t>(info.descriptorSets.size()), info.descriptorSets.data(), 0, nullptr);
+  for (auto constant : info.pushConstants)
+    vkCmdPushConstants(info.commandBuffer, m_PipelineLayout, constant.stageFlags, constant.offset, constant.size, constant.pValues);
   vkCmdDraw(info.commandBuffer, info.vertexCount, 1, 0, 0);
 }
 

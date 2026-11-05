@@ -23,10 +23,6 @@ Scene::Scene() {
   m_LightBuffer.CreateBuffer({.DebugName = "m_LightBuffer"});
   m_MaterialBuffer.CreateBuffer({.DebugName = "m_MaterialBuffer"});
   m_MaterialLUTBuffer.CreateBuffer({.DebugName = "m_MaterialLUTBuffer"});
-  m_OverlayVertexBuffer.CreateBuffer({
-      .Usage     = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-      .DebugName = "m_OverlayVertexBuffer",
-  });
   m_IndirectBuffer.CreateBuffer({
       .Size      = MAX_CHUNKS * sizeof(VkDrawIndirectCommand),
       .Usage     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
@@ -267,25 +263,17 @@ void Scene::Initialize(const InitializeInfo& init) {
       },
   });
 
-  m_OverlayPass.CreateRenderPass({
+  m_UIPass.CreateRenderPass({
       .attachments = std::vector<RenderPass::AttachmentDescription2> {
           {
               .format        = m_OutputImage->GetSpecification().Format,
               .loadOp        = VK_ATTACHMENT_LOAD_OP_LOAD,
               .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
               .finalLayout   = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-          },
-          {
-              .format        = m_Depth->GetSpecification().Format,
-              .loadOp        = VK_ATTACHMENT_LOAD_OP_LOAD,
-              .initialLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-              .finalLayout   = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-              .depth         = true,
-          },
-      },
+          }},
   });
 
-  m_OverlayPipeline.CreateDescriptorSetLayout({
+  m_UIPipeline.CreateDescriptorSetLayout({
       .index          = 0,
       .layoutBindings = {
           // m_Camera
@@ -332,24 +320,33 @@ void Scene::Initialize(const InitializeInfo& init) {
       .computeShaderFile = GetExecutableDir() + "/../engine/shaders/pipeline/shading.comp.spv",
   });
 
-  m_OverlayPipeline.CreatePipeline({
-      .vertexStride = sizeof(vxen::HighlightVertex),
-      .attribs      = {
-          {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vxen::HighlightVertex, Position)},
-          {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(vxen::HighlightVertex, Color)},
-      },
-      .renderPass            = m_OverlayPass.GetRenderPass(),
-      .vertexShaderFile      = GetExecutableDir() + "/../engine/shaders/pipeline/overlay.vert.spv",
-      .fragmentShaderFile    = GetExecutableDir() + "/../engine/shaders/pipeline/overlay.frag.spv",
+  m_UIPipeline.CreatePipeline({
+      .vertexStride          = 0,
+      .attribs               = {},
+      .renderPass            = m_UIPass.GetRenderPass(),
+      .vertexShaderFile      = GetExecutableDir() + "/../engine/shaders/pipeline/ui.vert.spv",
+      .fragmentShaderFile    = GetExecutableDir() + "/../engine/shaders/pipeline/ui.frag.spv",
       .colorBlendAttachments = {
-          {.blendEnable = VK_FALSE, .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
+          {
+              .blendEnable         = VK_TRUE,
+              .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+              .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+              .colorBlendOp        = VK_BLEND_OP_ADD,
+              .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+              .dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+              .alphaBlendOp        = VK_BLEND_OP_ADD,
+              .colorWriteMask      = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+          },
       },
-      .depthTestEnable      = VK_TRUE,
-      .depthWriteEnable     = VK_FALSE,
-      .depthCompareOp       = VK_COMPARE_OP_GREATER_OR_EQUAL,
-      .depthBias            = VK_TRUE,
-      .depthBiasSlopeFactor = 2.0f,
-      .cullMode             = VK_CULL_MODE_NONE,
+      .depthTestEnable    = VK_TRUE,
+      .depthWriteEnable   = VK_FALSE,
+      .depthCompareOp     = VK_COMPARE_OP_GREATER_OR_EQUAL,
+      .cullMode           = VK_CULL_MODE_NONE,
+      .pushConstantRanges = {VkPushConstantRange {
+          .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+          .offset     = 0,
+          .size       = sizeof(SparseOctree::Hit),
+      }},
   });
 
   {
@@ -433,16 +430,6 @@ void Scene::Render() {
 
   if (m_SVOBuffer == VK_NULL_HANDLE || m_VertexBuffer == VK_NULL_HANDLE)
     return;
-
-  {
-    auto vertices = m_UI->GetHighlightVertices();
-
-    m_OverlayVertexCount = vertices.size();
-    if (bool resized = m_OverlayVertexBuffer.Upload(commandBuffer, vertices.size() * sizeof(vxen::HighlightVertex), vertices.data()).Resized || m_OverlayVertexCount) {
-      bufferResized = bufferResized || resized;
-      bufferBarriers.emplace_back(m_OverlayVertexBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_ATTRIBUTE_INPUT_BIT, VK_ACCESS_2_VERTEX_ATTRIBUTE_READ_BIT));
-    }
-  }
 
   // Wait for buffer barriers
   if (bufferBarriers.size()) {
@@ -579,16 +566,16 @@ void Scene::Render() {
     m_OutputImage->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
 
-    m_OverlayPass.BeginRenderPass({.commandBuffer = commandBuffer});
+    m_UIPass.BeginRenderPass({.commandBuffer = commandBuffer});
 
-    m_OverlayPipeline.Draw({
+    m_UIPipeline.Draw({
         .commandBuffer  = commandBuffer,
-        .vertexBuffer   = m_OverlayVertexBuffer.GetBuffer(),
         .offsets        = {0},
         .descriptorSets = {
-            m_OverlayPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
+            m_UIPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
         },
-        .vertexCount = m_OverlayVertexCount,
+        .vertexCount   = 36,
+        .pushConstants = {Pipeline::PushConstants {.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, .offset = 0, .size = sizeof(SparseOctree::Hit), .pValues = m_UI->GetMouseHit()}},
     });
 
     vkCmdEndRenderPass(commandBuffer);
@@ -916,7 +903,7 @@ void Scene::CreateDescriptorSets() {
       },
   });
 
-  m_OverlayPipeline.CreateDescriptorSet({
+  m_UIPipeline.CreateDescriptorSet({
       .id                 = 0,
       .layoutIndex        = 0,
       .descriptorPool     = m_DescriptorPool,
@@ -963,16 +950,15 @@ void Scene::OnResize(uint32_t width, uint32_t height) {
   }
 
   {
-    VkImageView pAttachments[2] = {
+    VkImageView pAttachments[1] = {
         m_OutputImage->m_ImageView,
-        m_Depth->m_ImageView,
     };
 
-    m_OverlayPass.CreateFramebuffer({
+    m_UIPass.CreateFramebuffer({
         .width           = width,
         .height          = height,
         .pAttachments    = pAttachments,
-        .attachmentCount = 2,
+        .attachmentCount = 1,
     });
   }
 

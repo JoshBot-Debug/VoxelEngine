@@ -40,9 +40,6 @@ private:
   akari::render::Buffer m_IndirectBuffer {};
   akari::render::Buffer m_IndirectDrawCountBuffer {};
 
-  akari::render::Buffer m_OverlayVertexBuffer {};
-  uint32_t              m_OverlayVertexCount {0};
-
   akari::render::RenderPass m_GBufferPass {};
   akari::render::Pipeline   m_GeometryPipeline {};
 
@@ -50,8 +47,8 @@ private:
   akari::render::Pipeline m_LightingPipeline {};
   akari::render::Pipeline m_ShadingPipeline {};
 
-  akari::render::RenderPass m_OverlayPass {};
-  akari::render::Pipeline   m_OverlayPipeline {};
+  akari::render::RenderPass m_UIPass {};
+  akari::render::Pipeline   m_UIPipeline {};
 
   std::shared_ptr<akari::window::Image> m_Skybox {
       std::make_shared<akari::window::Image>(akari::window::Image::Specification {

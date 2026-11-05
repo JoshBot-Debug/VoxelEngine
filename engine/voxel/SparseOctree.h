@@ -60,10 +60,26 @@ public:
    * @tparam T The datatype of the pointer stored
    */
   struct Hit {
-    glm::vec3 Position {glm::vec3(0.0f)};
-    glm::vec3 Normal {glm::vec3(0.0f)};
+    glm::vec4 Position {glm::vec4(0.0f)};
+    glm::vec4 Normal {glm::vec4(0.0f)};
     uint32_t  Id {0};
     uint32_t  Size {0};
+    uint32_t  Padding[2];
+
+    void Reset() {
+      Id         = 0;
+      Size       = 0;
+      Position.x = 0;
+      Position.y = 0;
+      Position.z = 0;
+      Position.w = 0;
+      Normal.x   = 0;
+      Normal.y   = 0;
+      Normal.z   = 0;
+      Normal.w   = 0;
+      Padding[0] = 0;
+      Padding[1] = 0;
+    }
   };
 
   struct FlatNode {
@@ -551,8 +567,8 @@ private:
 
     if (node->Id)
       return Hit {
-          .Position = nodeMin,
-          .Normal   = normal,
+          .Position = glm::vec4(nodeMin, 0.0),
+          .Normal   = glm::vec4(normal, 0.0),
           .Id       = node->Id,
           .Size     = size,
       };
@@ -613,8 +629,8 @@ private:
 
     if (size == 1)
       return Hit {
-          .Position = nodeMin,
-          .Normal   = normal,
+          .Position = glm::vec4(nodeMin, 0.0),
+          .Normal   = glm::vec4(normal, 0.0),
           .Id       = id,
           .Size     = size,
       };

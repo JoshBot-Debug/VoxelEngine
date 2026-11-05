@@ -60,12 +60,12 @@ World::World() {
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
   CornellBoxConfig config;
-  config.width  = 128;
-  config.height = 128;
-  config.depth  = 128;
-  config.light.position.x = 16;
-  config.light.position.z = 16;
-  config.light.position.y = 70;
+  config.width  = 64;
+  config.height = 96;
+  config.depth  = 64;
+  config.light.position.x = 32;
+  config.light.position.z = 32;
+  config.light.position.y = 90;
   // config.include.ceiling = false;
   GenerateCornellBox(config);
 
@@ -77,7 +77,7 @@ World::World() {
   // VoxLoader loader;
   // loader.SetPalette(&m_Palette);
   // loader.SetChunkManager(m_ChunkManager);
-  // loader.Load("assets/sponza.vox");
+  // loader.Load("assets/castle.vox");
 
   // m_ChunkManager->Set({110, 110, 110}, light);
 

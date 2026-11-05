@@ -9,6 +9,8 @@
 #include <stdexcept>
 #include <vector>
 
+#include "voxel/Type.h"
+
 namespace vxen {
 
 namespace vox_loader {
@@ -170,8 +172,8 @@ bool VoxLoader::Load(const std::string& path) {
 
       m_ChunkManager->Set(
           voxel.x,
-          voxel.y,
           voxel.z,
+          voxel.y,
           materialID);
     }
   }

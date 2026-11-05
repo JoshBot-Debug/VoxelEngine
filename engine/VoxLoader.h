@@ -5,7 +5,6 @@
 
 #include "ChunkManager.h"
 #include "voxel/Palette.h"
-#include "voxel/Type.h"
 
 namespace vxen {
 
