@@ -1046,7 +1046,7 @@ public:
   Hit Raymarch(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
     return Raymarch(session.Root, origin, direction, glm::vec3(0.0f), SIZE);
   };
-  
+
   /**
    * Perform a recursive raymarch from the root node of the SVO
    * Does not stop until it reaches size = 1

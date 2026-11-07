@@ -674,6 +674,8 @@ inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const g
 
     /// TODO: Bad solution for now adding EPS like this.
     /// multiplying it by direction did not work so left this
+    /// Sometimes I get values like 64, which leaves me in the previous chunk
+    /// so I need to add an EPS to make it 64.1 basically
     SparseOctree::Hit chunk = m_SCO->Raymarch((P / SIZE) + EPS, direction);
 
     coordinate = chunk.Position;
