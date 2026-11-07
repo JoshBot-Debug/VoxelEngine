@@ -312,7 +312,7 @@ void Pipeline::Draw(const DrawInfo& info) {
   vkCmdBindDescriptorSets(info.commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_PipelineLayout, 0, static_cast<uint32_t>(info.descriptorSets.size()), info.descriptorSets.data(), 0, nullptr);
   for (auto constant : info.pushConstants)
     vkCmdPushConstants(info.commandBuffer, m_PipelineLayout, constant.stageFlags, constant.offset, constant.size, constant.pValues);
-  vkCmdDraw(info.commandBuffer, info.vertexCount, 1, 0, 0);
+  vkCmdDraw(info.commandBuffer, info.vertexCount, info.instanceCount, info.firstVertex, info.firstInstance);
 }
 
 void Pipeline::DrawIndirect(const DrawIndirectInfo& info) {

@@ -10,6 +10,10 @@
 #include "voxel/Palette.h"
 #include "voxel/SparseOctree.h"
 
+namespace vxen {
+class UI;
+}
+
 using WorldChunkManager = vxen::ChunkManager;
 
 struct CornellBoxConfig {
@@ -58,6 +62,7 @@ private:
 
   std::vector<uint32_t> m_Voxels {};
   WorldChunkManager*    m_ChunkManager {nullptr};
+  vxen::UI*             m_UI {nullptr};
 
   std::vector<Material>                 m_Materials {};
   std::vector<uint32_t>                 m_MaterialsLUT {};
@@ -90,6 +95,8 @@ public:
   void SetCamera(akari::camera::PerspectiveCamera* camera) { m_Camera = camera; };
 
   void SetMouseHit(const SparseOctree::Hit* hit) { m_MouseHit = hit; };
+
+  void SetUI(vxen::UI* ui) { m_UI = ui; };
 
   const std::vector<Material>&                 GetMaterials() { return m_Materials; };
   const std::vector<uint32_t>&                 GetMaterialsLUT() { return m_MaterialsLUT; };

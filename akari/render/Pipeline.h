@@ -66,6 +66,9 @@ public:
     std::vector<VkDeviceSize>    offsets;
     std::vector<VkDescriptorSet> descriptorSets;
     uint32_t                     vertexCount {0};
+    uint32_t                     instanceCount {1};
+    uint32_t                     firstVertex {0};
+    uint32_t                     firstInstance {0};
     std::vector<PushConstants>   pushConstants;
   };
 

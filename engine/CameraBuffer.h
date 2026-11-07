@@ -25,8 +25,9 @@ public:
     glm::mat4 pInverseView;
     glm::mat4 pInverseProjection;
     glm::mat4 pInverseViewProjection;
-    glm::vec3 position;
     float     farPlane;
+    alignas(16) glm::vec3 position;
+    glm::vec2 viewportSize;
   };
 
 private:

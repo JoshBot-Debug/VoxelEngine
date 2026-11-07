@@ -2,6 +2,7 @@
 #include <imgui.h>
 
 #include "VoxLoader.h"
+#include "UI.h"
 
 using namespace akari::thread;
 
@@ -22,7 +23,7 @@ World::World() {
       .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4 {0.14f, 0.45f, 0.090f, 1.0f}}),
   });
 
-  m_Palette.Create(Palette::Item {
+  auto wall = m_Palette.Create(Palette::Item {
       .Name = "Wall",
       .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4 {0.73f, 0.73f, 0.73f, 1.0f}}),
   });
@@ -47,12 +48,12 @@ World::World() {
       .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(0.55f, 0.60f, 0.30f, 1.0f)}),
   });
 
-  m_Palette.Create(Palette::Item {
+  auto forestGrass = m_Palette.Create(Palette::Item {
       .Name = "Grass Forest",
       .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(0.22f, 0.42f, 0.18f, 1.0f)}),
   });
 
-  m_Palette.Create(Palette::Item {
+  auto light = m_Palette.Create(Palette::Item {
       .Name = "Light",
       .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(1.0f), .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
   });
@@ -60,13 +61,19 @@ World::World() {
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
   CornellBoxConfig config;
-  config.width            = 128;
-  config.height           = 128;
-  config.depth            = 128;
-  config.light.position.x = 32;
-  config.light.position.z = 32;
-  config.light.position.y = 90;
-  // config.include.ceiling = false;
+  config.width             = 128;
+  config.height            = 64;
+  config.depth             = 64;
+  config.light.position.x  = 16;
+  config.light.position.y  = 16;
+  config.light.position.z  = 16;
+  // config.include.ceiling   = false;
+  // config.include.leftWall  = false;
+  // config.include.rightWall = false;
+  // config.include.frontWall = false;
+  // config.include.backWall  = false;
+  // config.include.cube      = false;
+  // config.include.sphere    = false;
   GenerateCornellBox(config);
 
   // auto light = m_Palette.Create(Palette::Item {
@@ -166,9 +173,9 @@ ChunkBuffers World::GetChunkBuffers() {
 }
 
 SparseOctree::Hit World::Raycast(const glm::vec2& origin) {
-  glm::vec3 rayOrigin    = m_Camera->Position;
-  glm::vec3 rayDirection = m_Camera->GetRayDirection(origin.x, origin.y);
-  return m_ChunkManager->DeepRaymarch(rayOrigin, rayDirection);
+  glm::vec3                              rayOrigin    = m_Camera->Position;
+  glm::vec3                              rayDirection = m_Camera->GetRayDirection(origin.x, origin.y);
+  return m_ChunkManager->Raymarch(rayOrigin, rayDirection);
 }
 
 void World::FlushPreprocessor(VkCommandBuffer commandBuffer) {

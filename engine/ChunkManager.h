@@ -54,6 +54,11 @@ public:
     uint32_t Size;
   };
 
+  struct RaymarchRay {
+    glm::vec4 origin;
+    glm::vec4 direction;
+  };
+
 private:
   static constexpr uint32_t DIV_SS {std::countr_zero(64U)};
   static constexpr uint32_t MOD_SS {64U - 1};
@@ -328,21 +333,11 @@ public:
   SparseOctree::Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction);
 
   /**
-   * @param coordinate The coordinate of the node in the the Chunk SVO.
    * @param origin The camera's origin
    * @param direction The camera's direction
    * @return The voxel that was hit
    */
-  SparseOctree::Hit DeepRaymarch(const glm::u8vec3& coordinate, const glm::vec3& origin, const glm::vec3& direction);
-
-  /**
-   * @param coordinate The coordinate of the node in the the Chunk SVO.
-   * @param session The {Reader} session received from BeginRead(...)
-   * @param origin The camera's origin
-   * @param direction The camera's direction
-   * @return The voxel that was hit
-   */
-  SparseOctree::Hit DeepRaymarch(const glm::u8vec3& coordinate, SparseOctree::Reader& session, const glm::vec3& origin, const glm::vec3& direction);
+  SparseOctree::Hit Raymarch(const glm::vec3& origin, const glm::vec3& direction);
 
   /**
    * Triggers multi thread greedy meshing.
@@ -556,7 +551,7 @@ inline void ChunkManager::Clear(uint8_t x, uint8_t y, uint8_t z) {
   if (!chunkNode)
     return;
   uint32_t chunkId = chunkNode->Id - 1;
-  m_ChunkAllocations[chunkId].SVO()->Clear(x, y, z);
+  m_ChunkAllocations[chunkId].SVO()->Clear(x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE);
 }
 
 inline void ChunkManager::Clear(SparseOctree::Writer& session, uint8_t x, uint8_t y, uint8_t z) {
@@ -565,7 +560,7 @@ inline void ChunkManager::Clear(SparseOctree::Writer& session, uint8_t x, uint8_
   if (!chunkNode)
     return;
   uint32_t chunkId = chunkNode->Id - 1;
-  m_ChunkAllocations[chunkId].SVO()->Clear(session, x, y, z);
+  m_ChunkAllocations[chunkId].SVO()->Clear(session, x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE);
 }
 
 inline void ChunkManager::Clear(const glm::u8vec3& position) {
@@ -653,7 +648,7 @@ inline SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, con
     }
 
     float tStep   = TNextBoundary(localOrigin, direction);
-    float tGlobal = tMin + tStep + 1.0f;
+    float tGlobal = tMin + tStep + 0.001f;
 
     glm::vec3 globalPosition = origin + direction * tGlobal;
     glm::vec3 nCoordinate    = WorldToChunkCoordinateFloat(globalPosition.x, globalPosition.y, globalPosition.z);
@@ -668,14 +663,51 @@ inline SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, con
   return check(check, localOrigin, coordinate, 0.0f);
 }
 
-inline SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::u8vec3& coordinate, const glm::vec3& origin, const glm::vec3& direction) {
-  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocations[chunkId].SVO()->DeepRaymarch(origin, direction);
-}
+inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
+  float           t    = 1.0f;
+  float           EPS  = 0.0001f;
+  constexpr float SIZE = SVO_SIZE;
+  glm::vec4       coordinate {0.0f};
 
-inline SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::u8vec3& coordinate, SparseOctree::Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
-  uint32_t chunkId = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  return m_ChunkAllocations[chunkId].SVO()->DeepRaymarch(session, origin, direction);
+  auto step = [&](auto&& self, float& t, glm::vec4& coordinate) {
+    glm::vec3 P = origin + direction * t;
+
+    /// TODO: Bad solution for now adding EPS like this.
+    /// multiplying it by direction did not work so left this
+    SparseOctree::Hit chunk = m_SCO->Raymarch((P / SIZE) + EPS, direction);
+
+    coordinate = chunk.Position;
+
+    if (!chunk.Id)
+      return SparseOctree::Hit();
+
+    // Chunk hit distance relative to current origin
+    float chunkT = chunk.TMin * SIZE;
+
+    // Ray position inside chunk
+    glm::vec3 chunkOrigin = glm::mod(P + direction * (chunkT + EPS), SIZE);
+
+    SparseOctree::Hit hit = m_ChunkAllocations[chunk.Id - 1].SVO()->Raymarch(chunkOrigin, direction);
+
+    if (hit.Id) {
+      hit.TMin += t;
+      return hit;
+    }
+
+    // Distance available inside this chunk
+    float chunkDist = TNextBoundary(chunkOrigin, direction);
+
+    // Continue past this chunk
+    t += chunkT + chunkDist + EPS;
+
+    return self(self, t, coordinate);
+  };
+
+  SparseOctree::Hit hit = step(step, t, coordinate);
+
+  hit.Position += (coordinate * SIZE);
+
+  return hit;
 }
 
 inline void ChunkManager::FlushVertices(const std::vector<uint32_t>& ids) {
@@ -791,24 +823,21 @@ inline uint8_t ChunkManager::Wrap(int i) {
   return (m < 0) ? m + int(64) : m;
 }
 
-inline float ChunkManager::TNextBoundary(const glm::vec3& localOrigin, const glm::vec3& direction) {
-  glm::vec3 inverseDirection = 1.0f / direction;
+inline float ChunkManager::TNextBoundary(const glm::vec3& origin, const glm::vec3& direction) {
 
-  float size = float(SVO_SIZE);
+  const float size = float(SVO_SIZE);
 
-  // Compute base cell
-  glm::vec3 cell = glm::floor(localOrigin / size) * size;
+  glm::vec3 nextBoundary = glm::mix(
+      glm::vec3(0.0f),
+      glm::vec3(size),
+      glm::greaterThan(direction, glm::vec3(0.0f)));
 
-  // Select next boundary using step (1 for +, 0 for -)
-  glm::vec3 stepDir      = glm::step(glm::vec3(0.0f), direction);
-  glm::vec3 nextBoundary = cell + stepDir * size;
+  glm::vec3 tVals = (nextBoundary - origin) / direction;
 
-  // Compute t values
-  glm::vec3 tVals = (nextBoundary - localOrigin) * inverseDirection;
-
-  // Handle zero directions (branchless)
-  glm::bvec3 mask = glm::notEqual(direction, glm::vec3(0.0f));
-  tVals           = glm::mix(glm::vec3(1e30f), tVals, mask);
+  tVals = glm::mix(
+      glm::vec3(1e30f),
+      tVals,
+      glm::notEqual(direction, glm::vec3(0.0f)));
 
   return std::min(tVals.x, std::min(tVals.y, tVals.z));
 }

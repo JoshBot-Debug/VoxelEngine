@@ -345,7 +345,7 @@ void Scene::Initialize(const InitializeInfo& init) {
       .pushConstantRanges = {VkPushConstantRange {
           .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
           .offset     = 0,
-          .size       = sizeof(SparseOctree::Hit),
+          .size       = sizeof(UI::PushContants),
       }},
   });
 
@@ -375,8 +375,7 @@ void Scene::Initialize(const InitializeInfo& init) {
 
 void Scene::Render() {
 
-  uint32_t        framesInFlight = akari::window::Application::GetMaxFramesInFlight();
-  VkCommandBuffer commandBuffer  = akari::window::Application::GetCommandBuffer({.Begin = true});
+  VkCommandBuffer commandBuffer = akari::window::Application::GetCommandBuffer({.Begin = true});
 
   m_CameraBuffer.Render(m_Camera);
 
@@ -568,6 +567,8 @@ void Scene::Render() {
 
     m_UIPass.BeginRenderPass({.commandBuffer = commandBuffer});
 
+    UI::PushContants pc = m_UI->GetPushContants();
+
     m_UIPipeline.Draw({
         .commandBuffer  = commandBuffer,
         .offsets        = {0},
@@ -575,7 +576,7 @@ void Scene::Render() {
             m_UIPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
         },
         .vertexCount   = 36,
-        .pushConstants = {Pipeline::PushConstants {.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, .offset = 0, .size = sizeof(SparseOctree::Hit), .pValues = m_UI->GetMouseHit()}},
+        .pushConstants = {Pipeline::PushConstants {.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, .offset = 0, .size = sizeof(UI::PushContants), .pValues = &pc}},
     });
 
     vkCmdEndRenderPass(commandBuffer);

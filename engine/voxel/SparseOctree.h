@@ -60,11 +60,11 @@ public:
    * @tparam T The datatype of the pointer stored
    */
   struct Hit {
-    glm::vec4 Position {glm::vec4(0.0f)};
-    glm::vec4 Normal {glm::vec4(0.0f)};
     uint32_t  Id {0};
     uint32_t  Size {0};
-    uint32_t  Padding[2];
+    glm::vec4 Position {glm::vec4(0.0f)};
+    glm::vec4 Normal {glm::vec4(0.0f)};
+    float     TMin {0.0f};
 
     void Reset() {
       Id         = 0;
@@ -77,8 +77,7 @@ public:
       Normal.y   = 0;
       Normal.z   = 0;
       Normal.w   = 0;
-      Padding[0] = 0;
-      Padding[1] = 0;
+      TMin       = 0.0f;
     }
   };
 
@@ -566,10 +565,11 @@ private:
 
     if (node->Id)
       return Hit {
-          .Position = glm::vec4(nodeMin, 0.0),
-          .Normal   = glm::vec4(normal, 0.0),
           .Id       = node->Id,
           .Size     = size,
+          .Position = glm::vec4(nodeMin, 0.0),
+          .Normal   = glm::vec4(normal, 0.0),
+          .TMin     = tMin,
       };
 
     if (!node->Children)
@@ -628,10 +628,11 @@ private:
 
     if (size == 1)
       return Hit {
-          .Position = glm::vec4(nodeMin, 0.0),
-          .Normal   = glm::vec4(normal, 0.0),
           .Id       = id,
           .Size     = size,
+          .Position = glm::vec4(nodeMin, 0.0),
+          .Normal   = glm::vec4(normal, 0.0),
+          .TMin     = tMin,
       };
 
     float half = size >> 1;
@@ -660,7 +661,7 @@ private:
 
       glm::vec3 childMin = nodeMin + offset * half;
 
-      Hit hit = DeepRaymarch(child, origin, direction, childMin, half, id);
+      Hit hit = DeepRaymarch(child, origin, direction, childMin, half, 0);
 
       if (hit.Id)
         return hit;
@@ -1045,7 +1046,7 @@ public:
   Hit Raymarch(Reader& session, const glm::vec3& origin, const glm::vec3& direction) {
     return Raymarch(session.Root, origin, direction, glm::vec3(0.0f), SIZE);
   };
-
+  
   /**
    * Perform a recursive raymarch from the root node of the SVO
    * Does not stop until it reaches size = 1

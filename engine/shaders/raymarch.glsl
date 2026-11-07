@@ -232,24 +232,24 @@ Hit raymarch(vec3 origin, vec3 direction, float dist) {
       break;
 
     // Chunk hit distance relative to current origin
-    float chunkT = chunk.TMin;
+    float chunkT = chunk.TMin * 64.;
 
     // Ray position inside chunk
-    vec3 chunkOrigin = mod(P + direction * (chunkT * 64.), 64.0);
+    vec3 chunkOrigin = mod(P + direction * chunkT, 64.0);
 
     // Distance available inside this chunk
-    float chunkDist = min(tNextBoundary(chunkOrigin, direction), dist - t - chunkT);
+    float chunkDist = tNextBoundary(chunkOrigin, direction);
 
     // Traverse voxels within chunk
     result = raymarchVoxels(headers.data[chunk.Id - 1].Offset, chunkOrigin, direction, chunkDist);
 
     if (result.IsValid) {
-      result.TMin += t + chunkT;
+      result.TMin += t;
       return result;
     }
 
     // Continue past this chunk
-    t += chunkT + chunkDist + EPS;
+    t += chunkDist + EPS;
   }
 
   result.IsValid = false;

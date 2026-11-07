@@ -50,7 +50,7 @@ CameraBuffer::~CameraBuffer() {
 
 void CameraBuffer::Render(PerspectiveCamera* camera) {
 
-  Camera data{
+  Camera data {
       .view                  = camera->GetViewMatrix(),
       .projection            = camera->GetProjectionMatrix(),
       .viewProjection        = camera->GetViewProjectionMatrix(),
@@ -65,8 +65,9 @@ void CameraBuffer::Render(PerspectiveCamera* camera) {
       .pInverseProjection     = camera->GetPreviousInverseProjectionMatrix(),
       .pInverseViewProjection = camera->GetPreviousInverseViewProjectionMatrix(),
 
-      .position = camera->Position,
-      .farPlane = camera->FarPlane,
+      .farPlane     = camera->FarPlane,
+      .position     = camera->Position,
+      .viewportSize = camera->GetViewportSize(),
   };
 
   memcpy(m_Mapped[Application::GetCurrentFrameIndex()], &data, sizeof(Camera));

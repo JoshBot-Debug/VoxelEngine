@@ -60,6 +60,7 @@ public:
     });
 
     m_World.SetCamera(&m_Camera);
+    m_World.SetUI(&m_UI);
     m_World.SetMouseHit(m_UI.GetMouseHit());
   }
 

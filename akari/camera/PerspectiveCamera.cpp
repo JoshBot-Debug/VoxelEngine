@@ -137,6 +137,10 @@ const glm::mat4& PerspectiveCamera::GetProjectionMatrix() const {
 
 const glm::mat4& PerspectiveCamera::GetViewMatrix() const { return m_View; }
 
+const glm::vec2 PerspectiveCamera::GetViewportSize() const {
+  return glm::vec2 {ViewportWidth, ViewportHeight};
+}
+
 const glm::mat4& PerspectiveCamera::GetPreviousViewProjectionMatrix() const {
   return m_pViewProjection;
 };
