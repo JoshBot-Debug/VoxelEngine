@@ -37,6 +37,10 @@ private:
   VkBuffer m_ChunkSVOBuffer {};
   VkBuffer m_ChunkBuffer {};
 
+  akari::render::Buffer     m_RayBuffer {};
+  akari::render::RenderPass m_RayPass {};
+  akari::render::Pipeline   m_RayPipeline {};
+
   akari::render::Buffer m_IndirectBuffer {};
   akari::render::Buffer m_IndirectDrawCountBuffer {};
 

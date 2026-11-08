@@ -32,6 +32,7 @@ Scene::Scene() {
       .Usage     = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT,
       .DebugName = "m_IndirectDrawCountBuffer",
   });
+  m_RayBuffer.CreateBuffer({.DebugName = "m_RayBuffer"});
 }
 
 Scene::~Scene() {
@@ -50,14 +51,15 @@ void Scene::Initialize(const InitializeInfo& init) {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight},
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight},
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight},
+      {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight},
       {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 7},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 8},
   };
 
   VkDescriptorPoolCreateInfo poolInfo {
       .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-      .maxSets       = 4 + (framesInFlight * 5),
+      .maxSets       = 5 + (framesInFlight * 6),
       .poolSizeCount = static_cast<uint32_t>(std::size(sizes)),
       .pPoolSizes    = sizes,
   };
@@ -286,6 +288,41 @@ void Scene::Initialize(const InitializeInfo& init) {
       },
   });
 
+  m_RayPass.CreateRenderPass({
+      .attachments = std::vector<RenderPass::AttachmentDescription2> {
+          {
+              .format        = m_OutputImage->GetSpecification().Format,
+              .loadOp        = VK_ATTACHMENT_LOAD_OP_LOAD,
+              .initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+              .finalLayout   = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+          }},
+  });
+
+  m_RayPipeline.CreateDescriptorSetLayout({
+      .index          = 0,
+      .layoutBindings = {
+          // m_Camera
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::U_CAMERA,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT,
+          },
+      },
+  });
+
+  m_RayPipeline.CreateDescriptorSetLayout({
+      .index          = 1,
+      .layoutBindings = {
+          VkDescriptorSetLayoutBinding {
+              .binding         = vxen::Binding::S_RAYS,
+              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .descriptorCount = 1,
+              .stageFlags      = VK_SHADER_STAGE_VERTEX_BIT,
+          },
+      },
+  });
+
   OnResize(init.Width, init.Height);
 
   m_GeometryPipeline.CreatePipeline({
@@ -347,6 +384,23 @@ void Scene::Initialize(const InitializeInfo& init) {
           .offset     = 0,
           .size       = sizeof(UI::PushContants),
       }},
+  });
+
+  m_RayPipeline.CreatePipeline({
+      .topology              = VK_PRIMITIVE_TOPOLOGY_LINE_LIST,
+      .vertexStride          = 0,
+      .attribs               = {},
+      .renderPass            = m_RayPass.GetRenderPass(),
+      .vertexShaderFile      = GetExecutableDir() + "/../engine/shaders/pipeline/ray.vert.spv",
+      .fragmentShaderFile    = GetExecutableDir() + "/../engine/shaders/pipeline/ray.frag.spv",
+      .colorBlendAttachments = {
+          {.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT},
+      },
+      .depthTestEnable  = VK_TRUE,
+      .depthWriteEnable = VK_FALSE,
+      .depthCompareOp   = VK_COMPARE_OP_GREATER_OR_EQUAL,
+      .cullMode         = VK_CULL_MODE_NONE,
+      .lineWidth        = 2.0f,
   });
 
   {
@@ -425,6 +479,15 @@ void Scene::Render() {
     }
 
     m_World->Clean();
+  }
+
+  {
+    const std::vector<Ray>& rays = m_World->GetRays();
+
+    if (bool resized = m_RayBuffer.Upload(commandBuffer, rays).Resized || rays.size()) {
+      bufferResized = bufferResized || resized;
+      bufferBarriers.emplace_back(m_RayBuffer.GetBarrier(VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
+    }
   }
 
   if (m_SVOBuffer == VK_NULL_HANDLE || m_VertexBuffer == VK_NULL_HANDLE)
@@ -560,7 +623,7 @@ void Scene::Render() {
     });
   }
 
-  // Overlay pass
+  // UI pass
   {
     m_OutputImage->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
     m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
@@ -577,6 +640,26 @@ void Scene::Render() {
         },
         .vertexCount   = 36,
         .pushConstants = {Pipeline::PushConstants {.stageFlags = VK_SHADER_STAGE_VERTEX_BIT, .offset = 0, .size = sizeof(UI::PushContants), .pValues = &pc}},
+    });
+
+    vkCmdEndRenderPass(commandBuffer);
+  }
+
+  {
+    m_OutputImage->Transition(commandBuffer, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT);
+    m_Depth->Transition(commandBuffer, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT, VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT);
+
+    m_RayPass.BeginRenderPass({.commandBuffer = commandBuffer});
+
+    m_RayPipeline.Draw({
+        .commandBuffer  = commandBuffer,
+        .offsets        = {0},
+        .descriptorSets = {
+            m_RayPipeline.GetDescriptorSet(0, akari::window::Application::GetCurrentFrameIndex()),
+            m_RayPipeline.GetDescriptorSet(1, 0),
+        },
+        .vertexCount   = 2,
+        .instanceCount = static_cast<uint32_t>(m_World->GetRays().size()),
     });
 
     vkCmdEndRenderPass(commandBuffer);
@@ -911,14 +994,39 @@ void Scene::CreateDescriptorSets() {
       .descriptorSetCount = framesInFlight,
       .writes             = cameraWrites,
   });
+
+  m_RayPipeline.CreateDescriptorSet({
+      .id                 = 0,
+      .layoutIndex        = 0,
+      .descriptorPool     = m_DescriptorPool,
+      .descriptorSetCount = framesInFlight,
+      .writes             = cameraWrites,
+  });
+
+  m_RayPipeline.CreateDescriptorSet({
+      .id                 = 1,
+      .layoutIndex        = 1,
+      .descriptorPool     = m_DescriptorPool,
+      .descriptorSetCount = 1,
+      .writes             = {{
+          Pipeline::DescriptorWriteInfo {
+              .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+              .binding = vxen::Binding::S_RAYS,
+              .buffer  = std::vector {
+                  VkDescriptorBufferInfo {
+                      .buffer = m_RayBuffer.GetBuffer(),
+                      .offset = 0,
+                      .range  = VK_WHOLE_SIZE,
+                  },
+              },
+          },
+      }},
+  });
 }
 
 void Scene::OnResize(uint32_t width, uint32_t height) {
   if (!m_Depth->Resize(width, height))
     return;
-
-  VkDevice device         = akari::window::Application::GetDevice();
-  uint32_t framesInFlight = akari::window::Application::GetMaxFramesInFlight();
 
   m_Material->Resize(width, height);
 
@@ -956,6 +1064,19 @@ void Scene::OnResize(uint32_t width, uint32_t height) {
     };
 
     m_UIPass.CreateFramebuffer({
+        .width           = width,
+        .height          = height,
+        .pAttachments    = pAttachments,
+        .attachmentCount = 1,
+    });
+  }
+
+  {
+    VkImageView pAttachments[1] = {
+        m_OutputImage->m_ImageView,
+    };
+
+    m_RayPass.CreateFramebuffer({
         .width           = width,
         .height          = height,
         .pAttachments    = pAttachments,

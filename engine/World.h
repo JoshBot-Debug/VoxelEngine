@@ -16,8 +16,13 @@ class UI;
 
 using WorldChunkManager = vxen::ChunkManager;
 
-struct CornellBoxConfig {
+struct alignas(16) Ray {
+  glm::vec4 Origin;
+  glm::vec4 Direction;
+  glm::vec4 Color;
+};
 
+struct CornellBoxConfig {
   uint32_t    width  = 64;
   uint32_t    height = 64;
   uint32_t    depth  = 64;
@@ -67,6 +72,7 @@ private:
   std::vector<Material>                 m_Materials {};
   std::vector<uint32_t>                 m_MaterialsLUT {};
   std::vector<SparseOctree::FilterNode> m_Lights {};
+  std::vector<Ray>                      m_Rays {};
 
   const SparseOctree::Hit* m_MouseHit {nullptr};
 
@@ -101,6 +107,7 @@ public:
   const std::vector<Material>&                 GetMaterials() { return m_Materials; };
   const std::vector<uint32_t>&                 GetMaterialsLUT() { return m_MaterialsLUT; };
   const std::vector<SparseOctree::FilterNode>& GetLights() { return m_Lights; };
+  const std::vector<Ray>&                      GetRays() { return m_Rays; };
 
   ChunkBuffers GetChunkBuffers();
 

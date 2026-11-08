@@ -63,7 +63,7 @@ public:
 
   const glm::vec3& GetRight();
 
-  const glm::vec3 GetRayDirection(int pixelX, int pixelY);
+  const glm::vec3                       GetRayDirection(int pixelX, int pixelY);
 
   const glm::mat4& GetViewProjectionMatrix() const;
   const glm::mat4& GetProjectionMatrix() const;

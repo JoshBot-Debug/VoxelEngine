@@ -1,14 +1,16 @@
 #include "World.h"
 #include <imgui.h>
 
-#include "VoxLoader.h"
 #include "UI.h"
+#include "VoxLoader.h"
 
 using namespace akari::thread;
 
 namespace vxen {
 
 World::World() {
+  m_Rays.resize(1);
+
   m_ChunkManager = new WorldChunkManager();
 
   m_HeightMap.Initialize(64, 64);
@@ -61,12 +63,12 @@ World::World() {
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
   CornellBoxConfig config;
-  config.width             = 128;
-  config.height            = 64;
-  config.depth             = 64;
-  config.light.position.x  = 16;
-  config.light.position.y  = 16;
-  config.light.position.z  = 16;
+  config.width            = 128;
+  config.height           = 64;
+  config.depth            = 64;
+  config.light.position.x = 16;
+  config.light.position.y = 16;
+  config.light.position.z = 16;
   // config.include.ceiling   = false;
   // config.include.leftWall  = false;
   // config.include.rightWall = false;
@@ -173,9 +175,16 @@ ChunkBuffers World::GetChunkBuffers() {
 }
 
 SparseOctree::Hit World::Raycast(const glm::vec2& origin) {
-  glm::vec3                              rayOrigin    = m_Camera->Position;
-  glm::vec3                              rayDirection = m_Camera->GetRayDirection(origin.x, origin.y);
-  return m_ChunkManager->Raymarch(rayOrigin, rayDirection);
+  glm::vec3 rayOrigin    = m_Camera->Position;
+  glm::vec3 rayDirection = m_Camera->GetRayDirection(origin.x, origin.y);
+
+  auto hit = m_ChunkManager->Raymarch(rayOrigin, rayDirection);
+
+  m_Rays[0].Origin    = glm::vec4(rayOrigin.x, rayOrigin.y - 0.5f, rayOrigin.z, 0.0f);
+  m_Rays[0].Direction = glm::vec4(rayDirection, hit.TMin);
+  m_Rays[0].Color     = glm::vec4(1.0f, 1.0f, 0.0f, 1.0f);
+
+  return hit;
 }
 
 void World::FlushPreprocessor(VkCommandBuffer commandBuffer) {

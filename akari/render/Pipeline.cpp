@@ -177,7 +177,7 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
 
   VkPipelineInputAssemblyStateCreateInfo inputAssembly {
       .sType                  = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
-      .topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+      .topology               = info.topology,
       .primitiveRestartEnable = VK_FALSE,
   };
 
@@ -209,7 +209,7 @@ void Pipeline::CreatePipeline(const PipelineInfo& info) {
       .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
       .depthBiasEnable         = info.depthBias,
       .depthBiasSlopeFactor    = info.depthBiasSlopeFactor,
-      .lineWidth               = 1.0f,
+      .lineWidth               = info.lineWidth,
   };
 
   VkPipelineMultisampleStateCreateInfo multisampling {

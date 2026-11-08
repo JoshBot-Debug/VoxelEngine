@@ -214,6 +214,7 @@ Hit raymarch(vec3 origin, vec3 direction, float dist) {
 
   float t   = 0.0;
   float EPS = .0001;
+  const float SIZE = 64.;
 
   int MAX_CHUNK_ITERATIONS = 8;
 
@@ -226,16 +227,16 @@ Hit raymarch(vec3 origin, vec3 direction, float dist) {
     vec3 P = origin + direction * t;
 
     // Find next chunk along ray
-    Hit chunk = raymarchChunks(P / 64.0, direction, dist - t);
+    Hit chunk = raymarchChunks(P / SIZE, direction, dist - t);
 
     if (!chunk.IsValid)
       break;
 
     // Chunk hit distance relative to current origin
-    float chunkT = chunk.TMin * 64.;
+    float chunkT = chunk.TMin * SIZE;
 
     // Ray position inside chunk
-    vec3 chunkOrigin = mod(P + direction * chunkT, 64.0);
+    vec3 chunkOrigin = mod(P + direction * chunkT, SIZE);
 
     // Distance available inside this chunk
     float chunkDist = tNextBoundary(chunkOrigin, direction);
@@ -249,7 +250,7 @@ Hit raymarch(vec3 origin, vec3 direction, float dist) {
     }
 
     // Continue past this chunk
-    t += chunkDist + EPS;
+    t += chunkT + chunkDist + EPS;
   }
 
   result.IsValid = false;

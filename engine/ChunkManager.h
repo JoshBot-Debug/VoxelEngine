@@ -664,19 +664,15 @@ inline SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, con
 }
 
 inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
-  float           t    = 1.0f;
-  float           EPS  = 0.0001f;
+  float           t    = 0.0f;
+  float           EPS  = 1.05f;
   constexpr float SIZE = SVO_SIZE;
   glm::vec4       coordinate {0.0f};
 
   auto step = [&](auto&& self, float& t, glm::vec4& coordinate) {
     glm::vec3 P = origin + direction * t;
 
-    /// TODO: Bad solution for now adding EPS like this.
-    /// multiplying it by direction did not work so left this
-    /// Sometimes I get values like 64, which leaves me in the previous chunk
-    /// so I need to add an EPS to make it 64.1 basically
-    SparseOctree::Hit chunk = m_SCO->Raymarch((P / SIZE) + EPS, direction);
+    SparseOctree::Hit chunk = m_SCO->Raymarch(P / SIZE, direction);
 
     coordinate = chunk.Position;
 
@@ -684,15 +680,17 @@ inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const g
       return SparseOctree::Hit();
 
     // Chunk hit distance relative to current origin
-    float chunkT = chunk.TMin * SIZE;
+    // 0.0001f is to nudge the ray forward a bit so we don't get stuck outside the chunk
+    // chunkT moves us into the first chunk we find, we should no get stuck at 64.0f, EPS moves us to 63.0f
+    float chunkT = (chunk.TMin * SIZE) + EPS;
 
     // Ray position inside chunk
-    glm::vec3 chunkOrigin = glm::mod(P + direction * (chunkT + EPS), SIZE);
+    glm::vec3 chunkOrigin = glm::mod(P + direction * chunkT, SIZE);
 
     SparseOctree::Hit hit = m_ChunkAllocations[chunk.Id - 1].SVO()->Raymarch(chunkOrigin, direction);
 
     if (hit.Id) {
-      hit.TMin += t;
+      hit.TMin += chunkT + t;
       return hit;
     }
 
@@ -700,6 +698,8 @@ inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const g
     float chunkDist = TNextBoundary(chunkOrigin, direction);
 
     // Continue past this chunk
+    // EPS is to nudge the ray 1 block passed where ever it hits, so we don't get stuck on a boundary inside the same chunk.
+    // It moves us to the next chunk (that's the purpose of TNextBoundary but it returns the exact value)
     t += chunkT + chunkDist + EPS;
 
     return self(self, t, coordinate);

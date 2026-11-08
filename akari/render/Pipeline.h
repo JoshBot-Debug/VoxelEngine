@@ -47,6 +47,7 @@ public:
     float                                            depthBiasSlopeFactor {0.0f};
     VkCullModeFlags                                  cullMode {VK_CULL_MODE_BACK_BIT};
     std::vector<VkPushConstantRange>                 pushConstantRanges;
+    float                                            lineWidth {1.0f};
   };
 
   struct ComputePipelineInfo {

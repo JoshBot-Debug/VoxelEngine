@@ -167,18 +167,18 @@ PerspectiveCamera::GetPreviousInverseViewProjectionMatrix() const {
 };
 
 const glm::vec3 PerspectiveCamera::GetRayDirection(int pixelX, int pixelY) {
-  // 1. Convert pixel to Normalized Device Coordinates [-1, 1]
   float ndcX = (2.0f * pixelX) / ViewportWidth - 1.0f;
   float ndcY = (2.0f * pixelY) / ViewportHeight - 1.0f;
 
-  // 2. Clip space position
-  glm::vec4 clipCoords(ndcX, ndcY, -1.0f, 1.0f); // -1 for near plane
+  glm::vec4 clip(ndcX, ndcY, 0.0f, 1.0f);
 
-  // 3. View direction
-  glm::vec4 viewDirection = m_InverseProjection * clipCoords;
+  glm::vec4 viewPosition = m_InverseProjection * clip;
 
-  // 4. World direction
-  return glm::mat3(m_InverseView) * glm::vec3(viewDirection);
+  viewPosition /= viewPosition.w;
+
+  glm::vec3 worldDirection = glm::mat3(m_InverseView) * glm::vec3(viewPosition);
+
+  return glm::normalize(worldDirection);
 }
 
 bool PerspectiveCamera::IsDirty() { return m_Dirty; }
