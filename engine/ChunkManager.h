@@ -330,13 +330,6 @@ public:
    * @param direction The camera's direction
    * @return The voxel that was hit
    */
-  SparseOctree::Hit DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction);
-
-  /**
-   * @param origin The camera's origin
-   * @param direction The camera's direction
-   * @return The voxel that was hit
-   */
   SparseOctree::Hit Raymarch(const glm::vec3& origin, const glm::vec3& direction);
 
   /**
@@ -629,44 +622,12 @@ ChunkManager::Filter(const glm::u8vec3& coordinate, SparseOctree::Reader& sessio
   m_ChunkAllocations[chunkId].SVO()->Filter(session, out, filter);
 }
 
-inline SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, const glm::vec3& direction) {
-
-  glm::vec3 SIZE = glm::vec3(SVO_SIZE);
-
-  auto check = [&chunks = m_SCO, &origin, &direction, &SIZE, &chunkAllocator = m_ChunkAllocations](auto&& self, const glm::vec3& localOrigin, const glm::vec3& coordinate, float tMin) {
-    auto chunk = chunks->DeepRaymarch(coordinate, direction);
-
-    if (!chunk.Id)
-      return SparseOctree::Hit();
-
-    auto hit = chunkAllocator[chunk.Id - 1].SVO()->DeepRaymarch(localOrigin, direction);
-    if (hit.Id) {
-      hit.Position.x += SIZE.x * coordinate.x;
-      hit.Position.y += SIZE.y * coordinate.y;
-      hit.Position.z += SIZE.z * coordinate.z;
-      return hit;
-    }
-
-    float tStep   = TNextBoundary(localOrigin, direction);
-    float tGlobal = tMin + tStep + 0.001f;
-
-    glm::vec3 globalPosition = origin + direction * tGlobal;
-    glm::vec3 nCoordinate    = WorldToChunkCoordinateFloat(globalPosition.x, globalPosition.y, globalPosition.z);
-    glm::vec3 nLocalOrigin   = glm::mod(globalPosition, SIZE);
-
-    return self(self, nLocalOrigin, nCoordinate, tGlobal);
-  };
-
-  glm::vec3 coordinate  = WorldToChunkCoordinateFloat(origin.x, origin.y, origin.z);
-  glm::vec3 localOrigin = glm::mod(origin, SIZE);
-
-  return check(check, localOrigin, coordinate, 0.0f);
-}
-
 inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
   float           t    = 0.0f;
   float           EPS  = 0.001f;
   constexpr float SIZE = SVO_SIZE;
+
+  auto test = m_ChunkAllocations[1].SVO()->Raymarch({63.99f,28.1f,37.1f},{-0.99f,-0.05f,0.1f});
 
   auto step = [&](auto&& self, float& t) {
     glm::vec3 P = origin + direction * t;
@@ -679,7 +640,10 @@ inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const g
     // Chunk hit distance relative to current origin
     // 0.001f is to nudge the ray forward a bit so we don't get stuck outside the chunk
     // chunkT moves us into the first chunk we find, we should no get stuck at 64.0f, EPS moves us to 63.0f
-    float chunkT = (chunk.TMin * SIZE) + EPS;
+    ///
+    /// If you notice the select voxel is wrong, try this
+    // float chunkT = (chunk.TMin * SIZE) + EPS;
+    float chunkT = chunk.TMin * SIZE;
 
     // Ray position inside chunk
     glm::vec3 chunkOrigin = glm::mod(P + direction * chunkT, SIZE);

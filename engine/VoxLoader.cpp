@@ -139,6 +139,7 @@ bool VoxLoader::Load(const std::string& path) {
 
   // Create palette materials
   std::array<uint32_t, 256> materialIDs {};
+  std::unordered_map<uint32_t, std::shared_ptr<Material>> materialCache;
 
   for (uint32_t i = 0; i < 256; ++i) {
     uint8_t r = paletteRGBA[i * 4 + 0];

@@ -90,15 +90,15 @@ void main() {
   vec3 F0 = mix(vec3(.04), material.Albedo.rgb, metallic);
   vec3 F  = fresnelSchlick(max(dot(N, V), 0.), F0);
 
-  // if (metallic > .01 || roughness < .7) {
-  //   vec3 R   = reflect(-V, N);
-  //   Hit  hit = raymarch(P + N * EPS, R, FMAX);
-  //   if (hit.IsValid) {
-  //     Material mat = getMaterial(hit.Id);
-  //     reflected    = mat.Emissive.a > 0. ? mat.Emissive.rgb * mat.Emissive.a : mat.Albedo.rgb;
-  //   } else
-  //     reflected = texture(skyboxTexture, R).rgb;
-  // }
+  if (metallic > .01 || roughness < .7) {
+    vec3 R   = reflect(-V, N);
+    Hit  hit = raymarch(P + N * EPS, R, FMAX);
+    if (hit.IsValid) {
+      Material mat = getMaterial(hit.Id);
+      reflected    = mat.Emissive.a > 0. ? mat.Emissive.rgb * mat.Emissive.a : mat.Albedo.rgb;
+    } else
+      reflected = texture(skyboxTexture, R).rgb;
+  }
 
   float specularWeight = 1. - roughness;
 

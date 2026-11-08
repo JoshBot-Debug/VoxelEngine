@@ -78,15 +78,10 @@ World::World() {
   // config.include.sphere    = false;
   GenerateCornellBox(config);
 
-  // auto light = m_Palette.Create(Palette::Item {
-  //     .Name = "Light",
-  //     .Mat  = std::make_shared<Material>(Material {.Albedo = glm::vec4(1.0f), .Emissive = glm::vec4(1.0f, 1.0f, 1.0f, 3.0f)}),
-  // });
-
   // VoxLoader loader;
   // loader.SetPalette(&m_Palette);
   // loader.SetChunkManager(m_ChunkManager);
-  // loader.Load("assets/castle.vox");
+  // loader.Load("assets/Fall_Tree.vox");
 
   // m_ChunkManager->Set({110, 110, 110}, light);
 

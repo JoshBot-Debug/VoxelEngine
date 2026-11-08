@@ -549,6 +549,26 @@ private:
       } else if (origin[i] < min[i] || origin[i] > max[i])
         return false;
 
+    /// If no normal was found, the origin is inside the voxel
+    /// Some edge cases like when a voxel is against a boundary
+    /// we add an epsillon to move the ray into the new chunk.
+    /// This causes a situation where the ray has passed the face and is now inside,
+    /// In this case we get an intersection without a normal but the normal was expected to be the face we are nearest to
+    /// Example, x is 63.99 instead of 64 so no normal found because 63.99 is in the voxel.
+    /// This part below just sets the normal to the nearest face
+    if (outNormal == glm::vec3(0.0f)) {
+      glm::vec3 distances = glm::min(origin - min, max - origin);
+
+      int axis = 0;
+      if (distances.y < distances.x)
+        axis = 1;
+      if (distances.z < distances[axis])
+        axis = 2;
+
+      outNormal[axis] =
+          origin[axis] - min[axis] < max[axis] - origin[axis] ? -1.0f : 1.0f;
+    }
+
     return true;
   };
 
@@ -661,7 +681,7 @@ private:
 
       glm::vec3 childMin = nodeMin + offset * half;
 
-      Hit hit = DeepRaymarch(child, origin, direction, childMin, half, 0);
+      Hit hit = DeepRaymarch(child, origin, direction, childMin, half, id);
 
       if (hit.Id)
         return hit;

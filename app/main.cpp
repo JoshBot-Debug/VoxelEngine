@@ -42,9 +42,13 @@ public:
   bool ViewportLock = true;
 
   virtual void OnAttach() override {
+    // m_Camera.SetProjection(45.0f, 0.01f, 2048.0f);
+    // m_Camera.SetPosition(32, 32, 144);
+    // m_Camera.SetRotation(0.0f, 0.0f, 0.0f);
+
     m_Camera.SetProjection(45.0f, 0.01f, 2048.0f);
-    m_Camera.SetPosition(32, 32, 144);
-    m_Camera.SetRotation(0.0f, 0.0f, 0.0f);
+    m_Camera.SetPosition(115, 32, 32);
+    m_Camera.SetRotation(0.0f, -90.0f, 0.0f);
     m_Controller.SetMovementSpeed(150.0f);
 
     m_UI.SetWorld(&m_World);
