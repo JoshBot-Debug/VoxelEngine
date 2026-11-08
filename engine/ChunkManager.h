@@ -665,32 +665,30 @@ inline SparseOctree::Hit ChunkManager::DeepRaymarch(const glm::vec3& origin, con
 
 inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
   float           t    = 0.0f;
-  float           EPS  = 1.05f;
+  float           EPS  = 0.001f;
   constexpr float SIZE = SVO_SIZE;
-  glm::vec4       coordinate {0.0f};
 
-  auto step = [&](auto&& self, float& t, glm::vec4& coordinate) {
+  auto step = [&](auto&& self, float& t) {
     glm::vec3 P = origin + direction * t;
 
-    SparseOctree::Hit chunk = m_SCO->Raymarch(P / SIZE, direction);
-
-    coordinate = chunk.Position;
+    SparseOctree::Hit chunk = m_SCO->DeepRaymarch(P / SIZE, direction);
 
     if (!chunk.Id)
       return SparseOctree::Hit();
 
     // Chunk hit distance relative to current origin
-    // 0.0001f is to nudge the ray forward a bit so we don't get stuck outside the chunk
+    // 0.001f is to nudge the ray forward a bit so we don't get stuck outside the chunk
     // chunkT moves us into the first chunk we find, we should no get stuck at 64.0f, EPS moves us to 63.0f
     float chunkT = (chunk.TMin * SIZE) + EPS;
 
     // Ray position inside chunk
     glm::vec3 chunkOrigin = glm::mod(P + direction * chunkT, SIZE);
 
-    SparseOctree::Hit hit = m_ChunkAllocations[chunk.Id - 1].SVO()->Raymarch(chunkOrigin, direction);
+    SparseOctree::Hit hit = m_ChunkAllocations[chunk.Id - 1].SVO()->DeepRaymarch(chunkOrigin, direction);
 
     if (hit.Id) {
       hit.TMin += chunkT + t;
+      hit.Position += chunk.Position * SIZE;
       return hit;
     }
 
@@ -702,14 +700,10 @@ inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const g
     // It moves us to the next chunk (that's the purpose of TNextBoundary but it returns the exact value)
     t += chunkT + chunkDist + EPS;
 
-    return self(self, t, coordinate);
+    return self(self, t);
   };
 
-  SparseOctree::Hit hit = step(step, t, coordinate);
-
-  hit.Position += (coordinate * SIZE);
-
-  return hit;
+  return step(step, t);
 }
 
 inline void ChunkManager::FlushVertices(const std::vector<uint32_t>& ids) {

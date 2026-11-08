@@ -213,7 +213,7 @@ Hit raymarch(vec3 origin, vec3 direction, float dist) {
   result.TMin    = dist;
 
   float t   = 0.0;
-  float EPS = .0001;
+  float EPS = .001;
   const float SIZE = 64.;
 
   int MAX_CHUNK_ITERATIONS = 8;
@@ -233,7 +233,7 @@ Hit raymarch(vec3 origin, vec3 direction, float dist) {
       break;
 
     // Chunk hit distance relative to current origin
-    float chunkT = chunk.TMin * SIZE;
+    float chunkT = (chunk.TMin * SIZE) + EPS;
 
     // Ray position inside chunk
     vec3 chunkOrigin = mod(P + direction * chunkT, SIZE);

@@ -64,11 +64,11 @@ World::World() {
 
   CornellBoxConfig config;
   config.width            = 128;
-  config.height           = 64;
-  config.depth            = 64;
-  config.light.position.x = 16;
-  config.light.position.y = 16;
-  config.light.position.z = 16;
+  config.height           = 128;
+  config.depth            = 128;
+  config.light.position.x = 64;
+  config.light.position.y = 64;
+  config.light.position.z = 64;
   // config.include.ceiling   = false;
   // config.include.leftWall  = false;
   // config.include.rightWall = false;
