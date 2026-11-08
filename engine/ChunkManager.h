@@ -627,8 +627,6 @@ inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const g
   float           EPS  = 0.001f;
   constexpr float SIZE = SVO_SIZE;
 
-  auto test = m_ChunkAllocations[1].SVO()->Raymarch({63.99f,28.1f,37.1f},{-0.99f,-0.05f,0.1f});
-
   auto step = [&](auto&& self, float& t) {
     glm::vec3 P = origin + direction * t;
 
