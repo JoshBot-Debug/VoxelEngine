@@ -638,10 +638,7 @@ inline SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const g
     // Chunk hit distance relative to current origin
     // 0.001f is to nudge the ray forward a bit so we don't get stuck outside the chunk
     // chunkT moves us into the first chunk we find, we should no get stuck at 64.0f, EPS moves us to 63.0f
-    ///
-    /// If you notice the select voxel is wrong, try this
-    // float chunkT = (chunk.TMin * SIZE) + EPS;
-    float chunkT = chunk.TMin * SIZE;
+    float chunkT = (chunk.TMin * SIZE) + EPS;
 
     // Ray position inside chunk
     glm::vec3 chunkOrigin = glm::mod(P + direction * chunkT, SIZE);
