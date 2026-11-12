@@ -7,6 +7,8 @@
 #include <glm/glm.hpp>
 #include <vector>
 
+#include <iostream>
+
 #include "thread/RCU.h"
 
 template <typename N, typename F>
@@ -324,6 +326,9 @@ private:
    * not found or filtered out.
    */
   Node* Get(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size) {
+    if (node->Id)
+      return node;
+      
     int half = size >> 1;
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
@@ -809,7 +814,7 @@ public:
    * to know if it's a border voxel. i.e, if it's the voxel that's in contact with air.
    * i.e., possibly visible.
    */
-  uint64_t (&GetAxisX(Reader& session, uint32_t id)) [SIZE * SIZE] {
+  uint64_t (&GetAxisX(Reader& session, uint32_t id = 0)) [SIZE * SIZE] {
     static thread_local uint64_t masks[SIZE * SIZE];
     std::memset(masks, 0, sizeof(masks));
 
@@ -824,7 +829,7 @@ public:
 
           match = Get(session.Root, x, y, z, SIZE);
 
-          if (match && match->Id == id) {
+          if (id == 0 || (match && match->Id == id)) {
             const unsigned int rowIndex = x + (SIZE * (y + (SIZE * z)));
             masks[rowIndex >> DIV] |= (1ULL << (rowIndex & (SIZE - 1)));
           }
@@ -834,7 +839,7 @@ public:
     return masks;
   }
 
-  uint64_t (&GetAxisY(Reader& session, uint32_t id)) [SIZE * SIZE] {
+  uint64_t (&GetAxisY(Reader& session, uint32_t id = 0)) [SIZE * SIZE] {
     static thread_local uint64_t masks[SIZE * SIZE];
     std::memset(masks, 0, sizeof(masks));
 
@@ -849,7 +854,7 @@ public:
 
           match = Get(session.Root, x, y, z, SIZE);
 
-          if (match && match->Id == id) {
+          if (id == 0 || (match && match->Id == id)) {
             const unsigned int columnIndex = y + (SIZE * (x + (SIZE * z)));
             masks[columnIndex >> DIV] |= (1ULL << (columnIndex & (SIZE - 1)));
           }
@@ -859,7 +864,7 @@ public:
     return masks;
   }
 
-  uint64_t (&GetAxisZ(Reader& session, uint32_t id)) [SIZE * SIZE] {
+  uint64_t (&GetAxisZ(Reader& session, uint32_t id = 0)) [SIZE * SIZE] {
     static thread_local uint64_t masks[SIZE * SIZE];
     std::memset(masks, 0, sizeof(masks));
 
@@ -874,7 +879,7 @@ public:
 
           match = Get(session.Root, x, y, z, SIZE);
 
-          if (match && match->Id == id) {
+          if (id == 0 || (match && match->Id == id)) {
             const unsigned int layerIndex = z + (SIZE * (y + (SIZE * x)));
             masks[layerIndex >> DIV] |= (1ULL << (layerIndex & (SIZE - 1)));
           }

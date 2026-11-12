@@ -34,18 +34,45 @@ layout(std430, set = 1, binding = 58) readonly buffer VoxelOctreeHeaders {
 }
 headers;
 
-const uint MAX_STACK = 64;
+const uint  MAX_STACK = 64;
+const float SIZE      = 64.0;
 
-float tNextBoundary(vec3 origin, vec3 direction) {
-  vec3 stepDir = sign(direction);
+bool intersect(vec3 ro, vec3 rd, vec3 boxMin, vec3 boxMax, out float tmin) {
+  tmin = -1e30;
+  float tmax = 1e30;
 
-  vec3 nextBoundary = mix(vec3(0.), vec3(64.), greaterThan(direction, vec3(0.)));
+  for (int i = 0; i < 3; i++) {
+    if (rd[i] == 0.0) {
+      if (ro[i] < boxMin[i] || ro[i] > boxMax[i])
+        return false;
 
-  vec3 tVals = (nextBoundary - origin) / direction;
+      continue;
+    }
 
-  tVals = mix(vec3(1e30), tVals, notEqual(direction, vec3(0.)));
+    float invD = 1.0 / rd[i];
 
-  return min(tVals.x, min(tVals.y, tVals.z));
+    float t0 = (boxMin[i] - ro[i]) * invD;
+    float t1 = (boxMax[i] - ro[i]) * invD;
+
+    if (t0 > t1) {
+      float temp = t0;
+      t0         = t1;
+      t1         = temp;
+    }
+
+    tmin = max(tmin, t0);
+    tmax = min(tmax, t1);
+
+    if (tmin > tmax)
+      return false;
+  }
+
+  if (tmax < 0.0)
+    return false;
+
+  tmin = max(tmin, 0.0);
+
+  return true;
 }
 
 Hit raymarchChunks(vec3 origin, vec3 direction, float dist) {
@@ -96,7 +123,7 @@ Hit raymarchChunks(vec3 origin, vec3 direction, float dist) {
     order[6] = ((1 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (0 ^ dirZ);
     order[7] = ((1 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (1 ^ dirZ);
 
-#define VISIT_CHILD(i)                                                                                           \
+#define VISIT_CHILDC(i)                                                                                          \
   {                                                                                                              \
     uint childOctant = order[i];                                                                                 \
     uint childMask   = 1u << childOctant;                                                                        \
@@ -106,20 +133,20 @@ Hit raymarchChunks(vec3 origin, vec3 direction, float dist) {
       vec3  childMin  = entry.Min + offset * childSize;                                                          \
       vec3  childMax  = childMin + childSize;                                                                    \
       float tMin      = 0.;                                                                                      \
-      if (intersectAABB(origin, direction, childMin, childMax, tMin) && tMin <= dist) {                          \
+      if (intersect(origin, direction, childMin, childMax, tMin) && tMin <= dist) {                              \
         stack[stackPtr++] = StackEntry(tMin, voxel.ChildIndex + bitCount(children & (childMask - 1)), childMin); \
       }                                                                                                          \
     }                                                                                                            \
   }
 
-    VISIT_CHILD(0);
-    VISIT_CHILD(1);
-    VISIT_CHILD(2);
-    VISIT_CHILD(3);
-    VISIT_CHILD(4);
-    VISIT_CHILD(5);
-    VISIT_CHILD(6);
-    VISIT_CHILD(7);
+    VISIT_CHILDC(0);
+    VISIT_CHILDC(1);
+    VISIT_CHILDC(2);
+    VISIT_CHILDC(3);
+    VISIT_CHILDC(4);
+    VISIT_CHILDC(5);
+    VISIT_CHILDC(6);
+    VISIT_CHILDC(7);
   }
 
   return payload;
@@ -149,8 +176,7 @@ Hit raymarchVoxels(uint offset, vec3 origin, vec3 direction, float dist) {
     uint size = (1 << depth);
 
     if (children == 0u) {
-      uint id = 0xFFFFu & (voxel.PackedIDC >> 16);
-
+      uint id           = 0xFFFFu & (voxel.PackedIDC >> 16);
       payload.IsValid   = true;
       payload.TMin      = entry.TMin;
       payload.NodeMin   = entry.Min;
@@ -173,7 +199,7 @@ Hit raymarchVoxels(uint offset, vec3 origin, vec3 direction, float dist) {
     order[6] = ((1 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (0 ^ dirZ);
     order[7] = ((1 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (1 ^ dirZ);
 
-#define VISIT_CHILD(i)                                                                                           \
+#define VISIT_CHILDV(i)                                                                                          \
   {                                                                                                              \
     uint childOctant = order[i];                                                                                 \
     uint childMask   = 1u << childOctant;                                                                        \
@@ -183,20 +209,20 @@ Hit raymarchVoxels(uint offset, vec3 origin, vec3 direction, float dist) {
       vec3  childMin  = entry.Min + offset * childSize;                                                          \
       vec3  childMax  = childMin + childSize;                                                                    \
       float tMin      = 0.;                                                                                      \
-      if (intersectAABB(origin, direction, childMin, childMax, tMin) && tMin <= dist) {                          \
+      if (intersect(origin, direction, childMin, childMax, tMin) && tMin <= dist) {                              \
         stack[stackPtr++] = StackEntry(tMin, voxel.ChildIndex + bitCount(children & (childMask - 1)), childMin); \
       }                                                                                                          \
     }                                                                                                            \
   }
 
-    VISIT_CHILD(0);
-    VISIT_CHILD(1);
-    VISIT_CHILD(2);
-    VISIT_CHILD(3);
-    VISIT_CHILD(4);
-    VISIT_CHILD(5);
-    VISIT_CHILD(6);
-    VISIT_CHILD(7);
+    VISIT_CHILDV(0);
+    VISIT_CHILDV(1);
+    VISIT_CHILDV(2);
+    VISIT_CHILDV(3);
+    VISIT_CHILDV(4);
+    VISIT_CHILDV(5);
+    VISIT_CHILDV(6);
+    VISIT_CHILDV(7);
   }
 
   StackEntry entry  = stack[stackPtr];
@@ -207,54 +233,84 @@ Hit raymarchVoxels(uint offset, vec3 origin, vec3 direction, float dist) {
   return payload;
 }
 
-Hit raymarch(vec3 origin, vec3 direction, float dist) {
-  Hit result;
-  result.IsValid = false;
-  result.TMin    = dist;
+Hit raymarchWorld(vec3 origin, vec3 direction, float dist) {
+  StackEntry stack[MAX_STACK];
 
-  float t   = 0.0;
-  float EPS = .001;
-  const float SIZE = 64.;
+  uint stackPtr     = 0;
+  stack[stackPtr++] = StackEntry(0., 0, vec3(0.));
 
-  int MAX_CHUNK_ITERATIONS = 8;
+  uint order[8];
 
-  while (t < dist) {
-    MAX_CHUNK_ITERATIONS--;
+  while (stackPtr > 0) {
+    StackEntry entry = stack[--stackPtr];
 
-    if (MAX_CHUNK_ITERATIONS == 0)
-      break;
+    SVONode voxel = chunks.data[entry.Index];
 
-    vec3 P = origin + direction * t;
+    uint depth = 0xFFu & (voxel.PackedIDC >> 8);
 
-    // Find next chunk along ray
-    Hit chunk = raymarchChunks(P / SIZE, direction, dist - t);
+    uint children = 0xFFu & voxel.PackedIDC;
 
-    if (!chunk.IsValid)
-      break;
+    uint size = (1 << depth);
 
-    // Chunk hit distance relative to current origin
-    float chunkT = (chunk.TMin * SIZE) + EPS;
+    if (children == 0u) {
+      uint  id            = 0xFFFFu & (voxel.PackedIDC >> 16);
+      uint  offset        = headers.data[id - 1].Offset;
+      float localDistance = (dist - entry.TMin) * SIZE;
+      vec3  localOrigin   = (origin + direction * entry.TMin - entry.Min) * SIZE;
 
-    // Ray position inside chunk
-    vec3 chunkOrigin = mod(P + direction * chunkT, SIZE);
+      Hit result = raymarchVoxels(offset, localOrigin, direction, localDistance);
 
-    // Distance available inside this chunk
-    float chunkDist = tNextBoundary(chunkOrigin, direction);
-
-    // Traverse voxels within chunk
-    result = raymarchVoxels(headers.data[chunk.Id - 1].Offset, chunkOrigin, direction, chunkDist);
-
-    if (result.IsValid) {
-      result.TMin += t;
-      return result;
+      if (result.IsValid) {
+        result.TMin = (entry.TMin * SIZE) + result.TMin;
+        return result;
+      }
     }
 
-    // Continue past this chunk
-    t += chunkT + chunkDist + EPS;
+    uint dirX = direction.x >= 0. ? 1u : 0u;
+    uint dirY = direction.y >= 0. ? 1u : 0u;
+    uint dirZ = direction.z >= 0. ? 1u : 0u;
+
+    order[0] = ((0 ^ dirX) << 2) | ((0 ^ dirY) << 1) | (0 ^ dirZ);
+    order[1] = ((0 ^ dirX) << 2) | ((0 ^ dirY) << 1) | (1 ^ dirZ);
+    order[2] = ((0 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (0 ^ dirZ);
+    order[3] = ((0 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (1 ^ dirZ);
+    order[4] = ((1 ^ dirX) << 2) | ((0 ^ dirY) << 1) | (0 ^ dirZ);
+    order[5] = ((1 ^ dirX) << 2) | ((0 ^ dirY) << 1) | (1 ^ dirZ);
+    order[6] = ((1 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (0 ^ dirZ);
+    order[7] = ((1 ^ dirX) << 2) | ((1 ^ dirY) << 1) | (1 ^ dirZ);
+
+#define VISIT_CHILDW(i)                                                                                          \
+  {                                                                                                              \
+    uint childOctant = order[i];                                                                                 \
+    uint childMask   = 1u << childOctant;                                                                        \
+    if ((children & childMask) != 0u) {                                                                          \
+      vec3  offset    = vec3((childOctant >> 2) & 1, (childOctant >> 1) & 1, (childOctant >> 0) & 1);            \
+      float childSize = float(size / 2);                                                                         \
+      vec3  childMin  = entry.Min + offset * childSize;                                                          \
+      vec3  childMax  = childMin + childSize;                                                                    \
+      float tMin      = 0.;                                                                                      \
+      if (intersect(origin, direction, childMin, childMax, tMin) && tMin <= dist) {                              \
+        stack[stackPtr++] = StackEntry(tMin, voxel.ChildIndex + bitCount(children & (childMask - 1)), childMin); \
+      }                                                                                                          \
+    }                                                                                                            \
   }
 
-  result.IsValid = false;
-  result.TMin    = dist;
+    VISIT_CHILDW(0);
+    VISIT_CHILDW(1);
+    VISIT_CHILDW(2);
+    VISIT_CHILDW(3);
+    VISIT_CHILDW(4);
+    VISIT_CHILDW(5);
+    VISIT_CHILDW(6);
+    VISIT_CHILDW(7);
+  }
 
-  return result;
+  Hit payload;
+  payload.IsValid = false;
+  payload.TMin    = 0.;
+  return payload;
+}
+
+Hit raymarch(vec3 origin, vec3 direction, float dist) {
+  return raymarchWorld(origin / SIZE, direction, dist / SIZE);
 }

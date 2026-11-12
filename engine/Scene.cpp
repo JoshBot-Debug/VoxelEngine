@@ -7,6 +7,7 @@
 
 #include "stb/stb_image.h"
 #include <vulkan/vulkan_core.h>
+#include "Signal.h"
 
 using namespace akari::render;
 using namespace vxen;
@@ -20,7 +21,6 @@ Scene::Scene() {
       m_DirectLight,
   };
 
-  m_LightBuffer.CreateBuffer({.DebugName = "m_LightBuffer"});
   m_MaterialBuffer.CreateBuffer({.DebugName = "m_MaterialBuffer"});
   m_MaterialLUTBuffer.CreateBuffer({.DebugName = "m_MaterialLUTBuffer"});
   m_IndirectBuffer.CreateBuffer({
@@ -54,7 +54,7 @@ void Scene::Initialize(const InitializeInfo& init) {
       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, framesInFlight},
       {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 2},
       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 5},
-      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 8},
+      {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 7},
   };
 
   VkDescriptorPoolCreateInfo poolInfo {
@@ -209,13 +209,6 @@ void Scene::Initialize(const InitializeInfo& init) {
           // m_MaterialLUTBuffer
           VkDescriptorSetLayoutBinding {
               .binding         = vxen::Binding::S_MATERIALS_LUT,
-              .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .descriptorCount = 1,
-              .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
-          },
-          // m_LightBuffer
-          VkDescriptorSetLayoutBinding {
-              .binding         = vxen::Binding::S_LIGHTS,
               .descriptorType  = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
               .descriptorCount = 1,
               .stageFlags      = VK_SHADER_STAGE_COMPUTE_BIT,
@@ -442,26 +435,25 @@ void Scene::Render() {
 
     m_World->FlushPreprocessor(commandBuffer);
 
-    auto buffers = m_World->GetChunkBuffers();
+    auto buffers = m_World->GetBuffers();
 
-    m_SVOBuffer = buffers.SVOBuffer;
-    bufferBarriers.push_back(buffers.SVOBufferBarrier);
+    m_SVOBuffer = buffers.SVO;
+    bufferBarriers.push_back(buffers.SVOBarrier);
 
-    m_SVOHeaderBuffer = buffers.SVOHeaderBuffer;
-    bufferBarriers.push_back(buffers.SVOHeaderBufferBarrier);
+    m_SVOHeaderBuffer = buffers.SVOHeader;
+    bufferBarriers.push_back(buffers.SVOHeaderBarrier);
 
-    m_VertexBuffer = buffers.VertexBuffer;
-    bufferBarriers.push_back(buffers.VertexBufferBarrier);
+    m_VertexBuffer = buffers.Vertex;
+    bufferBarriers.push_back(buffers.VertexBarrier);
 
-    m_ChunkSVOBuffer = buffers.ChunkSVOBuffer;
-    bufferBarriers.push_back(buffers.ChunkSVOBufferBarrier);
+    m_ChunkSVOBuffer = buffers.ChunkSVO;
+    bufferBarriers.push_back(buffers.ChunkSVOBarrier);
 
-    m_ChunkBuffer = buffers.ChunkBuffer;
-    bufferBarriers.push_back(buffers.ChunkBufferBarrier);
+    m_ChunkBuffer = buffers.Chunk;
+    bufferBarriers.push_back(buffers.ChunkBarrier);
 
     const std::vector<Material>&                 materials   = m_World->GetMaterials();
     const std::vector<uint32_t>&                 materialLUT = m_World->GetMaterialsLUT();
-    const std::vector<SparseOctree::FilterNode>& lights      = m_World->GetLights();
 
     if (bool resized = m_MaterialBuffer.Upload(commandBuffer, materials).Resized || materials.size()) {
       bufferResized = bufferResized || resized;
@@ -471,11 +463,6 @@ void Scene::Render() {
     if (bool resized = m_MaterialLUTBuffer.Upload(commandBuffer, materialLUT).Resized || materialLUT.size()) {
       bufferResized = bufferResized || resized;
       bufferBarriers.emplace_back(m_MaterialLUTBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
-    }
-
-    if (bool resized = m_LightBuffer.Upload(commandBuffer, lights).Resized || lights.size()) {
-      bufferResized = bufferResized || resized;
-      bufferBarriers.emplace_back(m_LightBuffer.GetBarrier(VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_READ_BIT));
     }
 
     m_World->Clean();
@@ -931,18 +918,6 @@ void Scene::CreateDescriptorSets() {
               .buffer  = std::vector {
                   VkDescriptorBufferInfo {
                       .buffer = m_MaterialLUTBuffer.GetBuffer(),
-                      .offset = 0,
-                      .range  = VK_WHOLE_SIZE,
-                  },
-              },
-          },
-          // m_LightBuffer
-          Pipeline::DescriptorWriteInfo {
-              .type    = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-              .binding = vxen::Binding::S_LIGHTS,
-              .buffer  = std::vector {
-                  VkDescriptorBufferInfo {
-                      .buffer = m_LightBuffer.GetBuffer(),
                       .offset = 0,
                       .range  = VK_WHOLE_SIZE,
                   },

@@ -6,6 +6,7 @@
 #include <stop_token>
 #include <thread>
 #include <vector>
+#include <functional>
 
 namespace akari::thread {
 

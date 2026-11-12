@@ -173,8 +173,8 @@ bool VoxLoader::Load(const std::string& path) {
 
       m_ChunkManager->Set(
           voxel.x,
-          voxel.z,
           voxel.y,
+          voxel.z,
           materialID);
     }
   }

@@ -45,22 +45,49 @@ struct Ray {
 };
 
 bool intersectAABB(vec3 ro, vec3 rd, vec3 boxMin, vec3 boxMax, out float tmin) {
-  // To avoid division by zero, make sure x/y/z is not zero
-  rd          = mix(rd, vec3(1e-6), step(abs(rd), vec3(1e-8)));
-  vec3 invDir = 1. / rd;
-  vec3 t0     = (boxMin - ro) * invDir;
-  vec3 t1     = (boxMax - ro) * invDir;
+  // IEEE 754 handles 1.0 / 0.0 as +/- INF
+  vec3 invDir = 1.0 / rd;
 
+  vec3 t0 = (boxMin - ro) * invDir;
+  vec3 t1 = (boxMax - ro) * invDir;
+
+  // Handles negative ray directions properly
   vec3 tminVec = min(t0, t1);
   vec3 tmaxVec = max(t0, t1);
 
-  tmin       = max(max(tminVec.x, tminVec.y), tminVec.z);
+  // Find the largest entry distance and smallest exit distance
+  tmin = max(max(tminVec.x, tminVec.y), tminVec.z);
   float tmax = min(min(tmaxVec.x, tmaxVec.y), tmaxVec.z);
 
-  // Clamped to zero so we never get negative numbers
+  // Clamp tmin to 0.0 so we don't pick intersections behind the ray origin
   tmin = max(tmin, 0.0);
 
-  return tmax >= max(tmin, 0.);
+  // If tmax < tmin, the ray misses the box
+  return tmax >= tmin;
+}
+
+bool intersectAABBE(vec3 ro, vec3 rd, vec3 boxMin, vec3 boxMax, out float tmin) {
+  // IEEE 754 handles 1.0 / 0.0 as +/- INF
+  vec3 invDir = 1.0 / rd;
+
+  vec3 t0 = (boxMin - ro) * invDir;
+  vec3 t1 = (boxMax - ro) * invDir;
+
+  // Handles negative ray directions properly
+  vec3 tminVec = min(t0, t1);
+  vec3 tmaxVec = max(t0, t1);
+
+  // Find the largest entry distance and smallest exit distance
+  float tEnter = max(max(tminVec.x, tminVec.y), tminVec.z);
+  float tExit  = min(min(tmaxVec.x, tmaxVec.y), tmaxVec.z);
+
+  // Clamp tmin to 0.0 so we don't pick intersections behind the ray origin
+  if (tEnter < 0.0 || tExit < tEnter)
+    return false;
+
+  tmin = tEnter;
+
+  return true;
 }
 
 vec3 getVoxelNormal(vec3 rayOrigin, vec3 rayDirection, Hit payload) {

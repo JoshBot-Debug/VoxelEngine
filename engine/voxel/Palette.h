@@ -12,8 +12,8 @@ class Palette {
 public:
   struct Item {
     uint32_t                  Id {0};
-    std::string               Name;
-    std::shared_ptr<Material> Mat;
+    std::string               Name {""};
+    std::shared_ptr<Material> Mat {nullptr};
   };
 
 private:

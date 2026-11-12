@@ -15,7 +15,7 @@ public:
 
 private:
   static inline uint64_t ClearLowestBits(uint64_t bits, int n) {
-    return (n == 64) ? 0 : (bits & (~0ULL << n));
+    return (n == CHUNK_SIZE) ? 0 : (bits & (~0ULL << n));
   }
 
   static inline void SetWidthHeight(uint8_t a, uint8_t b, uint64_t bits, uint64_t (&widthMasks)[MASK_LENGTH], uint64_t (&heightMasks)[MASK_LENGTH]);

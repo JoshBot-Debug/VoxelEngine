@@ -1,7 +1,9 @@
 #include "World.h"
 #include <imgui.h>
 
+#include "Signal.h"
 #include "UI.h"
+#include "VL32Loader.h"
 #include "VoxLoader.h"
 
 using namespace akari::thread;
@@ -69,23 +71,33 @@ World::World() {
   config.light.position.x = 64;
   config.light.position.y = 64;
   config.light.position.z = 64;
-  // config.include.ceiling   = false;
-  // config.include.leftWall  = false;
-  // config.include.rightWall = false;
-  // config.include.frontWall = false;
-  // config.include.backWall  = false;
-  // config.include.cube      = false;
-  // config.include.sphere    = false;
   GenerateCornellBox(config);
 
-  // VoxLoader loader;
-  // loader.SetPalette(&m_Palette);
-  // loader.SetChunkManager(m_ChunkManager);
-  // loader.Load("assets/Fall_Tree.vox");
+  // auto materialResolver = [&](const VL32Loader::RGBA& color) {
+  //   const uint32_t rgba = (uint32_t(color.R) << 24) | (uint32_t(color.G) << 16) | (uint32_t(color.B) << 8) | uint32_t(color.A);
+  //   return m_Palette.Create(Palette::Item {
+  //       .Name = "VL32_" + std::to_string(rgba),
+  //       .Mat  = std::make_shared<Material>(Material {
+  //           .Albedo = glm::vec4(color.R / 255.0f, color.G / 255.0f, color.B / 255.0f, color.A / 255.0f),
+  //       }),
+  //   });
+  // };
 
-  // m_ChunkManager->Set({110, 110, 110}, light);
+  // auto createVoxel = [&](uint32_t x, uint32_t y, uint32_t z, uint32_t id) {
+  //   m_ChunkManager->Set(x, y, z, id);
+  // };
+
+  // VL32Loader loader(3, materialResolver, createVoxel);
+
+  // auto result = loader.Load("assets/san-miguel-64.vl32");
+
+  // std::cout << "Voxels: " << result.VoxelCount << '\n';
+  // std::cout << "Materials: " << result.MaterialCount << '\n';
+  // std::cout << "Bounds: " << result.Size.x << " " << result.Size.y << " " << result.Size.z << '\n';
 
   // TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | PALETTE_FLUSH_UPDATE);
+
+  // GenerateCube();
 }
 
 World::~World() {
@@ -105,22 +117,9 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | PALETTE_FLUSH_UPDATE);
   }
 
-  if (ImGui::IsKeyPressed(ImGuiKey_T)) {
-    auto position = m_MouseHit->Position + m_MouseHit->Normal;
-    auto selected = m_Palette.GetSelectedMaterial();
-    auto id       = selected ? selected : m_MouseHit->Id;
-    m_ChunkManager->Set(position, id);
-    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
-  }
-
-  if (ImGui::IsKeyPressed(ImGuiKey_Y)) {
-    m_ChunkManager->Clear(m_MouseHit->Position);
-    TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
-  }
-
   if (isCtrlPressed && isActing) {
     if (ImGui::IsMouseDown(ImGuiMouseButton_Right)) {
-      m_ChunkManager->Clear(m_MouseHit->Position);
+      m_ChunkManager->Clear(m_MouseHit->Position.x, m_MouseHit->Position.y, m_MouseHit->Position.z);
       TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
     }
 
@@ -128,7 +127,7 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
       auto position = m_MouseHit->Position + m_MouseHit->Normal;
       auto selected = m_Palette.GetSelectedMaterial();
       auto id       = selected ? selected : m_MouseHit->Id;
-      m_ChunkManager->Set(position, id);
+      m_ChunkManager->Set(position.x, position.y, position.z, id);
       TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
     }
   }
@@ -147,25 +146,17 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
   }
 
   if (TSignal::Consume(0, CHUNK_MANAGER_FLUSH_UPDATE)) {
-    m_ChunkManager->Sync();
-
     std::vector<uint32_t> ids;
 
     for (auto& material : m_Palette.GetMaterials())
       ids.push_back(material.Id);
 
     m_ChunkManager->FlushVertices(ids);
-
-    {
-      m_ChunkManager->Filter(m_Lights, [this](const Node* node) {
-        auto material = m_Palette.GetMaterial(node->Id);
-        return material && material->Emissive.a > 0.0f;
-      });
-    }
+    TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
   }
 }
 
-ChunkBuffers World::GetChunkBuffers() {
+ChunkManager::Buffers World::GetBuffers() {
   return m_ChunkManager->GetBuffers();
 }
 
@@ -189,33 +180,32 @@ void World::FlushPreprocessor(VkCommandBuffer commandBuffer) {
 void World::Clean() {
   m_Materials.clear();
   m_MaterialsLUT.clear();
-  m_Lights.clear();
 }
 
 const void World::GenerateChunk(const uint32_t size, const glm::ivec3& wcc) {
-  auto gLush         = m_Palette.Find("Grass Lush");
-  auto lightMaterial = m_Palette.Find("Light");
+  // auto gLush         = m_Palette.Find("Grass Lush");
+  // auto lightMaterial = m_Palette.Find("Light");
 
-  auto lush  = m_Voxels.emplace_back(gLush->Id);
-  auto light = m_Voxels.emplace_back(lightMaterial->Id);
+  // auto lush  = gLush->Id;
+  // auto light = lightMaterial->Id;
 
-  {
-    auto session = m_ChunkManager->BeginWrite(wcc);
+  // {
+  //   auto session = m_ChunkManager->BeginWrite(wcc);
 
-    auto noise = m_HeightMap.Build(wcc.x, wcc.x + 1.0f, wcc.z, wcc.z + 1.0f);
+  //   auto noise = m_HeightMap.Build(wcc.x, wcc.x + 1.0f, wcc.z, wcc.z + 1.0f);
 
-    session.Root->Destroy();
+  //   session.Root->Destroy();
 
-    for (int z = 0; z < size; z++)
-      for (int x = 0; x < size; x++) {
-        float n      = noise.GetValue(x, z);
-        int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (size >> 1)));
-        for (int y = 0; y < height; y++)
-          m_ChunkManager->Set(wcc, session, x, y, z, lush);
-      }
+  //   for (int z = 0; z < size; z++)
+  //     for (int x = 0; x < size; x++) {
+  //       float n      = noise.GetValue(x, z);
+  //       int   height = static_cast<int>(std::round((std::clamp(n, -1.0f, 1.0f) + 1) * (size >> 1)));
+  //       for (int y = 0; y < height; y++)
+  //         m_ChunkManager->Set(wcc, session, x, y, z, lush);
+  //     }
 
-    m_ChunkManager->Set(wcc, session, size / 2, size - 4, size / 2, light);
-  }
+  //   m_ChunkManager->Set(wcc, session, size / 2, size - 4, size / 2, light);
+  // }
 }
 
 const void World::GenerateCornellBox(const CornellBoxConfig& config) {
@@ -226,12 +216,12 @@ const void World::GenerateCornellBox(const CornellBoxConfig& config) {
   auto sphereMaterial    = m_Palette.Find("Sphere");
   auto lightMaterial     = m_Palette.Find("Light");
 
-  auto leftWall  = m_Voxels.emplace_back(leftWallMaterial->Id);
-  auto rightWall = m_Voxels.emplace_back(rightWallMaterial->Id);
-  auto wall      = m_Voxels.emplace_back(wallMaterial->Id);
-  auto cube      = m_Voxels.emplace_back(cubeMaterial->Id);
-  auto sphere    = m_Voxels.emplace_back(sphereMaterial->Id);
-  auto light     = m_Voxels.emplace_back(lightMaterial->Id);
+  auto leftWall  = leftWallMaterial->Id;
+  auto rightWall = rightWallMaterial->Id;
+  auto wall      = wallMaterial->Id;
+  auto cube      = cubeMaterial->Id;
+  auto sphere    = sphereMaterial->Id;
+  auto light     = lightMaterial->Id;
 
   // Cache dimensions for cleaner loop syntax
   const uint32_t    w = config.width;
@@ -325,46 +315,19 @@ const void World::GenerateCornellBox(const CornellBoxConfig& config) {
   TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }
 
-const void World::GenerateSphere(const uint32_t size, const glm::ivec3& wcc) {
-  const auto light = m_Voxels.emplace_back(m_Palette.Find("Light")->Id);
-  const auto solid = m_Voxels.emplace_back(m_Palette.Find("Grass Lush")->Id);
+const void World::GenerateCube() {
+  auto light = m_Palette.Find("Light")->Id;
+  auto wall  = m_Palette.Find("Wall")->Id;
 
-  const int64_t radius = size / 2;
-  const int64_t r2     = radius * radius;
-
-  constexpr int    S      = WorldChunkManager::SVO_SIZE;
-  const glm::ivec3 origin = wcc * S;
-  const glm::ivec3 center = origin + S / 2;
-
-  auto session = m_ChunkManager->BeginWrite(wcc);
-
-  m_ChunkManager->Set({size, size, size}, session, 2, 2, 2, light);
-
-  for (int z = 0; z < size; z++)
-    for (int y = 0; y < size; y++)
-      for (int x = 0; x < size; x++) {
-        const glm::ivec3 worldPos = origin + glm::ivec3(x, y, z);
-        const glm::ivec3 d        = worldPos - center;
-
-        const int64_t dist2 =
-            int64_t(d.x) * d.x +
-            int64_t(d.y) * d.y +
-            int64_t(d.z) * d.z;
-
-        if (dist2 <= r2)
-          m_ChunkManager->Set(wcc, session, x, y, z, solid);
+  for (int z = 0; z < 64; z++) {
+    for (int y = 0; y < 64; y++) {
+      for (int x = 0; x < 128; x++) {
+        m_ChunkManager->Set(x, y, z, wall);
       }
+    }
+  }
 
-  TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
-}
-
-const void World::GenerateCube(const uint32_t size, const glm::ivec3& wcc) {
-  const auto light = m_Voxels.emplace_back(m_Palette.Find("Light")->Id);
-  const auto solid = m_Voxels.emplace_back(m_Palette.Find("Grass Lush")->Id);
-
-  m_ChunkManager->Set(wcc, 2, 2, 2, light);
-
-  m_ChunkManager->Set(wcc, size, size, size, solid);
+  m_ChunkManager->Set(64, 70, 70, light);
 
   TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE);
 }

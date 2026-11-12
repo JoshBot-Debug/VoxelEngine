@@ -21,7 +21,6 @@ enum Binding {
   S_SVO                  = 50,
   S_MATERIALS            = 51,
   S_MATERIALS_LUT        = 52,
-  S_LIGHTS               = 53,
   S_CHUNKS_SVO           = 54,
   S_CHUNKS               = 55,
   S_INDIRECT_DRAW_BUFFER = 56,

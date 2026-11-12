@@ -1,0 +1,110 @@
+#version 460
+
+#include "common.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 1, binding = 101) uniform sampler2D depthTexture;
+layout(set = 1, binding = 102) uniform sampler2D normalTexture;
+layout(set = 1, binding = 103) uniform usampler2D materialTexture;
+layout(set = 1, binding = 105, rgba16f) uniform image2D directLightTexture;
+layout(set = 1, binding = 114) uniform samplerCube skyboxTexture;
+
+layout(std430, set = 1, binding = 53) readonly buffer Lights {
+  uint       count;
+  uint       padding[3];
+  FilterNode data[];
+}
+lights;
+
+#include "camera.glsl"
+#include "material.glsl"
+#include "raymarch.glsl"
+
+void main() {
+  ivec2 pixel      = ivec2(gl_GlobalInvocationID.xy);
+  ivec2 resolution = ivec2(imageSize(directLightTexture));
+
+  if (pixel.x >= resolution.x || pixel.y >= resolution.y)
+    return;
+
+  float EPS   = .01;
+  vec2  uv    = (vec2(pixel) + .5) / resolution;
+  float depth = texture(depthTexture, uv).r;
+  vec3  P     = depthToWorldSpace(uv, depth);
+
+  if (depth <= .000001) {
+    vec3 rayWorld = normalize(P - camera.position);
+    vec3 sky      = texture(skyboxTexture, rayWorld).rgb;
+    imageStore(directLightTexture, pixel, vec4(sky, 1.));
+    return;
+  }
+
+  Hit hit = raymarch(camera.position, normalize(P - camera.position), length(P - camera.position));
+
+  Material material = getMaterial(hit.Id);
+
+  if (material.Emissive.a > 0.) {
+    imageStore(directLightTexture, pixel, vec4(material.Emissive.rgb * material.Emissive.a, 1.));
+    return;
+  }
+
+  // Normal in view space
+  vec3 NV = normalize(texture(normalTexture, uv).xyz * 2. - 1.);
+  // Normal in world space
+  vec3 N = normalize((camera.inverseView * vec4(NV, 0.)).xyz);
+  // Direction towards the camera from the hit position
+  vec3 V = normalize(camera.position - P);
+  // Light output
+  vec3 Lo = vec3(0.);
+
+  for (int i = 0; i < lights.count; ++i) {
+    FilterNode light = lights.data[i];
+
+    // Light position
+    vec3 Lp = light.Position + (float(1 << light.Depth) / 2.);
+    // Direction towards the light from the hit position
+    vec3 D = Lp - P;
+    // Normalized direction
+    vec3 L = normalize(D);
+    // Distance to light
+    float Ld = length(D);
+
+    Material lightMaterial = getMaterial(light.Id);
+
+    vec3 brdf = BRDF(N, V, L, material.Albedo.rgb, material.Metallic, material.Roughness);
+
+    Hit hit = raymarch(P + N * EPS, L, Ld);
+
+    float shadow = hit.Id != light.Id ? hit.TMin / Ld : 1.;
+
+    Lo += brdf * (lightMaterial.Emissive.rgb * lightMaterial.Emissive.a) * shadow;
+  }
+
+  vec3  reflected = vec3(0);
+  float metallic  = material.Metallic;
+  float roughness = max(material.Roughness, .07);
+
+  vec3 F0 = mix(vec3(.04), material.Albedo.rgb, metallic);
+  vec3 F  = fresnelSchlick(max(dot(N, V), 0.), F0);
+
+  if (metallic > .01 || roughness < .7) {
+    vec3 R   = reflect(-V, N);
+    Hit  hit = raymarch(P + N * EPS, R, FMAX);
+    if (hit.IsValid) {
+      Material mat = getMaterial(hit.Id);
+      reflected    = mat.Emissive.a > 0. ? mat.Emissive.rgb * mat.Emissive.a : mat.Albedo.rgb;
+    } else
+      reflected = texture(skyboxTexture, R).rgb;
+  }
+
+  float specularWeight = 1. - roughness;
+
+  Lo += reflected * F * specularWeight;
+
+  ivec3 VP        = ivec3(floor(P + 0.001));
+  float variation = randomSeedF(VP, material.Id) * 0.5 + 0.95;
+  Lo *= variation;
+
+  imageStore(directLightTexture, pixel, vec4(Lo, 1.));
+}

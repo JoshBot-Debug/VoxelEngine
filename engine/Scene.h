@@ -26,7 +26,6 @@ private:
 
   VkDescriptorPool m_DescriptorPool;
 
-  akari::render::Buffer m_LightBuffer {};
   akari::render::Buffer m_MaterialBuffer {};
   akari::render::Buffer m_MaterialLUTBuffer {};
 

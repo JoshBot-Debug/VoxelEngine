@@ -65,13 +65,11 @@ private:
 
   akari::camera::PerspectiveCamera* m_Camera {nullptr};
 
-  std::vector<uint32_t> m_Voxels {};
-  WorldChunkManager*    m_ChunkManager {nullptr};
-  vxen::UI*             m_UI {nullptr};
+  WorldChunkManager* m_ChunkManager {nullptr};
+  vxen::UI*          m_UI {nullptr};
 
   std::vector<Material>                 m_Materials {};
   std::vector<uint32_t>                 m_MaterialsLUT {};
-  std::vector<SparseOctree::FilterNode> m_Lights {};
   std::vector<Ray>                      m_Rays {};
 
   const SparseOctree::Hit* m_MouseHit {nullptr};
@@ -81,9 +79,7 @@ private:
 
   const void GenerateChunk(const uint32_t size, const glm::ivec3& coord);
 
-  const void GenerateSphere(const uint32_t size, const glm::ivec3& coord);
-
-  const void GenerateCube(const uint32_t size, const glm::ivec3& coord);
+  const void GenerateCube();
 
 public:
   World();
@@ -106,10 +102,9 @@ public:
 
   const std::vector<Material>&                 GetMaterials() { return m_Materials; };
   const std::vector<uint32_t>&                 GetMaterialsLUT() { return m_MaterialsLUT; };
-  const std::vector<SparseOctree::FilterNode>& GetLights() { return m_Lights; };
   const std::vector<Ray>&                      GetRays() { return m_Rays; };
 
-  ChunkBuffers GetChunkBuffers();
+  ChunkManager::Buffers GetBuffers();
 
   SparseOctree::Hit Raycast(const glm::vec2& origin);
 
