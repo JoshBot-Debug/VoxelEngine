@@ -194,6 +194,12 @@ private:
     inline void Clean() { m_Dirty = false; }
   };
 
+  /**
+   * The SVO root coordinate
+   * Defaults to 0,0,0
+   */
+  glm::u8vec3 m_Coordinate {0, 0, 0};
+
   akari::thread::RCU<Node>* m_RCU {new akari::thread::RCU<Node>()};
 
   /**
@@ -328,7 +334,7 @@ private:
   Node* Get(Node* node, uint8_t x, uint8_t y, uint8_t z, uint8_t size) {
     if (node->Id)
       return node;
-      
+
     int half = size >> 1;
 
     int index = ((x >= half) << 2) | ((y >= half) << 1) | (z >= half);
@@ -701,6 +707,9 @@ public:
    */
   SparseOctree() = default;
 
+  SparseOctree(const glm::u8vec3& coordinate)
+      : m_Coordinate(coordinate) {};
+
   /**
    * Destroys the Sparse Voxel Octree and frees all allocated nodes.
    */
@@ -709,6 +718,14 @@ public:
     root->Destroy();
     delete root;
   };
+
+  SparseOctree(const SparseOctree&)            = delete;
+  SparseOctree& operator=(const SparseOctree&) = delete;
+
+  SparseOctree(SparseOctree&&)            = delete;
+  SparseOctree& operator=(SparseOctree&&) = delete;
+
+  const glm::u8vec3& GetCoordinate() { return m_Coordinate; }
 
   /**
    * RCU

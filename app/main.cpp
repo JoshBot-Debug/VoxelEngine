@@ -65,7 +65,7 @@ public:
   }
 
   virtual void OnUpdate(float deltaTime) override {
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::steady_clock::now();
 
     m_Camera.OnResize(m_ViewportSize.x, m_ViewportSize.y);
 
@@ -92,7 +92,7 @@ public:
       });
     }
 
-    auto                                     end      = std::chrono::high_resolution_clock::now();
+    auto                                     end      = std::chrono::steady_clock::now();
     std::chrono::duration<float, std::milli> duration = end - start;
     m_UpdateTime                                      = duration.count();
   }
@@ -116,6 +116,10 @@ public:
       ImGui::Text("Mouse Hit");
 
       ImGui::Text("ID: %u", hit->Id);
+      ImGui::Text("Chunk: %u, %u, %u",
+                  static_cast<uint32_t>(hit->Position.x / 64u),
+                  static_cast<uint32_t>(hit->Position.y / 64u),
+                  static_cast<uint32_t>(hit->Position.z / 64u));
       ImGui::Text("Position: %.3f, %.3f, %.3f",
                   hit->Position.x,
                   hit->Position.y,
@@ -143,11 +147,11 @@ public:
 
     m_Controller.SetFocus(ImGui::IsWindowFocused());
 
-    auto start = std::chrono::high_resolution_clock::now();
+    auto start = std::chrono::steady_clock::now();
 
     m_Scene.Render();
 
-    auto                                     end      = std::chrono::high_resolution_clock::now();
+    auto                                     end      = std::chrono::steady_clock::now();
     std::chrono::duration<float, std::milli> duration = end - start;
     m_RenderTime                                      = duration.count();
 

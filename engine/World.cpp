@@ -87,13 +87,20 @@ World::World() {
   //   m_ChunkManager->Set(x, y, z, id);
   // };
 
-  // VL32Loader loader(3, materialResolver, createVoxel);
+  // VL32Loader loader(materialResolver, createVoxel);
 
-  // auto result = loader.Load("assets/san-miguel-64.vl32");
+  // auto result = loader.Load("assets/san-miguel-128.vl32");
 
   // std::cout << "Voxels: " << result.VoxelCount << '\n';
   // std::cout << "Materials: " << result.MaterialCount << '\n';
   // std::cout << "Bounds: " << result.Size.x << " " << result.Size.y << " " << result.Size.z << '\n';
+
+  // TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | PALETTE_FLUSH_UPDATE);
+
+  // VoxLoader loader;
+  // loader.SetChunkManager(m_ChunkManager);
+  // loader.SetPalette(&m_Palette);
+  // loader.Load("assets/san-miguel-512.vox");
 
   // TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | PALETTE_FLUSH_UPDATE);
 

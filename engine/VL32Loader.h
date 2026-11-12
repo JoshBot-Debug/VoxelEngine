@@ -29,14 +29,13 @@ public:
 
   using CreateVoxel = std::function<void(uint32_t x, uint32_t y, uint32_t z, uint32_t id)>;
 
-  VL32Loader(uint8_t colorBits, MaterialResolver materialResolver, CreateVoxel createVoxel);
+  VL32Loader(MaterialResolver materialResolver, CreateVoxel createVoxel);
 
   Result Load(const std::filesystem::path& path);
 
 private:
   MaterialResolver m_MaterialResolver;
   CreateVoxel      m_CreateVoxel;
-  uint8_t          m_ColorBits {8};
 
   static uint32_t ReadU32BE(const uint8_t* data);
   static int32_t  ReadI32BE(const uint8_t* data);

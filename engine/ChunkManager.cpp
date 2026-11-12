@@ -5,18 +5,7 @@
 
 namespace vxen {
 
-Node* ChunkManager::Ensure(uint32_t x, uint32_t y, uint32_t z) {
-  Node* chunk = m_SCO->Get(x, y, z);
-  if (chunk)
-    return chunk;
-  uint32_t cid = m_ChunkAllocations.size() + 1;
-  m_ChunkAllocations.emplace_back(cid, glm::u32vec3 {x, y, z}, this);
-  m_SCO->Set(x, y, z, cid);
-  return m_SCO->Get(x, y, z);
-}
-
-ChunkManager::ChunkManager()
-    : m_SCO(new SparseOctree()) {
+ChunkManager::ChunkManager() {
   m_SVOBuffer.SetPool(&m_SVOPool);
   m_SVOHeaderBuffer.SetPool(&m_SVOHeaderPool);
   m_VertexBuffer.SetPool(&m_VertexPool);
@@ -31,15 +20,6 @@ ChunkManager::ChunkManager()
 
   m_ChunkBuffer.CreateBuffer({.DebugName = "m_ChunkBuffer"});
   m_ChunkSVOBuffer.CreateBuffer({.DebugName = "m_ChunkSVOBuffer"});
-}
-
-ChunkManager::~ChunkManager() {
-  delete m_SCO;
-}
-
-const std::vector<SparseOctree::FlatNode>& ChunkManager::Flatten() {
-  m_SCO->Flatten(m_SCONodes);
-  return m_SCONodes;
 }
 
 ChunkManager::Buffers ChunkManager::GetBuffers() {
@@ -58,119 +38,73 @@ ChunkManager::Buffers ChunkManager::GetBuffers() {
 }
 
 void ChunkManager::Set(uint32_t x, uint32_t y, uint32_t z, uint32_t id) {
-  const glm::u32vec3 coordinate {x / SVO_SIZE, y / SVO_SIZE, z / SVO_SIZE};
-  auto               chunkId = Ensure(coordinate.x, coordinate.y, coordinate.z)->Id - 1;
-  m_ChunkAllocations[chunkId].SVO()->Set(x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE, id);
+  m_SCO.Set(x, y, z, id);
 }
 
 Node* ChunkManager::Get(uint32_t x, uint32_t y, uint32_t z) {
-  const glm::u32vec3 coordinate {x / SVO_SIZE, y / SVO_SIZE, z / SVO_SIZE};
-  auto               chunkNode = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z);
-  if (!chunkNode)
-    return nullptr;
-  uint32_t chunkId = chunkNode->Id - 1;
-  return m_ChunkAllocations[chunkId].SVO()->Get(x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE);
+  return m_SCO.Get(x, y, z);
 }
 
 bool ChunkManager::Exists(uint32_t x, uint32_t y, uint32_t z) {
-  const glm::u32vec3 coordinate {x / SVO_SIZE, y / SVO_SIZE, z / SVO_SIZE};
-  auto               chunkNode = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z);
-  if (!chunkNode)
-    return false;
-  uint32_t chunkId = chunkNode->Id - 1;
-  return m_ChunkAllocations[chunkId].SVO()->Exists(x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE);
+  return m_SCO.Exists(x, y, z);
 }
 
 void ChunkManager::Clear(uint32_t x, uint32_t y, uint32_t z) {
-  const glm::u32vec3 coordinate {x / SVO_SIZE, y / SVO_SIZE, z / SVO_SIZE};
-  auto               chunkNode = m_SCO->Get(coordinate.x, coordinate.y, coordinate.z);
-  if (!chunkNode)
-    return;
-  uint32_t chunkId = chunkNode->Id - 1;
-  m_ChunkAllocations[chunkId].SVO()->Clear(x % SVO_SIZE, y % SVO_SIZE, z % SVO_SIZE);
+  m_SCO.Clear(x, y, z);
 }
 
 SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const glm::vec3& direction) {
-  float           t    = 0.0f;
-  float           EPS  = 0.001f;
-  constexpr float SIZE = SVO_SIZE;
-
-  auto step = [&](auto&& self, float& t) {
-    glm::vec3 P = origin + direction * t;
-
-    SparseOctree::Hit chunk = m_SCO->DeepRaymarch(P / SIZE, direction);
-
-    if (!chunk.Id)
-      return SparseOctree::Hit();
-
-    // Chunk hit distance relative to current origin
-    // 0.001f is to nudge the ray forward a bit so we don't get stuck outside the chunk
-    // chunkT moves us into the first chunk we find, we should no get stuck at 64.0f, EPS moves us to 63.0f
-    float chunkT = (chunk.TMin * SIZE) + EPS;
-
-    // Ray position inside chunk
-    glm::vec3 chunkOrigin = glm::mod(P + direction * chunkT, SIZE);
-
-    SparseOctree::Hit hit = m_ChunkAllocations[chunk.Id - 1].SVO()->DeepRaymarch(chunkOrigin, direction);
-
-    if (hit.Id) {
-      hit.TMin += chunkT + t;
-      hit.Position += chunk.Position * SIZE;
-      return hit;
-    }
-
-    // Distance available inside this chunk
-    float chunkDist = TNextBoundary(chunkOrigin, direction);
-
-    // Continue past this chunk
-    // EPS is to nudge the ray 1 block passed where ever it hits, so we don't get stuck on a boundary inside the same chunk.
-    // It moves us to the next chunk (that's the purpose of TNextBoundary but it returns the exact value)
-    t += chunkT + chunkDist + EPS;
-
-    return self(self, t);
-  };
-
-  return step(step, t);
+  return m_SCO.Raymarch(origin, direction);
 }
 
 void ChunkManager::FlushVertices(const std::vector<uint32_t>& ids) {
-  for (auto& chunk : m_ChunkAllocations)
-    chunk.Flush(ids);
+  // auto start    = std::chrono::steady_clock::now();
+  // m_Vertices    = std::move(m_SCO.GreedyMesh());
+  // auto end      = std::chrono::steady_clock::now();
+  // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+  // std::cout << "GreedyMesh(): " << duration.count() << "ms" << std::endl;
 }
 
 void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
   using namespace akari::render;
 
-  if (m_SCO->Dirty())
-    m_SCO->Flatten(m_SCONodes);
+  constexpr uint32_t SIZE = SparseOctree::SIZE;
+
+  if (m_SCO.SVO()->Dirty())
+    m_SCO.SVO()->Flatten(m_SCONodes);
 
   m_ChunkState.clear();
-  m_ChunkState.resize(CHUNK_SIZE * CHUNK_SIZE * CHUNK_SIZE);
+  m_ChunkState.resize(SIZE * SIZE * SIZE);
 
-  std::vector<Vertex>            vertex;
+  std::vector<Vertex>            vertices;
   std::vector<Buffer::Partition> vertexChunkPartitions;
 
   std::vector<SparseOctree::FlatNode> svo;
   std::vector<Buffer::Partition>      svoChunkPartitions;
   std::vector<FlatNodeHeader>         svoChunkPartitionHeaders;
 
-  for (auto& chunk : m_ChunkAllocations) {
-    bool  dirty = chunk.SVO()->Dirty();
-    auto& v     = chunk.Verticies();
-    auto& s     = chunk.FlatNodes();
+  auto& chunks = m_SCO.Clusters();
 
-    vertex.insert(vertex.end(), v.begin(), v.end());
-    vertexChunkPartitions.emplace_back(chunk.Id, v.size() * sizeof(Vertex), dirty);
+  for (size_t i = 0; i < chunks.size(); i++) {
+    auto& chunk      = chunks[i];
+    bool  dirty      = chunk->Dirty();
+    auto  coordinate = chunk->GetCoordinate();
 
+    auto& v        = m_SCO.GreedyMesh(coordinate.x, coordinate.y, coordinate.z);
+    vertices.insert(vertices.end(), v.begin(), v.end());
+    vertexChunkPartitions.emplace_back(i + 1, v.size() * sizeof(Vertex), dirty);
+
+    std::vector<SparseOctree::FlatNode> s;
+    chunk->Flatten(s);
     svo.insert(svo.end(), s.begin(), s.end());
-    svoChunkPartitions.emplace_back(chunk.Id, s.size() * sizeof(SparseOctree::FlatNode), dirty);
-    chunk.SVO()->Clean();
+    svoChunkPartitions.emplace_back(i + 1, s.size() * sizeof(SparseOctree::FlatNode), dirty);
+    chunk->Clean();
   }
 
   auto svoAllocations    = m_SVOBuffer.Upload(commandBuffer, svoChunkPartitions, svo.data());
-  auto vertexAllocations = m_VertexBuffer.Upload(commandBuffer, vertexChunkPartitions, vertex.data());
+  auto vertexAllocations = m_VertexBuffer.Upload(commandBuffer, vertexChunkPartitions, vertices.data());
 
-  for (size_t i = 0; i < m_ChunkAllocations.size(); i++) {
+  for (size_t i = 0; i < chunks.size(); i++) {
     // Vertex allocation partition data
     Buffer::Allocation& va            = vertexAllocations[i];
     m_ChunkState[va.Id - 1].Empty     = 0;
@@ -188,24 +122,4 @@ void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
   m_ChunkSVOBuffer.Upload(commandBuffer, m_SCONodes);
   m_ChunkBuffer.Upload(commandBuffer, m_ChunkState);
 }
-
-float ChunkManager::TNextBoundary(const glm::vec3& origin, const glm::vec3& direction) {
-
-  const float size = float(SVO_SIZE);
-
-  glm::vec3 nextBoundary = glm::mix(
-      glm::vec3(0.0f),
-      glm::vec3(size),
-      glm::greaterThan(direction, glm::vec3(0.0f)));
-
-  glm::vec3 tVals = (nextBoundary - origin) / direction;
-
-  tVals = glm::mix(
-      glm::vec3(1e30f),
-      tVals,
-      glm::notEqual(direction, glm::vec3(0.0f)));
-
-  return std::min(tVals.x, std::min(tVals.y, tVals.z));
-}
-
 } // namespace vxen

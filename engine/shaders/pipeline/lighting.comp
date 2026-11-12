@@ -33,8 +33,9 @@ void main() {
     return;
   }
 
-  Hit      hit      = raymarch(camera.position, normalize(P - camera.position), length(P - camera.position) + EPS);
-  Material material = getMaterial(hit.Id);
+  // Hit      hit      = raymarch(camera.position, normalize(P - camera.position), length(P - camera.position) + EPS);
+  // Material material = getMaterial(hit.Id);
+  Material material = getMaterial(texture(materialTexture, uv).r);
 
   if (material.Emissive.a > 0.) {
     imageStore(directLightTexture, pixel, vec4(material.Emissive.rgb * material.Emissive.a, 1.));

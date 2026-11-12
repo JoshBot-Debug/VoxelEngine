@@ -10,9 +10,8 @@
 
 namespace vxen {
 
-VL32Loader::VL32Loader(uint8_t colorBits, MaterialResolver materialResolver, CreateVoxel createVoxel)
-    : m_ColorBits(colorBits)
-    , m_MaterialResolver(std::move(materialResolver))
+VL32Loader::VL32Loader(MaterialResolver materialResolver, CreateVoxel createVoxel)
+    : m_MaterialResolver(std::move(materialResolver))
     , m_CreateVoxel(std::move(createVoxel)) {
   if (!m_MaterialResolver || !m_CreateVoxel)
     throw std::invalid_argument("VL32Loader: invalid dependencies");
