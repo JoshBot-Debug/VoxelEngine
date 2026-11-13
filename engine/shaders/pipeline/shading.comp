@@ -23,11 +23,11 @@ void main(){
   
   imageStore(outputImage,ivec2(pixel),vec4(color,1.));
 
-  float exposure=.8;
+  float exposure=.5;
   
   color*=exposure;
   color=ACESFilmicToneMapping(color);
   color=pow(color,vec3(1./2.2));
-  
+
   imageStore(outputImage,ivec2(pixel),vec4(color,1.));
 }

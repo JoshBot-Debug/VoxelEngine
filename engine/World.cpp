@@ -100,7 +100,7 @@ World::World() {
   // VoxLoader loader;
   // loader.SetChunkManager(m_ChunkManager);
   // loader.SetPalette(&m_Palette);
-  // loader.Load("assets/san-miguel-512.vox");
+  // loader.Load("assets/san-miguel-2048.vox");
 
   // TSignal::Set(0, CHUNK_MANAGER_FLUSH_UPDATE | PALETTE_FLUSH_UPDATE);
 
