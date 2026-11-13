@@ -108,9 +108,8 @@ void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
     svoChunkPartitionHeaders.emplace_back(sa.Id, offset, size);
   }
 
-  std::vector<SparseOctree::FlatNode> scoNodes;
-
   if (m_SCO.SVO()->Dirty()) {
+    std::vector<SparseOctree::FlatNode> scoNodes;
     m_SCO.SVO()->Flatten(scoNodes);
     m_ChunkSVOBuffer.Upload(commandBuffer, scoNodes);
   }
