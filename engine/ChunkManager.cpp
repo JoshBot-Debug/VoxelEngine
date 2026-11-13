@@ -68,7 +68,7 @@ void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
   std::vector<FlatNodeHeader>         svoChunkPartitionHeaders;
   std::vector<ChunkState>             chunkState;
 
-  auto&       chunks     = m_SCO.Clusters();
+  auto& chunks = m_SCO.Clusters();
 
   for (size_t i = 0; i < chunks.size(); i++) {
     auto& chunk = chunks[i];

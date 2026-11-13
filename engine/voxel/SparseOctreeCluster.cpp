@@ -2,8 +2,13 @@
 #include "Type.h"
 
 #include <algorithm>
+#include <bitset>
 #include <map>
+#include <memory>
 #include <unordered_set>
+
+#include <tbb/blocked_range.h>
+#include <tbb/parallel_for.h>
 
 Node* SparseOctreeCluster::Ensure(uint8_t x, uint8_t y, uint8_t z) {
   Node* node = m_SCO->Get(x, y, z);
@@ -117,168 +122,247 @@ SparseOctree::Hit SparseOctreeCluster::Raymarch(const glm::vec3& origin, const g
 
   return step(step, t);
 }
-
 std::vector<Vertex> SparseOctreeCluster::GreedyMesh(uint8_t x, uint8_t y, uint8_t z) {
-
   static const std::vector<Vertex> empty;
 
   if (!m_SCO->Exists(x, y, z))
     return empty;
 
-  uint32_t            chunkIndex   = m_SCO->Get(x, y, z)->Id - 1;
-  SparseOctree*       tree         = m_Trees[chunkIndex].get();
-  std::vector<Vertex> vertices {};
-
   constexpr int32_t SIZE = static_cast<int32_t>(SparseOctree::SIZE);
 
   using FaceGroup = std::tuple<int, int, int, uint32_t>;
-  // axis, plane, direction, material -> face cells (u, v)
-  std::map<FaceGroup, std::vector<glm::ivec2>> faces;
+  using FaceMap   = std::map<FaceGroup, std::vector<glm::ivec2>>;
 
-  auto Encode = [](int u, int v) -> uint64_t {
-    return (uint64_t(uint32_t(u)) << 32) | uint32_t(v);
-  };
+  uint32_t      chunkIndex = m_SCO->Get(x, y, z)->Id - 1;
+  SparseOctree* tree       = m_Trees[chunkIndex].get();
 
   const glm::u8vec3& coord = tree->GetCoordinate();
 
   glm::ivec3 chunkBase {coord.x * SIZE, coord.y * SIZE, coord.z * SIZE};
 
-  for (int x = 0; x < SIZE; ++x) {
-    for (int y = 0; y < SIZE; ++y) {
-      for (int z = 0; z < SIZE; ++z) {
+  // --------------------------------------------------------
+  // 1. Parallel face extraction
+  // --------------------------------------------------------
 
-        if (!tree->Exists(x, y, z))
-          continue;
+  std::vector<FaceMap> facesByZ(SIZE);
 
-        Node* voxel = tree->Get(x, y, z);
+  tbb::parallel_for(
+      tbb::blocked_range<int>(0, SIZE),
+      [&](const tbb::blocked_range<int>& range) {
+        for (int z = range.begin(); z != range.end(); ++z) {
+          FaceMap& localFaces = facesByZ[z];
 
-        glm::ivec3 world = chunkBase + glm::ivec3(x, y, z);
+          for (int x = 0; x < SIZE; ++x) {
+            for (int y = 0; y < SIZE; ++y) {
 
-        for (int axis = 0; axis < 3; ++axis) {
-          int uAxis = (axis + 1) % 3;
-          int vAxis = (axis + 2) % 3;
+              if (!tree->Exists(x, y, z))
+                continue;
 
-          for (int dir = -1; dir <= 1; dir += 2) {
-            glm::ivec3 neighbor = world;
-            neighbor[axis] += dir;
+              Node* voxel = tree->Get(x, y, z);
 
-            // Cull internal and cross-chunk faces
-            if (neighbor.x < 0 || neighbor.y < 0 || neighbor.z < 0 || Exists(neighbor.x, neighbor.y, neighbor.z))
+              glm::ivec3 world = chunkBase + glm::ivec3(x, y, z);
+
+              for (int axis = 0; axis < 3; ++axis) {
+                const int uAxis = (axis + 1) % 3;
+                const int vAxis = (axis + 2) % 3;
+
+                for (int dir = -1; dir <= 1; dir += 2) {
+                  glm::ivec3 neighbor = world;
+                  neighbor[axis] += dir;
+
+                  if (neighbor.x < 0 || neighbor.y < 0 || neighbor.z < 0 || Exists(neighbor.x, neighbor.y, neighbor.z))
+                    continue;
+
+                  const int plane = world[axis] + (dir > 0 ? 1 : 0);
+
+                  FaceGroup key {axis, plane, dir, voxel->Id};
+
+                  localFaces[key].emplace_back(world[uAxis], world[vAxis]);
+                }
+              }
+            }
+          }
+        }
+      });
+
+  // --------------------------------------------------------
+  // 2. Merge face collections
+  // --------------------------------------------------------
+
+  FaceMap faces;
+
+  for (auto& localFaces : facesByZ) {
+    for (auto& [key, cells] : localFaces) {
+      auto& destination = faces[key];
+      destination.insert(destination.end(), std::make_move_iterator(cells.begin()), std::make_move_iterator(cells.end()));
+    }
+  }
+
+  // --------------------------------------------------------
+  // 3. Parallel greedy meshing per FaceGroup
+  // --------------------------------------------------------
+
+  using FaceEntry = FaceMap::value_type;
+
+  std::vector<const FaceEntry*> groups;
+  groups.reserve(faces.size());
+
+  for (const auto& entry : faces)
+    groups.push_back(&entry);
+
+  std::vector<std::vector<Vertex>> groupVertices(groups.size());
+
+  tbb::parallel_for(
+      tbb::blocked_range<size_t>(0, groups.size()),
+      [&](const tbb::blocked_range<size_t>& range) {
+        for (size_t i = range.begin(); i != range.end(); ++i) {
+          const auto& [key, cells] = *groups[i];
+
+          const auto [axis, plane, dir, material] = key;
+
+          const int uAxis = (axis + 1) % 3;
+          const int vAxis = (axis + 2) % 3;
+
+          auto& output = groupVertices[i];
+
+          // Local 64x64 bitset.
+          std::bitset<SIZE * SIZE> remaining;
+
+          auto Index = [&](int u, int v) -> size_t {
+            return static_cast<size_t>(v) * SIZE + u;
+          };
+
+          // Convert world-space face cells into chunk-local coordinates.
+          for (const auto& cell : cells) {
+            const int u = cell.x - chunkBase[uAxis];
+            const int v = cell.y - chunkBase[vAxis];
+
+            if (u < 0 || u >= SIZE || v < 0 || v >= SIZE)
               continue;
 
-            int plane = world[axis] + (dir > 0 ? 1 : 0);
+            remaining.set(Index(u, v));
+          }
 
-            FaceGroup key {axis, plane, dir, voxel->Id};
+          // --------------------------------------------------------
+          // Greedy merging
+          // --------------------------------------------------------
 
-            faces[key].emplace_back(world[uAxis], world[vAxis]);
+          for (const auto& cell : cells) {
+            const int u = cell.x - chunkBase[uAxis];
+            const int v = cell.y - chunkBase[vAxis];
+
+            if (u < 0 || u >= SIZE || v < 0 || v >= SIZE)
+              continue;
+
+            const size_t seed = Index(u, v);
+
+            // Already merged.
+            if (!remaining.test(seed))
+              continue;
+
+            // --------------------------------------------------------
+            // Determine width
+            // --------------------------------------------------------
+
+            int width = 1;
+
+            while (u + width < SIZE &&
+                   remaining.test(Index(u + width, v))) {
+              ++width;
+            }
+
+            // Remove first row.
+            for (int k = 0; k < width; ++k)
+              remaining.reset(Index(u + k, v));
+
+            // --------------------------------------------------------
+            // Determine height
+            // --------------------------------------------------------
+
+            int height = 1;
+
+            while (v + height < SIZE) {
+              bool valid = true;
+
+              for (int k = 0; k < width; ++k) {
+                if (!remaining.test(Index(u + k, v + height))) {
+                  valid = false;
+                  break;
+                }
+              }
+
+              if (!valid)
+                break;
+
+              // Remove merged row.
+              for (int k = 0; k < width; ++k)
+                remaining.reset(Index(u + k, v + height));
+
+              ++height;
+            }
+
+            // --------------------------------------------------------
+            // Emit quad in world space
+            // --------------------------------------------------------
+
+            glm::vec3 normal(0.0f);
+            normal[axis] = float(dir);
+
+            glm::vec3 basePos(0.0f);
+            basePos[axis]  = float(plane);
+            basePos[uAxis] = float(u + chunkBase[uAxis]);
+            basePos[vAxis] = float(v + chunkBase[vAxis]);
+
+            glm::vec3 du(0.0f);
+            glm::vec3 dv(0.0f);
+
+            du[uAxis] = float(width);
+            dv[vAxis] = float(height);
+
+            glm::vec3 v0 = basePos;
+            glm::vec3 v1 = basePos + du;
+            glm::vec3 v2 = basePos + du + dv;
+            glm::vec3 v3 = basePos + dv;
+
+            auto Emit = [&](const glm::vec3& p) {
+              output.emplace_back(p.x, p.y, p.z, normal.x, normal.y, normal.z, material);
+            };
+
+            if (dir > 0) {
+              Emit(v0);
+              Emit(v1);
+              Emit(v2);
+
+              Emit(v0);
+              Emit(v2);
+              Emit(v3);
+            } else {
+              Emit(v0);
+              Emit(v2);
+              Emit(v1);
+
+              Emit(v0);
+              Emit(v3);
+              Emit(v2);
+            }
           }
         }
-      }
-    }
-  }
+      });
 
-  for (auto& [key, cells] : faces) {
-    const auto [axis, plane, dir, material] = key;
+  // --------------------------------------------------------
+  // 4. Combine vertex buffers
+  // --------------------------------------------------------
 
-    const int uAxis = (axis + 1) % 3;
-    const int vAxis = (axis + 2) % 3;
+  size_t totalVertices = 0;
 
-    std::unordered_set<uint64_t> remaining;
-    remaining.reserve(cells.size());
+  for (const auto& group : groupVertices)
+    totalVertices += group.size();
 
-    for (const auto& cell : cells)
-      remaining.insert(Encode(cell.x, cell.y));
+  std::vector<Vertex> vertices;
+  vertices.reserve(totalVertices);
 
-    for (const auto& cell : cells) {
-      const int u = cell.x;
-      const int v = cell.y;
-
-      uint64_t seed = Encode(u, v);
-
-      // Already merged
-      if (!remaining.contains(seed))
-        continue;
-
-      // --------------------------------------------------------
-      // Determine width
-      // --------------------------------------------------------
-      int width = 1;
-
-      while (remaining.contains(Encode(u + width, v)))
-        ++width;
-
-      // Remove first row
-      for (int k = 0; k < width; ++k)
-        remaining.erase(Encode(u + k, v));
-
-      // --------------------------------------------------------
-      // Determine height
-      // --------------------------------------------------------
-      int height = 1;
-
-      while (true) {
-        bool valid = true;
-
-        for (int k = 0; k < width; ++k) {
-          if (!remaining.contains(Encode(u + k, v + height))) {
-            valid = false;
-            break;
-          }
-        }
-
-        if (!valid)
-          break;
-
-        // Remove merged row
-        for (int k = 0; k < width; ++k)
-          remaining.erase(Encode(u + k, v + height));
-
-        ++height;
-      }
-
-      // --------------------------------------------------------
-      // Emit quad in world space
-      // --------------------------------------------------------
-      glm::vec3 normal(0.0f);
-      normal[axis] = float(dir);
-
-      glm::vec3 basePos(0.0f);
-      basePos[axis]  = float(plane);
-      basePos[uAxis] = float(u);
-      basePos[vAxis] = float(v);
-
-      glm::vec3 du(0.0f);
-      glm::vec3 dv(0.0f);
-
-      du[uAxis] = float(width);
-      dv[vAxis] = float(height);
-
-      glm::vec3 v0 = basePos;
-      glm::vec3 v1 = basePos + du;
-      glm::vec3 v2 = basePos + du + dv;
-      glm::vec3 v3 = basePos + dv;
-
-      auto Emit = [&](const glm::vec3& p) {
-        vertices.emplace_back(p.x, p.y, p.z, normal.x, normal.y, normal.z, material);
-      };
-
-      if (dir > 0) {
-        Emit(v0);
-        Emit(v1);
-        Emit(v2);
-        Emit(v0);
-        Emit(v2);
-        Emit(v3);
-      } else {
-        Emit(v0);
-        Emit(v2);
-        Emit(v1);
-        Emit(v0);
-        Emit(v3);
-        Emit(v2);
-      }
-    }
-  }
+  for (auto& group : groupVertices)
+    vertices.insert(vertices.end(), std::make_move_iterator(group.begin()), std::make_move_iterator(group.end()));
 
   return vertices;
 }
@@ -289,9 +373,9 @@ std::vector<SparseOctree::FlatNode> SparseOctreeCluster::Flatten(uint8_t x, uint
   if (!m_SCO->Exists(x, y, z))
     return empty;
 
-  Node*          chunkNode    = m_SCO->Get(x, y, z);
-  const uint32_t chunkIndex   = chunkNode->Id - 1;
-  SparseOctree*  chunk        = m_Trees[chunkIndex].get();
+  Node*          chunkNode  = m_SCO->Get(x, y, z);
+  const uint32_t chunkIndex = chunkNode->Id - 1;
+  SparseOctree*  chunk      = m_Trees[chunkIndex].get();
 
   std::vector<SparseOctree::FlatNode> nodes;
   chunk->Flatten(nodes);

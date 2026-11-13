@@ -23,6 +23,20 @@
 
 using namespace akari::window;
 
+constexpr uint32_t MAX_FRAME_RATE_CAPTURE = 120;
+
+auto getAverage = [](const float* values, uint32_t count) {
+  if (count == 0)
+    return 0.0f;
+
+  float sum = 0.0f;
+
+  for (uint32_t i = 0; i < count; i++)
+    sum += values[i];
+
+  return sum / count;
+};
+
 class ViewportLayer : public Layer {
 
 private:
@@ -35,8 +49,13 @@ private:
   glm::vec2 m_ViewportSize {1080.0f, 720.0f};
   glm::vec2 m_ViewportMouse {0.0f};
 
-  float m_RenderTime {0.0f};
-  float m_UpdateTime {0.0f};
+  uint32_t rFrame      = 0;
+  uint32_t rFrameCount = 0;
+  float    m_RenderTime[MAX_FRAME_RATE_CAPTURE] {};
+
+  uint32_t uFrame      = 0;
+  uint32_t uFrameCount = 0;
+  float    m_UpdateTime[MAX_FRAME_RATE_CAPTURE] {};
 
 public:
   bool ViewportLock = true;
@@ -94,7 +113,9 @@ public:
 
     auto                                     end      = std::chrono::steady_clock::now();
     std::chrono::duration<float, std::milli> duration = end - start;
-    m_UpdateTime                                      = duration.count();
+    m_UpdateTime[uFrame]                              = duration.count();
+    uFrame                                            = (uFrame + 1) % MAX_FRAME_RATE_CAPTURE;
+    uFrameCount                                       = std::min(uFrameCount + 1, MAX_FRAME_RATE_CAPTURE);
   }
 
   virtual void OnRender() override {
@@ -105,9 +126,12 @@ public:
     ImGui::PopFont();
     ImGui::Separator();
 
-    ImGui::Text("Update Time: %f", m_UpdateTime);
-    ImGui::Text("Render Time: %f", m_RenderTime);
-    ImGui::Text("FPS: %f", 1000 / m_RenderTime);
+    const float averageRenderTime = getAverage(m_RenderTime, rFrameCount);
+    const float averageFPS        = averageRenderTime > 0.0f ? 1000.0f / averageRenderTime : 0.0f;
+
+    ImGui::Text("Update Time: %.3f", m_UpdateTime[rFrame]);
+    ImGui::Text("Render Time: %.3f", m_RenderTime[rFrame]);
+    ImGui::Text("FPS: %.1f", averageFPS);
     ImGui::Text("Mouse Position %f, %f", m_ViewportMouse.x, m_ViewportMouse.y);
 
     {
@@ -153,7 +177,9 @@ public:
 
     auto                                     end      = std::chrono::steady_clock::now();
     std::chrono::duration<float, std::milli> duration = end - start;
-    m_RenderTime                                      = duration.count();
+    m_RenderTime[rFrame]                              = duration.count();
+    rFrame                                            = (rFrame + 1) % MAX_FRAME_RATE_CAPTURE;
+    rFrameCount                                       = std::min(rFrameCount + 1, MAX_FRAME_RATE_CAPTURE);
 
     ImGui::End();
     ImGui::PopStyleVar(1);

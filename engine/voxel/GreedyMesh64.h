@@ -118,8 +118,6 @@ public:
     uint64_t heightStart[MASK_LENGTH] {};
     uint64_t widthEnd[MASK_LENGTH] {};
     uint64_t heightEnd[MASK_LENGTH] {};
-
-    vertices.clear();
     
     PrepareWidthHeightMasks(rows, 0, padding, widthStart, heightStart, widthEnd, heightEnd);
     GreedyMeshAxis(coord, rows, widthStart, heightStart, widthEnd, heightEnd, vertices, FaceType::LEFT, FaceType::RIGHT, id);
