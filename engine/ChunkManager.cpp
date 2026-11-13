@@ -57,69 +57,65 @@ SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const glm::vec
   return m_SCO.Raymarch(origin, direction);
 }
 
-void ChunkManager::FlushVertices(const std::vector<uint32_t>& ids) {
-  // auto start    = std::chrono::steady_clock::now();
-  // m_Vertices    = std::move(m_SCO.GreedyMesh());
-  // auto end      = std::chrono::steady_clock::now();
-  // auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  // std::cout << "GreedyMesh(): " << duration.count() << "ms" << std::endl;
-}
-
 void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
   using namespace akari::render;
 
-  constexpr uint32_t SIZE = SparseOctree::SIZE;
-
-  if (m_SCO.SVO()->Dirty())
-    m_SCO.SVO()->Flatten(m_SCONodes);
-
-  m_ChunkState.clear();
-  m_ChunkState.resize(SIZE * SIZE * SIZE);
-
-  std::vector<Vertex>            vertices;
-  std::vector<Buffer::Partition> vertexChunkPartitions;
+  std::vector<Vertex>    vertices;
+  std::vector<Partition> vertexChunkPartitions;
 
   std::vector<SparseOctree::FlatNode> svo;
-  std::vector<Buffer::Partition>      svoChunkPartitions;
+  std::vector<Partition>              svoChunkPartitions;
   std::vector<FlatNodeHeader>         svoChunkPartitionHeaders;
+  std::vector<ChunkState>             chunkState;
 
-  auto& chunks = m_SCO.Clusters();
+  auto&       chunks     = m_SCO.Clusters();
 
   for (size_t i = 0; i < chunks.size(); i++) {
-    auto& chunk      = chunks[i];
-    bool  dirty      = chunk->Dirty();
-    auto  coordinate = chunk->GetCoordinate();
+    auto& chunk = chunks[i];
+    bool  dirty = chunk->Dirty();
 
-    auto& v        = m_SCO.GreedyMesh(coordinate.x, coordinate.y, coordinate.z);
+    if (!dirty)
+      continue;
+
+    auto coordinate = chunk->GetCoordinate();
+
+    auto v = m_SCO.GreedyMesh(coordinate.x, coordinate.y, coordinate.z);
+    auto s = m_SCO.Flatten(coordinate.x, coordinate.y, coordinate.z);
+
     vertices.insert(vertices.end(), v.begin(), v.end());
-    vertexChunkPartitions.emplace_back(i + 1, v.size() * sizeof(Vertex), dirty);
+    vertexChunkPartitions.emplace_back(i + 1, v.size() * sizeof(Vertex));
 
-    std::vector<SparseOctree::FlatNode> s;
-    chunk->Flatten(s);
     svo.insert(svo.end(), s.begin(), s.end());
-    svoChunkPartitions.emplace_back(i + 1, s.size() * sizeof(SparseOctree::FlatNode), dirty);
+    svoChunkPartitions.emplace_back(i + 1, s.size() * sizeof(SparseOctree::FlatNode));
+
     chunk->Clean();
   }
 
   auto svoAllocations    = m_SVOBuffer.Upload(commandBuffer, svoChunkPartitions, svo.data());
   auto vertexAllocations = m_VertexBuffer.Upload(commandBuffer, vertexChunkPartitions, vertices.data());
 
-  for (size_t i = 0; i < chunks.size(); i++) {
-    // Vertex allocation partition data
-    Buffer::Allocation& va            = vertexAllocations[i];
-    m_ChunkState[va.Id - 1].Empty     = 0;
-    m_ChunkState[va.Id - 1].Offset[0] = va.Offset / sizeof(Vertex);
-    m_ChunkState[va.Id - 1].Size[0]   = va.Size / sizeof(Vertex);
+  chunkState.resize(vertexAllocations.size());
 
-    // SVO allocation partition data
-    Buffer::Allocation& sa     = svoAllocations[i];
-    uint32_t            offset = sa.Offset / sizeof(SparseOctree::FlatNode);
-    uint32_t            size   = sa.Size / sizeof(SparseOctree::FlatNode);
+  for (auto& va : vertexAllocations) {
+    chunkState[va.Id - 1].Empty     = 0;
+    chunkState[va.Id - 1].Offset[0] = va.Offset / sizeof(Vertex);
+    chunkState[va.Id - 1].Size[0]   = va.Size / sizeof(Vertex);
+  }
+
+  for (auto& sa : svoAllocations) {
+    uint32_t offset = sa.Offset / sizeof(SparseOctree::FlatNode);
+    uint32_t size   = sa.Size / sizeof(SparseOctree::FlatNode);
     svoChunkPartitionHeaders.emplace_back(sa.Id, offset, size);
   }
 
+  std::vector<SparseOctree::FlatNode> scoNodes;
+
+  if (m_SCO.SVO()->Dirty()) {
+    m_SCO.SVO()->Flatten(scoNodes);
+    m_ChunkSVOBuffer.Upload(commandBuffer, scoNodes);
+  }
+
   m_SVOHeaderBuffer.Upload(commandBuffer, svoChunkPartitionHeaders);
-  m_ChunkSVOBuffer.Upload(commandBuffer, m_SCONodes);
-  m_ChunkBuffer.Upload(commandBuffer, m_ChunkState);
+  m_ChunkBuffer.Upload(commandBuffer, chunkState);
 }
 } // namespace vxen

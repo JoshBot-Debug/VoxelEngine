@@ -220,10 +220,7 @@ public:
   };
 
 private:
-  SparseOctreeCluster                 m_SCO;
-  std::vector<SparseOctree::FlatNode> m_SCONodes {};
-  std::vector<ChunkState>             m_ChunkState {};
-  std::vector<std::vector<Vertex>>    m_ChunkVertices {};
+  SparseOctreeCluster m_SCO;
 
   BufferPool m_SVOPool {};
   BufferPool m_SVOHeaderPool {};
@@ -274,12 +271,6 @@ public:
    * @return The voxel that was hit
    */
   SparseOctree::Hit Raymarch(const glm::vec3& origin, const glm::vec3& direction);
-
-  /**
-   * Triggers multi thread greedy meshing.
-   * @param ids Used to split greedy meshing, each id is meshed in a seperate thread. Generally these ids would represent different voxel types, each type can be merged together.
-   */
-  void FlushVertices(const std::vector<uint32_t>& ids);
 
   /**
    * Collects all flushed chunks that are dirty

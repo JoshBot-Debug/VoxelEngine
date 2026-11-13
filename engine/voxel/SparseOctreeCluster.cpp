@@ -11,7 +11,6 @@ Node* SparseOctreeCluster::Ensure(uint8_t x, uint8_t y, uint8_t z) {
     return node;
   uint32_t cid = m_Trees.size() + 1;
   m_Trees.emplace_back(std::make_unique<SparseOctree>(glm::u8vec3 {x, y, z}));
-  m_Vertices.emplace_back();
   m_SCO->Set(x, y, z, cid);
   return m_SCO->Get(x, y, z);
 }
@@ -119,21 +118,16 @@ SparseOctree::Hit SparseOctreeCluster::Raymarch(const glm::vec3& origin, const g
   return step(step, t);
 }
 
-const std::vector<Vertex>& SparseOctreeCluster::GreedyMesh(uint8_t x, uint8_t y, uint8_t z) {
+std::vector<Vertex> SparseOctreeCluster::GreedyMesh(uint8_t x, uint8_t y, uint8_t z) {
 
   static const std::vector<Vertex> empty;
 
   if (!m_SCO->Exists(x, y, z))
     return empty;
 
-  uint32_t      chunkIndex = m_SCO->Get(x, y, z)->Id - 1;
-  SparseOctree* tree       = m_Trees[chunkIndex].get();
-  auto&         vertices   = m_Vertices[chunkIndex];
-
-  if (!tree->Dirty())
-    return vertices;
-
-  vertices.clear();
+  uint32_t            chunkIndex   = m_SCO->Get(x, y, z)->Id - 1;
+  SparseOctree*       tree         = m_Trees[chunkIndex].get();
+  std::vector<Vertex> vertices {};
 
   constexpr int32_t SIZE = static_cast<int32_t>(SparseOctree::SIZE);
 
@@ -287,6 +281,21 @@ const std::vector<Vertex>& SparseOctreeCluster::GreedyMesh(uint8_t x, uint8_t y,
   }
 
   return vertices;
+}
+
+std::vector<SparseOctree::FlatNode> SparseOctreeCluster::Flatten(uint8_t x, uint8_t y, uint8_t z) {
+  static const std::vector<SparseOctree::FlatNode> empty;
+
+  if (!m_SCO->Exists(x, y, z))
+    return empty;
+
+  Node*          chunkNode    = m_SCO->Get(x, y, z);
+  const uint32_t chunkIndex   = chunkNode->Id - 1;
+  SparseOctree*  chunk        = m_Trees[chunkIndex].get();
+
+  std::vector<SparseOctree::FlatNode> nodes;
+  chunk->Flatten(nodes);
+  return nodes;
 }
 
 SparseOctree* SparseOctreeCluster::SVO() {

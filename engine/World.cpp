@@ -158,7 +158,6 @@ void World::Update(double delta, const glm::vec2& mouse, const glm::vec2& viewpo
     for (auto& material : m_Palette.GetMaterials())
       ids.push_back(material.Id);
 
-    m_ChunkManager->FlushVertices(ids);
     TSignal::Set(0, CHUNK_MANAGER_FLUSH_VERTICES);
   }
 }

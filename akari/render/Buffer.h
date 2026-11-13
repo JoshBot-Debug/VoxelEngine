@@ -7,36 +7,15 @@
 #include <vulkan/vulkan.h>
 
 #include "BufferPool.h"
+#include "memory/Allocator.h"
 
 namespace akari::render {
+
+using namespace akari::memory;
 
 class Buffer {
 
 public:
-  struct Partition {
-    uint32_t Id;
-    size_t   Size;
-    bool     Dirty;
-  };
-
-  struct Allocation {
-    uint32_t Id {0};
-    uint32_t Size {0};
-    uint32_t Offset {0};
-    bool     Resized {false};
-  };
-
-  struct Blocks {
-    std::vector<uint32_t> Id {};
-    std::vector<uint32_t> Size {};
-    std::vector<uint32_t> Offset {};
-    std::vector<bool>     Free {};
-
-    Allocation Allocate(uint32_t id, uint32_t bytes);
-
-    void Log();
-  };
-
   struct Specification {
     uint32_t           Size {1024 * 32};
     VkBufferUsageFlags Usage {VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT};
@@ -45,7 +24,7 @@ public:
   };
 
 private:
-  Blocks m_Blocks {};
+  Allocator m_Allocator {};
 
   VkDevice         m_Device;
   VkPhysicalDevice m_PhysicalDevice;
@@ -97,7 +76,7 @@ private:
    */
   Allocation Allocate(uint32_t id, uint32_t bytes, VkCommandBuffer commandBuffer);
 
-  void HostToDevice(VkCommandBuffer commandBuffer, const Buffer::Allocation& allocation, const void* data);
+  void HostToDevice(VkCommandBuffer commandBuffer, const Allocation& allocation, const void* data);
 
 public:
   Buffer();
@@ -126,7 +105,7 @@ public:
    * @return              Allocation handle describing the uploaded buffer region.
    */
   template <typename T>
-  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, uint32_t id, const std::vector<T>& vector);
+  Allocation Upload(VkCommandBuffer commandBuffer, uint32_t id, const std::vector<T>& vector);
 
   /**
    * Uploads a contiguous vector of data into a GPU storage buffer.
@@ -138,7 +117,7 @@ public:
    * @return              Allocation handle describing the uploaded buffer region.
    */
   template <typename T>
-  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, const std::vector<T>& vector);
+  Allocation Upload(VkCommandBuffer commandBuffer, const std::vector<T>& vector);
 
   /**
    * Uploads a vector of data segmented per partition into GPU storage buffers.
@@ -152,7 +131,7 @@ public:
    * @return              List of allocation handles, one per partition.
    */
   template <typename T>
-  std::vector<Buffer::Allocation> Upload(VkCommandBuffer commandBuffer, const std::vector<Partition>& partitions, const std::vector<T>& vector);
+  std::vector<Allocation> Upload(VkCommandBuffer commandBuffer, const std::vector<Partition>& partitions, const std::vector<T>& vector);
 
   /**
    * Uploads raw data into a GPU buffer with an explicit ID.
@@ -164,7 +143,7 @@ public:
    * @param data          Pointer to the source data.
    * @return              Allocation handle describing the uploaded buffer region.
    */
-  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, uint32_t id, size_t size, const void* data);
+  Allocation Upload(VkCommandBuffer commandBuffer, uint32_t id, size_t size, const void* data);
 
   /**
    * Uploads raw data segmented per partition into GPU buffers.
@@ -176,7 +155,7 @@ public:
    * @param data          Pointer to the source data.
    * @return              List of allocation handles, one per partition.
    */
-  std::vector<Buffer::Allocation> Upload(VkCommandBuffer commandBuffer, const std::vector<Partition>& partitions, const void* data);
+  std::vector<Allocation> Upload(VkCommandBuffer commandBuffer, const std::vector<Partition>& partitions, const void* data);
 
   /**
    * Uploads raw data into a GPU buffer using the default ID (0).
@@ -186,7 +165,7 @@ public:
    * @param data          Pointer to the source data.
    * @return              Allocation handle describing the uploaded buffer region.
    */
-  Buffer::Allocation Upload(VkCommandBuffer commandBuffer, size_t size, const void* data) {
+  Allocation Upload(VkCommandBuffer commandBuffer, size_t size, const void* data) {
     return Upload(commandBuffer, 0, size, data);
   }
 
@@ -194,7 +173,11 @@ public:
 
   VkBuffer GetBuffer() { return m_DeviceBuffer; }
 
-  void Log();
+  /**
+   * You must not modify or many any changes
+   * @returns The memory allocator
+   */
+  const Allocator& GetAllocator() const { return m_Allocator; }
 };
 
 template <typename T>
@@ -253,22 +236,22 @@ inline std::vector<uint8_t> Buffer::BuildStorageBufferAlignedData(const std::vec
 }
 
 template <typename T>
-inline Buffer::Allocation Buffer::Upload(VkCommandBuffer commandBuffer, uint32_t id, const std::vector<T>& vector) {
+inline Allocation Buffer::Upload(VkCommandBuffer commandBuffer, uint32_t id, const std::vector<T>& vector) {
   if (!vector.size())
-    return Buffer::Allocation {};
+    return Allocation {};
   std::vector<uint8_t> buffer = BuildStorageBufferAlignedData(vector);
   return Upload(commandBuffer, id, buffer.size(), buffer.data());
 }
 
 template <typename T>
-inline Buffer::Allocation Buffer::Upload(VkCommandBuffer commandBuffer, const std::vector<T>& vector) {
+inline Allocation Buffer::Upload(VkCommandBuffer commandBuffer, const std::vector<T>& vector) {
   return Upload(commandBuffer, 0, vector);
 }
 
 template <typename T>
-inline std::vector<Buffer::Allocation> Buffer::Upload(VkCommandBuffer commandBuffer, const std::vector<Partition>& partitions, const std::vector<T>& vector) {
+inline std::vector<Allocation> Buffer::Upload(VkCommandBuffer commandBuffer, const std::vector<Partition>& partitions, const std::vector<T>& vector) {
   if (!vector.size())
-    return std::vector<Buffer::Allocation> {};
+    return std::vector<Allocation> {};
   std::vector<uint8_t> buffer = BuildStorageBufferAlignedData(partitions, vector);
   return Upload(commandBuffer, partitions, buffer.data());
 }

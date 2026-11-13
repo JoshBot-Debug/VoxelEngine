@@ -1,7 +1,5 @@
 #pragma once
 
-#pragma once
-
 #include "SparseOctree.h"
 
 class Vertex;
@@ -10,7 +8,6 @@ class SparseOctreeCluster {
 private:
   std::vector<std::unique_ptr<SparseOctree>> m_Trees {};
   std::unique_ptr<SparseOctree>              m_SCO {nullptr};
-  std::vector<std::vector<Vertex>>           m_Vertices {};
 
 private:
   /**
@@ -57,7 +54,12 @@ public:
   /**
    * Performs a regular greedy mesh on the specified coordinate.
    */
-  const std::vector<Vertex>& GreedyMesh(uint8_t x, uint8_t y, uint8_t z);
+  std::vector<Vertex> GreedyMesh(uint8_t x, uint8_t y, uint8_t z);
+
+  /**
+   * Performs a flatten on the specified coordinate.
+   */
+  std::vector<SparseOctree::FlatNode> Flatten(uint8_t x, uint8_t y, uint8_t z);
 
   /**
    * @returns The cluster SVO tree. DO NOT STORE ANYWHERE, THIS IS A UNIQUE PTR
