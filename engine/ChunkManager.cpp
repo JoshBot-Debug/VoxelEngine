@@ -58,8 +58,6 @@ SparseOctree::Hit ChunkManager::Raymarch(const glm::vec3& origin, const glm::vec
 }
 
 void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
-  using namespace akari::render;
-
   std::vector<Vertex>    vertices;
   std::vector<Partition> vertexChunkPartitions;
 
