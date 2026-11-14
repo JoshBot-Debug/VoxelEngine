@@ -65,9 +65,9 @@ World::World() {
   TSignal::Set(0, PALETTE_FLUSH_UPDATE);
 
   CornellBoxConfig config;
-  config.width            = 128;
-  config.height           = 128;
-  config.depth            = 128;
+  config.width            = 1024;
+  config.height           = 1024;
+  config.depth            = 1024;
   config.light.position.x = 64;
   config.light.position.y = 64;
   config.light.position.z = 64;

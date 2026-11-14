@@ -717,6 +717,7 @@ public:
     Node* root = m_Root.load(std::memory_order::acquire);
     root->Destroy();
     delete root;
+    delete m_RCU;
   };
 
   SparseOctree(const SparseOctree&)            = delete;

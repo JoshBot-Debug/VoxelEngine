@@ -87,6 +87,7 @@ void ChunkManager::FlushPreprocessor(VkCommandBuffer commandBuffer) {
     svoChunkPartitions.emplace_back(i + 1, s.size() * sizeof(SparseOctree::FlatNode));
 
     chunk->Clean();
+    chunk->Sync();
   }
 
   auto svoAllocations    = m_SVOBuffer.Upload(commandBuffer, svoChunkPartitions, svo.data());
